@@ -1,7 +1,9 @@
 // Smoke test: load 3d.html in headless Chromium and work every control that
 // does not open a file dialog or start a download: each preset, each brush and
 // symmetry, every checkbox and slider, the boolean and profile buttons, the
-// rung and sheet buttons, and a sculpting drag on the view. Fails if the page
+// rung and sheet buttons, and a sculpting drag on the view. Then the assembly:
+// both examples, every part slider, dragging a part, adding, duplicating,
+// deleting, editing a part in sculpt and bringing it back. Fails if the page
 // throws an uncaught error.
 //
 //   npm test                       serves the repo itself on a free port
@@ -21,8 +23,10 @@ const SETTLE_MS = Number(process.env.SETTLE_MS || 250);    // time each action g
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json' };
 
 /* Buttons the walk does not press: they open a file dialog, start a download
-   or write to the clipboard. */
+   or write to the clipboard. The assembly's controls (asm…, mode…) are left
+   out of the general walk and exercised in order in their own section. */
 const SKIP = new Set(['bExport', 'bSTL', 'bLoad', 'bCopy', 'bLoadImg']);
+const ownSection = id => id.startsWith('asm') || id.startsWith('mode');
 
 function serve(){
   const server = createServer(async (req, res) => {
@@ -120,9 +124,9 @@ try {
     });
   }
 
-  const buttons = await page.evaluate(skip => [...document.querySelectorAll('button[id]')]
+  const buttons = (await page.evaluate(skip => [...document.querySelectorAll('button[id]')]
     .filter(b => !skip.includes(b.id) && b.id !== 'gearBtn' && b.id !== 'menuClose')
-    .map(b => b.id), [...SKIP]);
+    .map(b => b.id), [...SKIP])).filter(id => !ownSection(id));
   for (const id of buttons){
     await step(`button ${id}`, () => page.evaluate(id => document.getElementById(id).click(), id));
   }
@@ -132,6 +136,63 @@ try {
     await page.evaluate(() => document.getElementById('menuClose').click());
   });
   await step('drag on the view again', sculpt);
+
+  // ── the assembly ──
+  const click = id => page.evaluate(id => document.getElementById(id).click(), id);
+  const parts = () => page.evaluate(() => asm.parts.length);
+  await step('switch to assemble', () => click('modeAssemble'));
+  await step('example: snowman', async () => {
+    await click('asmExSnowman');
+    if (await parts() < 5) throw new Error('the snowman example made ' + await parts() + ' parts');
+  });
+  await step('example: table', async () => {
+    await click('asmExTable');
+    if (await parts() < 5) throw new Error('the table example made ' + await parts() + ' parts');
+  });
+  for (const id of ['asmPX', 'asmPY', 'asmPZ', 'asmRX', 'asmRY', 'asmRZ', 'asmSize', 'asmSX', 'asmSY', 'asmSZ']){
+    await step(`part slider ${id}`, async () => {
+      const r = await page.evaluate(id => { const e = document.getElementById(id); return { min: e.min, max: e.max, value: e.value }; }, id);
+      for (const v of [r.min, r.max, r.value]){ await setValue(id, v); await page.waitForTimeout(40); }
+    });
+  }
+  await step('drag a part', async () => {
+    const before = await page.evaluate(() => asm.parts.map(p => p.pos.join()).join('|'));
+    await page.mouse.move(640, 400); await page.mouse.down();
+    await page.mouse.move(720, 430, { steps: 6 }); await page.mouse.up();
+    const after = await page.evaluate(() => asm.parts.map(p => p.pos.join()).join('|'));
+    if (before === after) throw new Error('dragging on the table moved no part');
+  });
+  await step('rename and recolour a part', async () => {
+    await page.fill('#asmName', 'renamed'); await setValue('asmColor', '#33aa55');
+  });
+  await step('part to floor, duplicate, delete', async () => {
+    const n = await parts();
+    await click('asmFloor'); await click('asmDup');
+    if (await parts() !== n + 1) throw new Error('duplicate did not add a part');
+    await click('asmDel');
+    if (await parts() !== n) throw new Error('delete did not remove a part');
+  });
+  for (const v of await options('asmPreset')){
+    await step(`add preset part ${v}`, async () => { await setValue('asmPreset', v); await click('asmAddPreset'); });
+  }
+  await step('edit a part in sculpt and bring it back', async () => {
+    await page.evaluate(() => asmSelect(1));
+    await click('asmEdit');
+    if (await page.evaluate(() => asm.on)) throw new Error('edit in sculpt did not switch to sculpt');
+    await sculpt();
+    await click('asmBack');
+    if (!await page.evaluate(() => asm.on)) throw new Error('update part did not return to the assembly');
+  });
+  await step('add the sculpted shape', async () => {
+    const n = await parts(); await click('asmAdd');
+    if (await parts() !== n + 1) throw new Error('adding the sculpted shape did not add a part');
+  });
+  await step('save and reopen in memory', async () => {
+    const same = await page.evaluate(() => { const a = asmSerialize(); asmDeserialize(a); return asmSerialize() === a; });
+    if (!same) throw new Error('an assembly saved and reopened does not save the same again');
+  });
+  await step('clear all', () => click('asmClear'));
+  await step('back to sculpt', async () => { await click('modeSculpt'); await sculpt(); });
 } catch (e){
   failures.push(`[${current}] ${e.message.split('\n')[0]}`);
 }
