@@ -8,7 +8,8 @@
 //   · every starting shape; move / turn / size; duplicate, delete, undo, redo
 //   · files: .3da save → open, .tvf3d export → import (asserting the shape survives),
 //     the whole object as a chess piece (rebuilt from its parts, as games does),
-//   · describe it: build, change, look & fix (pictures sent) and error replies, from a stand-in gateway
+//   · describe it: build, change, look & fix (pictures sent), a chess set and its six-file
+//     export (relative heights kept), and error replies, from a stand-in gateway
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -55,6 +56,24 @@ await page.addInitScript(() => { try { localStorage.setItem('tangent.login.v1', 
 await page.route(/login\.tangent\.workers\.dev\/auth\/me/, r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ user: { email: 'tester@example.com' }, quota: { remaining: 9, limit: 10 } }) }));
 await page.route(/login\.tangent\.workers\.dev\/v1\/messages/, r => { aiSent.push(JSON.parse(r.request().postData() || '{}'));
   r.fulfill({ status: aiReply.status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'x-gateway-quota-remaining': '8', 'x-gateway-quota-limit': '10' }, body: JSON.stringify(aiReply.body) }); });
+// A TVF3D-PARTS file rebuilt the way games does it (each field evaluated, moved by its PART
+// matrix), reduced to the piece's extent: [min x,y,z] and [max x,y,z].
+function partsBounds(text){
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (const bl of text.split(/^PART /m).slice(1)){
+    const lines = bl.split('\n'), M = lines[0].trim().split(/\s+/).slice(1).map(Number);
+    const hdr = lines.find(l => l.startsWith('TVF3D ')).split(/\s+/), NH = +hdr[1], MT = +hdr[2];
+    const row = tag => lines.filter(l => l.startsWith(tag + ' ')).map(l => l.slice(tag.length + 1).trim().split(/\s+/).map(Number));
+    const Aa = row('Aa'), Ab = row('Ab');
+    for (let i = 0; i <= 12; i++) for (let j = 0; j < 24; j++){
+      const h = i / 12, th = j / 24 * Math.PI * 2; let r = 0;
+      for (let n = 0; n < NH; n++){ const hb = Math.cos(n * Math.PI * h); for (let m = 0; m < MT; m++) r += hb * (Aa[n][m] * Math.cos(m * th) + Ab[n][m] * Math.sin(m * th)); }
+      const v = [r * Math.cos(th), h, r * Math.sin(th)];
+      for (let k = 0; k < 3; k++){ const w = M[k * 4] * v[0] + M[k * 4 + 1] * v[1] + M[k * 4 + 2] * v[2] + M[k * 4 + 3]; lo[k] = Math.min(lo[k], w); hi[k] = Math.max(hi[k], w); }
+    }
+  }
+  return { lo, hi };
+}
 const claudeSays = text => ({ status: 200, body: { stop_reason: 'end_turn', content: [{ type: 'text', text }] } });
 
 let current = 'page load';
@@ -313,6 +332,53 @@ try {
       const g = c.getContext('2d'); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, c.width, c.height).data; const seen = new Set();
       for (let i = 0; i < d.length; i += 4 * 97) seen.add((d[i] >> 4) + ',' + (d[i + 1] >> 4) + ',' + (d[i + 2] >> 4)); ok({ w: im.width, h: im.height, colours: seen.size }); }; im.src = 'data:image/png;base64,' + b64; }), sent[1].source.data);
     if (varied.w !== 1152 || varied.h !== 384 || varied.colours < 20) throw new Error('the picture does not look like three views of the object: ' + JSON.stringify(varied));
+    await ev(k => __studio.loadScene(k), keep);
+  });
+  await step('describe it: a chess set, and its six-file export', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');
+    // Six plain pieces, each a base and a body, all built at the origin as the prompt asks.
+    // The parts are named three ways: a piece field and a name, a name only, a piece only.
+    const H = { pawn: 0.6, rook: 0.75, knight: 0.85, bishop: 0.95, queen: 1.1, king: 1.2 };
+    const parts = [];
+    for (const [w, h] of Object.entries(H)){
+      parts.push({ piece: w, name: w + ' base', shape: 'cylinder', outline: [[0, 0.5], [1, 0.5]], pos: [0, 0, 0], scale: [0.5, 0.1, 0.5], color: '#2e5a46' });
+      if (w === 'queen') parts.push({ piece: 'queen', name: 'body', shape: 'cylinder', outline: [[0, 0.3], [1, 0.2]], pos: [0, 0.1, 0], scale: [0.5, h - 0.1, 0.5], color: '#2e5a46' });
+      else parts.push({ name: w + ' body', shape: 'cylinder', outline: [[0, 0.3], [1, 0.2]], pos: [0, 0.1, 0], scale: [0.5, h - 0.1, 0.5], color: '#2e5a46' });
+    }
+    aiReply = claudeSays(JSON.stringify({ name: 'plain set', parts }));
+    await ev(() => { document.getElementById('aiMode').value = 'set'; });
+    await page.fill('#aiPrompt', 'a plain green set');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /6 pieces/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
+    if (!/CHESS SET/.test(aiSent[aiSent.length - 1].messages[0].content)) throw new Error('the request did not ask for a set');
+    const laid = await ev(() => __studio.S.parts.map(p => ({ name: p.name, piece: __studio.pieceOf(p), x: p.pos[0] })));
+    if (laid.length !== 12 || laid.some(p => !p.piece)) throw new Error('parts not all assigned to a piece: ' + laid.map(p => p.name).join(', '));
+    if (!laid.some(p => p.name === 'queen body')) throw new Error('a part given only a piece field was not named after it');
+    const xs = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'].map(w => laid.find(p => p.piece === w).x);
+    if (!xs.every((x, i) => i === 0 || x - xs[i - 1] > 0.8)) throw new Error('the pieces were not laid out in a row: ' + xs.join(', '));
+
+    // Export: six downloads, named for games, sharing one scale.
+    const got = [];
+    const done = new Promise(ok => { const on = async d => { got.push({ name: d.suggestedFilename(), text: await readFile(await d.path(), 'utf8') }); if (got.length === 6){ page.off('download', on); ok(); } }; page.on('download', on); });
+    await ev(() => __studio.fileAction('chessSet'));
+    await Promise.race([done, new Promise((_, no) => setTimeout(() => no(new Error('only ' + got.length + ' of 6 files came down')), 15000))]);
+    const names = got.map(f => f.name).sort().join(',');
+    if (names !== 'bishop.tvf3d,king.tvf3d,knight.tvf3d,pawn.tvf3d,queen.tvf3d,rook.tvf3d') throw new Error('files: ' + names);
+    const b = Object.fromEntries(got.map(f => [f.name.replace('.tvf3d', ''), partsBounds(f.text)]));
+    for (const [w, x] of Object.entries(b)){
+      if (!got.find(f => f.name === w + '.tvf3d').text.startsWith('TVF3D-PARTS 2\n')) throw new Error(w + ' is not a two-part piece');
+      if (Math.abs(x.lo[1]) > 0.02) throw new Error(w + ' does not stand on the board');
+      if (Math.abs(x.lo[0] + x.hi[0]) > 0.03 || Math.abs(x.lo[2] + x.hi[2]) > 0.03) throw new Error(w + ' is not centred');
+    }
+    if (Math.abs(b.king.hi[1] - 1) > 0.03) throw new Error('the king should be one unit tall, is ' + b.king.hi[1].toFixed(3));
+    for (const [w, h] of Object.entries(H)){
+      const want = h / H.king, have = b[w].hi[1] / b.king.hi[1];
+      if (Math.abs(have - want) > 0.03) throw new Error(w + ' is ' + (have * 100).toFixed(0) + '% of the king, should be ' + (want * 100).toFixed(0) + '%');
+    }
+    const wide = w => b[w].hi[0] - b[w].lo[0];
+    if (Math.abs(wide('pawn') - wide('king')) > 0.02) throw new Error('the bases came out different sizes: the set was not scaled together');
+    if (await ev(() => document.getElementById('aiMode').value) !== 'edit') throw new Error('did not move on to "change it"');
     await ev(k => __studio.loadScene(k), keep);
   });
   await step('describe it: errors are reported, nothing changes', async () => {

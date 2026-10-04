@@ -42,6 +42,9 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
     `.tvf3d` block (`buildPieceTVF3D`). The matrix already stands the piece on
     y=0, centres it and fits it to games' square; games reads it in
     `parseTVF3D` / `buildPartsGeometry`. Change the two together.
+  - A chess set is six of those (`buildChessSet`): parts belong to a piece by the
+    piece's name in their own (`pieceOf`), and all six share one scale, so the
+    king is one unit tall and the rest keep their heights relative to it.
 - **describe it** (the `DESCRIBE IT` block) asks Claude, through the
   `login.tangent.workers.dev` gateway with draw's sign-in, for the object as JSON
   in the panels' own terms (shape, outline, section, bend, hollow, pos/rot/scale,

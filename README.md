@@ -43,7 +43,10 @@ band" or "a little wooden boat" and Claude makes it from parts, which you can
 then shape and sculpt like any others. Switch to **change it** to keep going
 ("give it a taller mast", "make the band gold"): Claude sees the current parts
 and edits them, and a hand-sculpted part that is only moved or recoloured
-keeps its sculpting. **look & fix** shows Claude pictures of the object from three
+keeps its sculpting. **chess set** builds all six pieces in one style from one
+description ("a fantasy set in green marble and gold"), laid out in a row; then
+**file → export a chess set** writes `pawn.tvf3d` … `king.tvf3d`, scaled together
+so the king stays taller than the pawn. Drop all six on the games page. **look & fix** shows Claude pictures of the object from three
 sides next to what you asked for, and it corrects what's wrong: a part floating,
 a head pointing the wrong way. Type a note first to steer it. **copy reply**
 copies Claude's last answer, for reporting a bad result. Undo takes any step back. It runs through the same
@@ -90,6 +93,7 @@ become a 3D section or silhouette.
 | `.3da` | The whole object: every part's settings, sculpting and paint. Files from the classic editor's assemble mode open too. |
 | `.tvf3d` | One part, for the chess pieces in [games](https://github.com/reportbase/games). Lean and hollow aren't representable in it, and the export says so. |
 | `.tvf3d` (chess piece) | The whole object as one chess piece for games: every part's field plus where it goes, stood on the board and sized to a square. Name the file after the piece it replaces (`knight.tvf3d`) and drop it on the games page to try it. |
+| `.tvf3d` × 6 (chess set) | One file per piece, from parts named after their piece ("knight mane 2"), all sharing one scale so the set keeps its proportions in games. |
 | `.stl` | The whole object as one mesh, for 3D printing. |
 
 three.js (r128) loads from a CDN at runtime, so the page needs an internet

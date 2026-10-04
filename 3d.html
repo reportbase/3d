@@ -180,6 +180,7 @@
         <button data-act="tvf3d">export the part <span>.tvf3d</span></button>
         <button data-act="copytvf3d">copy the part <span>.tvf3d</span></button>
         <button data-act="piece" title="every part, as one chess piece for the games page">export as a chess piece <span>.tvf3d</span></button>
+        <button data-act="chessSet" title="six files, pawn.tvf3d to king.tvf3d, from parts named after their piece; the set keeps its relative heights">export a chess set <span>6 × .tvf3d</span></button>
         <hr>
         <button data-act="importTvf3d">add a part from <span>.tvf3d</span></button>
         <button data-act="importImage">add a part from an image <span>heightmap</span></button>
@@ -198,7 +199,7 @@
         <textarea id="aiPrompt" placeholder="describe an object… e.g. a rook with a crenellated top, or a little wooden boat with a red sail" spellcheck="false"></textarea>
         <div class="row">
           <select id="aiMode" title="new: start over from the description. add: put it beside what is there. change: Claude sees the object you have and edits it (move, recolour, add or remove parts), keeping your sculpting on parts it leaves alone">
-            <option value="new">new object</option><option value="add">add to it</option><option value="edit">change it</option>
+            <option value="new">new object</option><option value="add">add to it</option><option value="edit">change it</option><option value="set">chess set</option>
           </select>
           <button id="aiGo" class="go" title="build it (Ctrl+Enter in the box)">build</button>
         </div>
@@ -3528,9 +3529,11 @@ function buildTVF3D(p){
    single exported part gets, so a one-part object exports as the same piece either way.
    Lean and hollowing stay behind, as they do for one part. */
 const PIECE_HALF_WIDTH=0.4;   // games' footprint: a piece is about 1.05 squares tall, so this is ~0.42 of a square
-function buildPieceTVF3D(parts=S.parts){
-  const warn=new Set(), b=boxOf(parts), size=b.getSize(new THREE.Vector3()), c=b.getCenter(new THREE.Vector3());
-  const half=Math.max(size.x,size.z)/2, sc=Math.min(1/Math.max(size.y,1e-6), PIECE_HALF_WIDTH*PRESET_SCALE/Math.max(half,1e-6));
+function pieceScale(b){ const size=b.getSize(new THREE.Vector3()), half=Math.max(size.x,size.z)/2;
+  return Math.min(1/Math.max(size.y,1e-6), PIECE_HALF_WIDTH*PRESET_SCALE/Math.max(half,1e-6)); }
+function buildPieceTVF3D(parts=S.parts,scale){
+  const warn=new Set(), b=boxOf(parts), c=b.getCenter(new THREE.Vector3());
+  const sc=scale||pieceScale(b);   // a set passes one scale for all six, so the king stays taller than the pawn
   const fit=new THREE.Matrix4().makeScale(1/PRESET_SCALE,1,1/PRESET_SCALE)
     .multiply(new THREE.Matrix4().makeScale(sc,sc,sc))
     .multiply(new THREE.Matrix4().makeTranslation(-c.x,-b.min.y,-c.z));
@@ -3545,6 +3548,30 @@ function buildPieceTVF3D(parts=S.parts){
     txt+='PART '+((p.name||'part').replace(/\s+/g,'_'))+' '+M.map(v=>+v.toFixed(6)).join(' ')+'\n'+o.txt;
   }
   return {txt,warn:[...warn]}; }
+/* A WHOLE CHESS SET (Oct 4: "chess set builder"). Six files, one per piece, named the way
+   games looks them up (pawn.tvf3d … king.tvf3d). Each piece is centred and stood on the
+   board on its own, but they share ONE scale: the tallest piece (the king) is one unit,
+   or the widest just fills its square, and every other piece keeps its height relative to
+   it. games draws every piece file at the same size, so a pawn exported on its own would
+   come out as tall as the king; carrying the shared scale in the files is what keeps the
+   set's proportions on the board. Parts belong to a piece by the piece's name in their
+   own ("knight mane 3"), which is how describe names them and how anyone can by hand. */
+const CHESS=['pawn','knight','bishop','rook','queen','king'];
+const pieceOf=p=>{ const n=(p.name||'').toLowerCase(); return CHESS.find(w=>new RegExp('(^|[^a-z])'+w+'([^a-z]|$)').test(n))||null; };   // "knight_base" and "white knight" both count; "kingdom" does not
+function buildChessSet(){
+  const groups={}; for(const p of S.parts){ const w=pieceOf(p); if(w) (groups[w]=groups[w]||[]).push(p); }
+  const have=CHESS.filter(w=>groups[w]); if(!have.length) return null;
+  const sc=Math.min(...have.map(w=>pieceScale(boxOf(groups[w]))));
+  const files=have.map(w=>{ const o=buildPieceTVF3D(groups[w],sc); return {name:w+'.tvf3d',piece:w,txt:o.txt,warn:o.warn,parts:groups[w].length}; });
+  return {files,missing:CHESS.filter(w=>!groups[w])}; }
+function exportChessSet(){
+  const set=buildChessSet();
+  if(!set){ toast('no chess pieces here: name parts after their piece ("knight head"), or use describe → chess set'); return null; }
+  // One after another: a browser takes a burst of downloads better spaced out (Chrome asks once to allow several).
+  set.files.forEach((f,i)=>setTimeout(()=>download(f.name,f.txt,'text/plain'),i*350));
+  const warn=[...new Set(set.files.flatMap(f=>f.warn))];
+  toast('exported '+set.files.length+' pieces'+(set.missing.length?' (no '+set.missing.join(', ')+')':'')+(warn.length?' without '+warn.join(', '):'')+'. Drop them all on the games page together.');
+  return set; }
 function exportSTL(){ if(!S.parts.length){ toast('nothing to export'); return; }
   const vA=new THREE.Vector3(),vB=new THREE.Vector3(),vC=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),nr=new THREE.Vector3(), f=x=>x.toFixed(5);
   const out=['solid shape_studio']; let tris=0;
@@ -3567,6 +3594,7 @@ function fileAction(a){ $('fileMenu').hidden=true; const p=selPart();
     const word=['pawn','knight','bishop','rook','queen','king'].find(w=>S.parts.some(q=>(q.name||'').toLowerCase().includes(w)));
     download((word||'piece')+'.tvf3d',o.txt,'text/plain');
     toast('exported '+S.parts.length+' part'+(S.parts.length>1?'s':'')+' as '+(word||'piece')+'.tvf3d'+note+(word?'':'. Rename it after the piece it replaces, e.g. knight.tvf3d')); }
+  else if(a==='chessSet') exportChessSet();
   else if(a==='importTvf3d') $('fileTvf3d').click();
   else if(a==='importImage') $('fileImage').click(); }
 $('fileBtn').onclick=e=>{ e.stopPropagation(); $('fileMenu').hidden=!$('fileMenu').hidden; };
@@ -3746,12 +3774,13 @@ function renderGallery(){
     '  "rot": [x, y, z]          (degrees, applied X then Y then Z, turning about the base centre; [90,0,0] lays a part along +z, [0,0,-90] along +x)',
     '  "scale": [sx, sy, sz]     (a part is 1 tall before scaling, and ~2*r wide; sy is its height)',
     '  "color": "#rrggbb", "stripes"?: 0..10, "stripeColor"?: "#rrggbb" }',
-    'The FRONT of the object faces +z. Things that point sideways or forward are TURNED parts: every part is round about its own axis, so a muzzle, a nose, an arm, a branch, a spout, a tail or a boat\'s length is a part laid over with rot. A head that looks forward and a little down is an egg or ball, longer than wide, at rot [100,0,0]; ears are small cones; a crest or mane is a row of 4 to 8 small flattened parts (section squash 0.3) along the back of the neck; a curved neck is two or three overlapping cylinders, each tilted a little more than the one below (or use bend lean, which curves the top toward +x before rot turns it).',
+    'The FRONT of the object faces +z. Things that point sideways or forward are TURNED parts: every part is round about its own axis, so a muzzle, a nose, an arm, a branch, a spout, a tail or a boat\'s length is a part laid over with rot. A head that looks forward and a little down is an egg or ball, longer than wide, at rot [100,0,0]; ears are small cones; a crest or mane is a row of 4 to 8 small flattened parts (section squash 0.3) lying ALONG the back of the neck, overlapping, angled up and back and pressed into it, never sticking straight out like spikes; a curved neck is two or three overlapping cylinders, each tilted a little more than the one below (or use bend lean, which curves the top toward +x before rot turns it).',
     'Every part must touch or overlap its neighbour: work out where each part ends (a part standing upright reaches from pos.y to pos.y + scale[1]) and start the next one at or just below that. Check each part before you answer; nothing should float or sit buried.',
     'Chess pieces: about 1.0 to 1.3 tall (king tallest, pawn about 0.6), base diameter about half the height, the base a third of the height or less, and the figure on top the largest, most recognisable mass. A knight is mostly a horse\'s head and neck, leaning forward, with the muzzle pointing out over the front of the base.',
-    'Colour parts plainly. "stripes" are only for things that really are striped (a lighthouse, a flag, a candy cane), never to suggest marble, wood grain or shading.',
+    'Colour parts plainly: one solid colour each. Use "stripes" ONLY when the user\'s own words ask for stripes or bands (a striped lighthouse, a flag); never to suggest marble, wood grain, scales, texture or shading.',
     'Build like a sculptor: a few large parts for the masses, then smaller ones for detail. Parts may overlap; rest each part on the one below it so nothing floats. Keep the whole object about 1 to 2 units tall unless told otherwise. Use real proportions and believable colours.',
     'Example, a snowman: {"name":"snowman","parts":[{"name":"bottom","shape":"ball","pos":[0,0,0],"scale":[0.7,0.7,0.7],"color":"#f4f6fa"},{"name":"middle","shape":"ball","pos":[0,0.6,0],"scale":[0.5,0.5,0.5],"color":"#f4f6fa"},{"name":"head","shape":"ball","pos":[0,1.03,0],"scale":[0.36,0.36,0.36],"color":"#f4f6fa"},{"name":"nose","shape":"cone","pos":[0,1.2,0.16],"rot":[90,0,0],"scale":[0.1,0.2,0.1],"color":"#ff8a2a"},{"name":"left arm","shape":"cylinder","outline":[[0,0.03],[1,0.03]],"pos":[-0.22,0.86,0],"rot":[0,0,58],"scale":[1,0.55,1],"color":"#6b4423"},{"name":"hat","shape":"cylinder","outline":[[0,0.5],[1,0.5]],"pos":[0,1.36,0],"scale":[0.28,0.26,0.28],"color":"#1b1b1f"}]}',
+    'When asked for a CHESS SET, return all six pieces in one reply, in one style: the same base design, materials and details carried through the set, so they read as a family. Give every part "piece": "pawn"|"knight"|"bishop"|"rook"|"queen"|"king" and start its name with that word ("rook battlement 3"). Build EVERY piece centred at x = 0, z = 0 on the ground; the studio lays them out in a row. Heights: pawn about 0.6, rook 0.75, knight 0.85, bishop 0.95, queen 1.1, king 1.2, all on the same base size. Each must be recognisable at a glance: the pawn a ball on a short stem, the rook a tower with battlements, the knight a horse\'s head and neck, the bishop a mitre with a slanted cut (a thin dark disc tilted across it), the queen a crown of points, the king a cross on top. Up to 100 parts for a set.',
     'You may add "notes": a short sentence on what you changed or noticed. When shown pictures of the object, compare them with what was asked for, name what is wrong in "notes", and return the corrected whole object the same way as a change.',
     'When asked to CHANGE an object you are given its current parts as JSON. Return the whole object again: keep the "id" of every part you keep (give only the fields you change, plus pos/rot/scale), leave out parts to delete, and add new parts without an id.',
   ].join('\n');
@@ -3805,10 +3834,21 @@ function renderGallery(){
     if(a<0||z<a) throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for fewer parts':'no object came back — try rephrasing');
     let spec; try{ spec=JSON.parse(text.slice(a,z+1)); }catch(e){ throw new Error('the answer was not readable JSON — try again'); }
     if(!spec||!Array.isArray(spec.parts)||!spec.parts.length) throw new Error('the answer had no parts');
-    spec.parts=spec.parts.filter(q=>q&&typeof q==='object').slice(0,40);
+    spec.parts=spec.parts.filter(q=>q&&typeof q==='object').slice(0,100);   // 40 is the rule for one object; a set may use more
     return spec; }
 
+  /* A set arrives with every piece built at the origin. Each part is given to its piece
+     (its "piece" field, else the piece named in its name), its name made to start with
+     that piece so the set export can find it again, and the pieces are spread in a row,
+     pawn to king, far enough apart not to touch. */
+  function layoutSet(parts){
+    const SP=0.9, at=w=>(CHESS.indexOf(w)-2.5)*SP;
+    for(const q of parts){ let w=CHESS.includes(q.piece)?q.piece:pieceOf({name:q.name}); if(!w) continue;
+      q.name=(typeof q.name==='string'&&pieceOf({name:q.name})===w)?q.name:w+' '+(q.name||'part');
+      const pos=Array.isArray(q.pos)&&q.pos.length===3?q.pos.slice():[0,0,0]; pos[0]=(+pos[0]||0)+at(w); q.pos=pos; }
+    return parts; }
   function apply(spec,mode){
+    if(mode==='set'){ layoutSet(spec.parts); mode='new'; }
     if(mode==='new') clearAll();
     let shift=0;
     if(mode==='add'&&S.parts.length){ const b=boxOf(S.parts); shift=b.max.x+0.6; }
@@ -3875,13 +3915,15 @@ function renderGallery(){
     if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
     if(mode==='edit'&&!S.parts.length){ setStatus('there is nothing to change yet — use "new object"',true); return; }
     busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus('building…');
-    const user=mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+text:'Build: '+text;
+    const user=mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+text:mode==='set'?'Build a CHESS SET, all six pieces: '+text:'Build: '+text;
     const body=m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
     try{
       const data=await callWithFallback(body);
       const spec=parseReply(data), n=apply(spec,mode);
-      if(mode!=='edit') lastAsk=text; else if(lastAsk) lastAsk+='; then: '+text; else lastAsk=text;
-      setStatus((spec.notes?spec.notes+'\n':'')+(spec.name?spec.name+': ':'')+(mode==='edit'?'changed — '+S.parts.length+' parts':n+' part'+(n===1?'':'s')+' built')+'. Undo takes it back. "look & fix" lets Claude check it.');
+      if(mode==='set') lastAsk='a chess set, all six pieces in a row: '+text; else if(mode!=='edit') lastAsk=text; else if(lastAsk) lastAsk+='; then: '+text; else lastAsk=text;
+      const pieces=mode==='set'?CHESS.filter(w=>S.parts.some(p=>pieceOf(p)===w)).length:0;
+      setStatus((spec.notes?spec.notes+'\n':'')+(spec.name?spec.name+': ':'')+(mode==='edit'?'changed — '+S.parts.length+' parts':n+' part'+(n===1?'':'s')+' built')
+        +(mode==='set'?' in '+pieces+' pieces. file → export a chess set writes the six files.':'')+' Undo takes it back. "look & fix" lets Claude check it.');
       if(mode!=='edit') modeEl.value='edit';                 // the natural next step is a refinement
     }catch(e){ setStatus(e.message,true); }
     finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!S.parts.length; }
@@ -3902,7 +3944,7 @@ function loop(){ requestAnimationFrame(loop);
   if(camAnim){ camAnim.t=Math.min(1,camAnim.t+0.06); const e=1-Math.pow(1-camAnim.t,3); cam.position.lerpVectors(camAnim.fromP,camAnim.toP,e); orbit.target.lerpVectors(camAnim.fromT,camAnim.toT,e); if(camAnim.t>=1) camAnim=null; }
   orbit.update(); renderer.render(scene,cam); }
 resize(); renderGallery(); loadExample('lighthouse'); loop();
-window.__studio={S,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
+window.__studio={S,buildChessSet,exportChessSet,pieceOf,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
   useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D};
 
 </script>
