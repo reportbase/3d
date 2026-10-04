@@ -12,6 +12,28 @@ Shapes export as `.tvf3d`, the format the chess pieces in
 **Use it:** https://reportbase.github.io/3d/ (once GitHub Pages is turned on
 for this repo; see Publishing below)
 
+## Studio (interface mockup)
+
+**Try it:** https://reportbase.github.io/3d/studio.html
+
+`studio.html` is a clickable mockup of a new interface for the editor. It's
+for trying out and reacting to; `3d.html` stays the real tool. It shows:
+
+- **one workspace:** the parts list is always there; double-click a part to
+  shape it in place while the rest of the object fades to ghosts (Esc steps out)
+- **three linked views of a part:** the 3D view, its **side outline** (drag
+  points to reshape it) and its **section** (round, polygon, star, petals)
+- **tools named by what you're doing:** shape, sculpt, bend, paint, hollow,
+  detail, with the engine's own controls behind an **advanced** switch
+- **move / turn / size handles** with snapping (a part settles onto whatever is
+  under it), and one undo history with thumbnails
+- **examples:** a table, a snowman and a lighthouse
+
+To keep the mockup small, each part is `outline(h) × section(θ)`, bent, plus a
+sculpt layer: the same kind of shape the editor makes, but without its rung
+engine, `.tvf3d` files or brush painting. The "describe it" box isn't wired up
+yet.
+
 ## Assembling parts into one object
 
 A single shape is one surface around one vertical axis, like something turned
@@ -48,7 +70,8 @@ surface.
 | --- | --- |
 | `3d.html` | The whole editor: one self-contained page. This is the file to edit. |
 | `index.html` | Forwards `/3d/` to `3d.html`. |
-| `tests/smoke.mjs` | The smoke test (see below). |
+| `studio.html` | The interface mockup (see above). |
+| `tests/smoke.mjs`, `tests/studio.mjs` | The smoke tests (see below). |
 
 three.js (r128) loads from a CDN at runtime, so the page needs an internet
 connection.
@@ -73,7 +96,11 @@ dialog or download a file:
   duplicating and deleting parts, editing a part in sculpt and bringing it back,
   and saving and reopening
 
-It fails if anything throws an uncaught error. To run it yourself:
+`tests/studio.mjs` does the same for the studio mockup: every example, tool,
+section type and starting shape, dragging an outline point, sculpting in place,
+duplicate, delete, undo and redo.
+
+They fail if anything throws an uncaught error. To run them yourself:
 
 ```sh
 npm install
