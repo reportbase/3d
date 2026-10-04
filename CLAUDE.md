@@ -37,6 +37,11 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
     Change formats compatibly.
   - `.tvf3d` is what games reads for chess pieces: `TVF3D NH MT color`, then
     `Aa`, `Ab` and colour rows.
+  - A whole object as one chess piece is a `TVF3D-PARTS n` file: per part a
+    `PART name` line with a row-major 3×4 matrix, then that part's ordinary
+    `.tvf3d` block (`buildPieceTVF3D`). The matrix already stands the piece on
+    y=0, centres it and fits it to games' square; games reads it in
+    `parseTVF3D` / `buildPartsGeometry`. Change the two together.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
@@ -45,9 +50,9 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   `tests/editor.mjs` that check it has an effect, not just that nothing throws.
 - `node tests/draw-sync.mjs` checks the draw copies (add
   `DRAW_HTML=../draw/draw.html` to compare with a local draw).
-- In a cloud sandbox the CDNs may be blocked. Serve three.js r128 and its
-  `examples/js/controls` from the npm package `three@0.128.0` with
-  `page.route`, as earlier sessions did.
+- In a cloud sandbox the CDNs may be blocked. Install `three@0.128.0` somewhere
+  and run `LIBS_DIR=that/node_modules npm test`; both tests then serve three.js
+  and its controls from it.
 
 ## Related repos
 - **draw:** the source of the copied blocks.

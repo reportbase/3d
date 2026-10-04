@@ -168,6 +168,7 @@
         <button data-act="stl">export the object <span>.stl</span></button>
         <button data-act="tvf3d">export the part <span>.tvf3d</span></button>
         <button data-act="copytvf3d">copy the part <span>.tvf3d</span></button>
+        <button data-act="piece" title="every part, as one chess piece for the games page">export as a chess piece <span>.tvf3d</span></button>
         <hr>
         <button data-act="importTvf3d">add a part from <span>.tvf3d</span></button>
         <button data-act="importImage">add a part from an image <span>heightmap</span></button>
@@ -2844,7 +2845,9 @@ function exForward(grid){ const Aa=[],Ab=[];
       Icc/=(EX_PTH*EX_PH); Ics/=(EX_PTH*EX_PH); const thc=(m===0)?1:0.5;
       Aa[n][m]=Icc/(hnorm*thc); Ab[n][m]=(m===0)?0:Ics/(hnorm*0.5); } }
   return {Aa,Ab}; }
-function exRows(tag,rows){ let s=''; for(const row of rows) s+=tag+' '+Array.from(row,x=>x.toFixed(6)).join(' ')+'\n'; return s; }
+// Six decimals, written short: most of a spectrum is zeros, and "0" instead of "0.000000"
+// keeps a many-part chess piece (one field per part) from running to megabytes.
+function exRows(tag,rows){ let s=''; for(const row of rows) s+=tag+' '+Array.from(row,x=>String(+x.toFixed(6))).join(' ')+'\n'; return s; }
 
 </script>
 <script>
@@ -3470,8 +3473,44 @@ function buildTVF3D(p){
   const col=[0,0,0], cq=ch=>(phi,h)=>{ const th=Math.abs(sq-1)<1e-6?phi:Math.atan2(Math.sin(phi)/sq,Math.cos(phi)); colorAt(p,th,h,col); return col[ch]; };
   const fd=rungDimsFor(p,p.eng.rungs-1); EX_NH=Math.min(EX_PH-1,Math.max(16,fd.Nh)); EX_MT=Math.min(EX_PTH/2-1,Math.max(24,fd.Nt));
   const R=exForward(exSample(rq)), Cr=exForward(exSample(cq(0))), Cg=exForward(exSample(cq(1))), Cb=exForward(exSample(cq(2)));
+  /* Drop the trailing rows and columns that hold nothing anyone could see (every term under
+     1e-5, a hundred-thousandth of a unit). A plain part, a ball or a rod, is a few dozen
+     terms in a grid of thousands, and a chess piece of a dozen parts writes a dozen grids. */
+  const all=[R,Cr,Cg,Cb].flatMap(o=>[o.Aa,o.Ab]); let nh=1, mt=1;
+  for(const A of all) for(let n=0;n<EX_NH;n++) for(let m=0;m<EX_MT;m++) if(Math.abs(A[n][m])>=1e-5){ if(n+1>nh) nh=n+1; if(m+1>mt) mt=m+1; }
+  EX_NH=Math.max(2,nh); EX_MT=Math.max(2,mt);
+  for(const o of [R,Cr,Cg,Cb]) for(const k of ['Aa','Ab']) o[k]=o[k].slice(0,EX_NH).map(row=>row.slice(0,EX_MT));
   const txt='TVF3D '+EX_NH+' '+EX_MT+' color\n'+exRows('Aa',R.Aa)+exRows('Ab',R.Ab)+exRows('Cra',Cr.Aa)+exRows('Crb',Cr.Ab)+exRows('Cga',Cg.Aa)+exRows('Cgb',Cg.Ab)+exRows('Cba',Cb.Aa)+exRows('Cbb',Cb.Ab);
   return {txt,warn}; }
+/* The whole object as ONE chess piece for games (Oct 4: "3d→games multi-part pieces").
+   A .tvf3d holds one surface about one axis, so a piece made of parts is written as a
+   TVF3D-PARTS file: each part's own field, exactly as "export the part" writes it, after a
+   PART line giving the 3×4 matrix that takes that field into the piece. games builds every
+   field, moves it by its matrix and draws them as one mesh.
+   The fitting happens here, not in games, so the file says plainly where everything goes:
+   the object is stood on y=0, centred over its footprint and scaled until it is one unit
+   tall (a single-part piece is one unit tall too), or less if it is wide, so it never
+   spills out of its square. Then x and z are widened by 1/PRESET_SCALE, the same factor a
+   single exported part gets, so a one-part object exports as the same piece either way.
+   Lean and hollowing stay behind, as they do for one part. */
+const PIECE_HALF_WIDTH=0.4;   // games' footprint: a piece is about 1.05 squares tall, so this is ~0.42 of a square
+function buildPieceTVF3D(parts=S.parts){
+  const warn=new Set(), b=boxOf(parts), size=b.getSize(new THREE.Vector3()), c=b.getCenter(new THREE.Vector3());
+  const half=Math.max(size.x,size.z)/2, sc=Math.min(1/Math.max(size.y,1e-6), PIECE_HALF_WIDTH*PRESET_SCALE/Math.max(half,1e-6));
+  const fit=new THREE.Matrix4().makeScale(1/PRESET_SCALE,1,1/PRESET_SCALE)
+    .multiply(new THREE.Matrix4().makeScale(sc,sc,sc))
+    .multiply(new THREE.Matrix4().makeTranslation(-c.x,-b.min.y,-c.z));
+  const unfield=new THREE.Matrix4().makeScale(PRESET_SCALE,1,PRESET_SCALE);
+  let txt='TVF3D-PARTS '+parts.length+'\n';
+  for(const p of parts){
+    const o=buildTVF3D(p); for(const w of o.warn) warn.add(w);
+    const place=new THREE.Matrix4().compose(new THREE.Vector3(...p.pos),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(p.rot[0]*PI/180,p.rot[1]*PI/180,p.rot[2]*PI/180)), new THREE.Vector3(...p.scale));
+    const e=fit.clone().multiply(place).multiply(unfield).elements;   // column-major
+    const M=[0,1,2].flatMap(r=>[0,1,2,3].map(k=>e[k*4+r]));
+    txt+='PART '+((p.name||'part').replace(/\s+/g,'_'))+' '+M.map(v=>+v.toFixed(6)).join(' ')+'\n'+o.txt;
+  }
+  return {txt,warn:[...warn]}; }
 function exportSTL(){ if(!S.parts.length){ toast('nothing to export'); return; }
   const vA=new THREE.Vector3(),vB=new THREE.Vector3(),vC=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),nr=new THREE.Vector3(), f=x=>x.toFixed(5);
   const out=['solid shape_studio']; let tris=0;
@@ -3488,6 +3527,12 @@ function fileAction(a){ $('fileMenu').hidden=true; const p=selPart();
   else if(a==='tvf3d'||a==='copytvf3d'){ if(!p){ toast('select a part first'); return; } const o=buildTVF3D(p), note=o.warn.length?' (without '+o.warn.join(', ')+')':'';
     if(a==='tvf3d'){ download((p.name||'part').replace(/\s+/g,'_')+'.tvf3d',o.txt,'text/plain'); toast('exported '+p.name+'.tvf3d'+note); }
     else navigator.clipboard.writeText(o.txt).then(()=>toast('copied '+p.name+' as .tvf3d'+note),err=>toast('copy failed: '+err.message)); }
+  else if(a==='piece'){ if(!S.parts.length){ toast('nothing to export'); return; } const o=buildPieceTVF3D(), note=o.warn.length?' (without '+o.warn.join(', ')+')':'';
+    /* games decides which piece a file replaces by the piece's name in the file name, so
+       use one if any part is called after a piece ("white knight"), else say what to do. */
+    const word=['pawn','knight','bishop','rook','queen','king'].find(w=>S.parts.some(q=>(q.name||'').toLowerCase().includes(w)));
+    download((word||'piece')+'.tvf3d',o.txt,'text/plain');
+    toast('exported '+S.parts.length+' part'+(S.parts.length>1?'s':'')+' as '+(word||'piece')+'.tvf3d'+note+(word?'':'. Rename it after the piece it replaces, e.g. knight.tvf3d')); }
   else if(a==='importTvf3d') $('fileTvf3d').click();
   else if(a==='importImage') $('fileImage').click(); }
 $('fileBtn').onclick=e=>{ e.stopPropagation(); $('fileMenu').hidden=!$('fileMenu').hidden; };
@@ -3593,7 +3638,7 @@ function loop(){ requestAnimationFrame(loop);
   orbit.update(); renderer.render(scene,cam); }
 resize(); renderGallery(); loadExample('lighthouse'); loop();
 window.__studio={S,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
-  useCurveText,radiusAt,usePart,fileAction,parseTVF3D};
+  useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D};
 
 </script>
 </body>

@@ -77,6 +77,7 @@ become a 3D section or silhouette.
 | --- | --- |
 | `.3da` | The whole object: every part's settings, sculpting and paint. Files from the classic editor's assemble mode open too. |
 | `.tvf3d` | One part, for the chess pieces in [games](https://github.com/reportbase/games). Lean and hollow aren't representable in it, and the export says so. |
+| `.tvf3d` (chess piece) | The whole object as one chess piece for games: every part's field plus where it goes, stood on the board and sized to a square. Name the file after the piece it replaces (`knight.tvf3d`) and drop it on the games page to try it. |
 | `.stl` | The whole object as one mesh, for 3D printing. |
 
 three.js (r128) loads from a CDN at runtime, so the page needs an internet
@@ -104,6 +105,8 @@ error, or when an action has no effect.
   colour changed)
 - every tool slider
 - `.tvf3d` export, checking it matches the part, then importing it back
+- exporting the snowman as a chess piece, rebuilding it from its parts as games
+  does, and checking it stands on the board, is centred and keeps its proportions
 - `.stl` export
 - `.3da` save and open, checking it reopens the same, plus an old assemble-mode
   file

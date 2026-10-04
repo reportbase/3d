@@ -8,6 +8,8 @@
 //
 //   npm test                       serves the repo itself on a free port
 //   BASE_URL=http://host/ npm test test an already-running server instead
+//   LIBS_DIR=path/node_modules npm test
+//                                  three.js from a local three@0.128.0 (CDNs blocked)
 //
 // Console errors (a CDN hiccup) are printed but do not fail the run; uncaught
 // exceptions do.
@@ -49,6 +51,14 @@ const launch = { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-u
 if (process.env.CHROMIUM_PATH) launch.executablePath = process.env.CHROMIUM_PATH;
 const browser = await chromium.launch(launch);
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+// LIBS_DIR=path/node_modules: serve three.js r128 and its controls from a local
+// three@0.128.0, for a sandbox where the CDNs are blocked.
+if (process.env.LIBS_DIR){
+  const lib = f => readFile(join(process.env.LIBS_DIR, 'three', f));
+  await page.route(/three\.js\/r128\/three\.min\.js/, async r => r.fulfill({ contentType: 'text/javascript', body: await lib('build/three.min.js') }));
+  for (const c of ['OrbitControls', 'TransformControls'])
+    await page.route(new RegExp(c + '\\.js'), async r => r.fulfill({ contentType: 'text/javascript', body: await lib('examples/js/controls/' + c + '.js') }));
+}
 
 let current = 'page load';
 const failures = [];

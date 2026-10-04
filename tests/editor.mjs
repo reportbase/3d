@@ -7,10 +7,12 @@
 //   · drawings in: an SVG as a section and as an outline, a .tvf in draw's format
 //   · every starting shape; move / turn / size; duplicate, delete, undo, redo
 //   · files: .3da save → open, .tvf3d export → import (asserting the shape survives),
+//     the whole object as a chess piece (rebuilt from its parts, as games does),
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
 //   node tests/editor.mjs            (npm test runs it)
+//   LIBS_DIR=path/node_modules ...    three.js from a local three@0.128.0 (CDNs blocked)
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
@@ -36,6 +38,14 @@ if (process.env.CHROMIUM_PATH) launch.executablePath = process.env.CHROMIUM_PATH
 const browser = await chromium.launch(launch);
 const context = await browser.newContext({ viewport: { width: 1360, height: 820 }, acceptDownloads: true });
 const page = await context.newPage();
+// LIBS_DIR=path/node_modules: serve three.js r128 and its controls from a local
+// three@0.128.0, for a sandbox where the CDNs are blocked.
+if (process.env.LIBS_DIR){
+  const lib = f => readFile(join(process.env.LIBS_DIR, 'three', f));
+  await page.route(/three\.js\/r128\/three\.min\.js/, async r => r.fulfill({ contentType: 'text/javascript', body: await lib('build/three.min.js') }));
+  for (const c of ['OrbitControls', 'TransformControls'])
+    await page.route(new RegExp(c + '\\.js'), async r => r.fulfill({ contentType: 'text/javascript', body: await lib('examples/js/controls/' + c + '.js') }));
+}
 
 let current = 'page load';
 const failures = [];
@@ -185,6 +195,40 @@ try {
     if (!(err < 0.05)) throw new Error('the .tvf3d is ' + (err * 100).toFixed(1) + '% off the part');
     const n = await parts(); await page.setInputFiles('#fileTvf3d', d.path);
     await page.waitForFunction(n => __studio.S.parts.length === n + 1, n, { timeout: 5000 });
+  });
+  await step('export as a chess piece', async () => {
+    // The snowman: a dozen parts, some turned (the nose, the arms). Rebuild the piece the
+    // way games will, by evaluating every field and moving it by its PART matrix, and check
+    // it stands on the board, is centred, fills its height or footprint, and keeps the
+    // studio object's proportions (x and z widened by 1.1, as a single part is).
+    const keep = await ev(() => __studio.sceneData());
+    await ev(() => __studio.loadExample('snowman'));
+    const n = await parts();
+    const d = await download(() => ev(() => __studio.fileAction('piece')));
+    if (!d.text.startsWith('TVF3D-PARTS ' + n + '\n')) throw new Error('header is ' + d.text.split('\n')[0]);
+    const got = await ev(t => {
+      const blocks = t.split(/^PART /m).slice(1);
+      let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+      for (const bl of blocks){
+        const nl = bl.indexOf('\n'), M = bl.slice(0, nl).trim().split(/\s+/).slice(1).map(Number), C = __studio.parseTVF3D(bl.slice(nl + 1));
+        for (let i = 0; i <= 12; i++) for (let j = 0; j < 24; j++){ const h = i / 12, th = j / 24 * Math.PI * 2; let r = 0;
+          for (let n = 0; n < C.NH; n++){ const hb = Math.cos(n * Math.PI * h); for (let m = 0; m < C.MT; m++) r += hb * (C.Aa[n][m] * Math.cos(m * th) + C.Ab[n][m] * Math.sin(m * th)); }
+          const v = [r * Math.cos(th), h, r * Math.sin(th)];
+          for (let k = 0; k < 3; k++){ const w = M[k * 4] * v[0] + M[k * 4 + 1] * v[1] + M[k * 4 + 2] * v[2] + M[k * 4 + 3]; lo[k] = Math.min(lo[k], w); hi[k] = Math.max(hi[k], w); } }
+      }
+      const b = new THREE.Box3(); for (const p of __studio.S.parts){ p.mesh.updateMatrixWorld(true); b.expandByObject(p.mesh); }
+      const sz = b.getSize(new THREE.Vector3());
+      return { parts: blocks.length, lo, hi, studio: [sz.x, sz.y, sz.z] };
+    }, d.text);
+    const [W, H, D] = [0, 1, 2].map(k => got.hi[k] - got.lo[k]), [sw, sh, sd] = got.studio;
+    await ev(k => __studio.loadScene(k), keep);   // the steps below expect the table back
+    if (got.parts !== n) throw new Error(got.parts + ' PART blocks for ' + n + ' parts');
+    if (Math.abs(got.lo[1]) > 0.02) throw new Error('the piece starts at y=' + got.lo[1].toFixed(3) + ', not on the board');
+    if (Math.abs(got.lo[0] + got.hi[0]) > 0.03 || Math.abs(got.lo[2] + got.hi[2]) > 0.03) throw new Error('the piece is not centred');
+    const fill = Math.max(H, Math.max(W, D) / 2 / 0.4);
+    if (Math.abs(fill - 1) > 0.03) throw new Error('the piece neither fills its height nor its footprint (' + fill.toFixed(3) + ')');
+    const ratio = (W / H) / (sw / sh * 1.1);
+    if (Math.abs(ratio - 1) > 0.04) throw new Error('the proportions changed by ' + ((ratio - 1) * 100).toFixed(1) + '%');
   });
   await step('.stl export', async () => {
     const d = await download(() => ev(() => __studio.fileAction('stl')));
