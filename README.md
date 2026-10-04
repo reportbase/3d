@@ -68,7 +68,8 @@ become a 3D section or silhouette.
 | `3d.html` | The shape studio: one self-contained page. This is the file to edit. |
 | `classic.html` | The previous editor, kept whole. It still has the engine instruments the studio doesn't show (sheets, booleans, the profile curve, the leaf registers) and its own assemble mode. |
 | `index.html` | Forwards `/3d/` to `3d.html`. |
-| `tests/editor.mjs`, `tests/classic.mjs` | The smoke tests (see below). |
+| `tests/editor.mjs`, `tests/classic.mjs`, `tests/draw-sync.mjs` | The tests (see below). |
+| `CLAUDE.md` | Notes for Claude Code sessions working on this repo. |
 
 **Saving and exporting:**
 
@@ -110,6 +111,11 @@ error, or when an action has no effect.
 - duplicate, delete, undo and redo
 
 `tests/classic.mjs` covers the classic editor.
+
+`tests/draw-sync.mjs` checks that the code copied from draw (between the
+`>>> copied from draw.html` markers in `3d.html`) still matches draw's `main`. It
+runs on every pull request and weekly, as its own "Draw sync" check. When draw
+changes that code, copy the new version across.
 
 To run them yourself:
 
