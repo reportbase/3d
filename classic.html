@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>field rung editor — r(θ,h)</title>
+<style>
+  :root{
+    --bg:#08080a; --bg2:#14141a; --bg3:#1c1c24; --fg:#e8e8ea; --fg-muted:#888;
+    --accent:#d4a052; --accent-hot:#d96e5b; --grid:#2a2a2e; --full:#7ac57a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:13px;
+    -webkit-user-select:none;user-select:none;touch-action:none}
+
+  .gear{position:fixed;top:13px;right:16px;z-index:30;width:38px;height:38px;border-radius:9px;
+    background:var(--bg2);border:1px solid var(--grid);color:var(--fg);cursor:pointer;font-size:18px;
+    display:flex;align-items:center;justify-content:center;transition:border-color .15s}
+  .gear:hover{border-color:var(--accent)}
+
+  .toolbar{position:fixed;top:0;right:0;z-index:25;width:320px;max-width:86vw;height:100vh;
+    background:var(--bg2);border-left:1px solid var(--grid);padding:56px 18px 18px;
+    display:flex;flex-direction:column;gap:16px;overflow-y:auto;transform:translateX(100%);
+    transition:transform .22s ease;box-shadow:-12px 0 40px rgba(0,0,0,.4)}
+  .toolbar.open{transform:translateX(0)}
+  .menu-scrim{position:fixed;inset:0;z-index:24;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .22s}
+  .menu-scrim.open{opacity:1;pointer-events:auto}
+  .menu-close{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--fg-muted);font-size:20px;cursor:pointer;line-height:1}
+  .menu-close:hover{color:var(--fg)}
+  .menu-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--fg-muted);margin-bottom:-4px}
+  .group{display:flex;flex-direction:column;gap:8px;align-items:stretch;border-bottom:1px solid var(--grid);padding:0 0 14px}
+  .group.row{flex-direction:row;align-items:center;flex-wrap:wrap}
+  .group:last-child{border-bottom:none}
+  .toolbar label{color:var(--fg-muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .toolbar input,.toolbar select,.toolbar button{background:var(--bg3);color:var(--fg);border:1px solid var(--grid);border-radius:3px;padding:5px 8px;font-size:12px;font-family:inherit}
+  .toolbar select{width:100%}
+  .toolbar button{cursor:pointer}
+  .toolbar button.active{background:var(--accent);color:#14141a;border-color:var(--accent)}
+  .toolbar button:hover{border-color:var(--accent)}
+  .toolbar input[type=range]{padding:0;flex:1;min-width:80px;cursor:ew-resize}
+  .toolbar .val{color:var(--accent);font-variant-numeric:tabular-nums;min-width:28px;text-align:right;font-size:12px}
+  .menu-readout{font-family:monospace;font-size:12px;color:var(--full);background:var(--bg3);border:1px solid var(--grid);border-radius:4px;padding:8px 10px;line-height:1.5}
+  .menu-readout .k{color:var(--fg-muted)}
+  .toolbar .rung-bar{position:static;top:auto;left:auto;margin-top:8px}
+  .toolbar .palette{flex-wrap:wrap}
+  .btnrow{display:flex;gap:6px}.btnrow button{flex:1}
+
+  .canvas-wrap{position:fixed;inset:0;cursor:crosshair;background:#050508}
+  canvas{display:block;width:100%;height:100%}
+
+  /* rung bar — per-rung buttons + add, top-left over canvas (1D editor style) */
+  .rung-bar{position:absolute;top:10px;left:12px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;z-index:5}
+  .rung-bar .rb-label{color:var(--fg-muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;font-family:'Courier New',monospace}
+  .rung-bar button{background:var(--bg2);color:var(--fg-muted);border:1px solid var(--grid);border-radius:4px;width:30px;height:26px;font-size:12px;cursor:pointer;font-family:'Courier New',monospace;transition:all .12s}
+  .rung-bar button:hover{border-color:var(--accent);color:var(--fg)}
+  .rung-bar button.sel{color:#08080a;font-weight:bold;border-color:transparent}
+  .rung-bar button.rb-add{color:var(--accent);font-weight:bold;font-size:16px;margin-right:8px}
+  .rung-bar button.rb-add:hover{background:var(--accent);color:#08080a}
+
+  .signal-select{position:absolute;top:46px;left:12px;z-index:5;color:var(--accent);background:var(--bg2);
+    border:1px solid var(--grid);border-radius:6px;font-family:'Courier New',monospace;font-size:13px;padding:5px 8px;cursor:pointer;max-width:60%}
+  .signal-select:hover{border-color:var(--accent)}
+  .signal-select option{background:var(--bg2);color:var(--fg)}
+
+  .footer{position:absolute;bottom:0;left:0;right:0;height:64px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;row-gap:4px;
+    padding:4px 14px;z-index:6;background:rgba(8,8,10,.85);border-top:1px solid var(--grid);font-family:'Courier New',monospace}
+  .footer .ft-label{color:var(--fg-muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
+  .footer input[type=range]{flex:0 1 130px;accent-color:var(--accent)}
+  .footer .val{color:var(--accent);font-size:11px;min-width:30px}
+  .footer .ft-select{background:var(--bg2);color:var(--fg);border:1px solid var(--grid);border-radius:4px;font-family:'Courier New',monospace;font-size:12px;padding:3px 6px;cursor:pointer}
+  .hint{position:absolute;bottom:42px;left:12px;color:var(--fg-muted);font-size:11px;pointer-events:none;background:rgba(8,8,10,.6);padding:4px 8px;border-radius:3px}
+  .hint b{color:var(--fg)}
+
+  /* ── assembly: the mode switch (top left) and the parts panel under it ── */
+  .modebar{position:fixed;top:13px;left:12px;z-index:20;display:flex;gap:4px;align-items:center}
+  .modebar button{background:var(--bg2);color:var(--fg-muted);border:1px solid var(--grid);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+  .modebar button:hover{border-color:var(--accent);color:var(--fg)}
+  .modebar button.active{background:var(--accent);color:#14141a;border-color:var(--accent)}
+  .modebar button[hidden]{display:none}
+  .asm-panel{position:fixed;top:56px;left:12px;z-index:20;width:262px;max-width:calc(100vw - 24px);max-height:calc(100vh - 130px);overflow-y:auto;
+    background:rgba(20,20,26,.94);border:1px solid var(--grid);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+  .asm-panel[hidden]{display:none}
+  .asm-panel .menu-title{margin-bottom:0}
+  .asm-panel button,.asm-panel input,.asm-panel select{background:var(--bg3);color:var(--fg);border:1px solid var(--grid);border-radius:3px;padding:5px 8px;font-size:12px;font-family:inherit;cursor:pointer}
+  .asm-panel button:hover{border-color:var(--accent)}
+  .asm-panel button:disabled{opacity:.4;cursor:default}
+  .asm-panel .row{display:flex;gap:6px;align-items:center}
+  .asm-panel .row button{flex:1}
+  .asm-panel .row label{color:var(--fg-muted);font-size:11px;width:48px;flex:none}
+  .asm-panel input[type=range]{flex:1;min-width:60px;padding:0;accent-color:var(--accent)}
+  .asm-panel .val{color:var(--accent);font-size:11px;min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+  .asm-list{display:flex;flex-direction:column;gap:3px;max-height:150px;overflow-y:auto}
+  .asm-list button{text-align:left;display:flex;align-items:center;gap:8px}
+  .asm-list button.sel{border-color:var(--accent);color:var(--accent)}
+  .asm-list .sw{width:10px;height:10px;border-radius:2px;flex:none;border:1px solid #0006}
+  .asm-note{font-size:11px;color:var(--fg-muted);line-height:1.4}
+  .asm-sub{display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--grid);padding-top:8px}
+</style>
+</head>
+<body>
+
+<button class="gear" id="gearBtn" title="Settings" aria-label="Settings">⚙</button>
+<div class="menu-scrim" id="menuScrim"></div>
+
+<div class="toolbar" id="settingsMenu">
+  <button class="menu-close" id="menuClose" aria-label="Close">✕</button>
+  <div class="menu-title">field rung editor</div>
+
+  <div class="group">
+    <div class="menu-title">base leaves — rung 0</div>
+    <div class="group row"><label>θ around</label><input type="range" id="rBT" min="4" max="48" step="2" value="8" title="even only — the shifted even-N bridge kernel (TB §4.1); the odd-N object is the Dirichlet kernel at unshifted nodes, a different instrument"><span class="val" id="vBT">8</span></div>
+    <div class="group row" style="border:none;padding:0"><label>h up</label><input type="range" id="rBH" min="3" max="32" step="1" value="6"><span class="val" id="vBH">6</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">run — the common mode</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">ONE register under every leaf. Dragging it slides every radius along its ray through the axis (home); the leaf registers and the shape's read do not move. There is deliberately no per-leaf run — a private unit is the tensor defection. Double-click resets to 1.</div>
+    <div class="group row"><label>run</label><input type="range" id="rRun" min="-2" max="2" step="0.01" value="0"><span class="val" id="vRun">1.00</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">selected rung</div>
+    <div class="menu-readout" id="rungReadout"><span class="k">editing rung</span><br>—</div>
+    <div class="rung-bar" id="rungBar"></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">sheets — overflow</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">each sheet is a surface along the ray; the next sheet holds what the previous couldn't — the overflow. add one to hollow a shape or nest shells. edits target the active sheet.</div>
+    <div class="rung-bar" id="sheetBar"></div>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0;margin-top:8px"><input type="checkbox" id="cbSolo" style="accent-color:var(--accent)"> solo active sheet (hide the others)</label>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0;margin-top:8px" title="needs ≥2 sheets — sheet 0 becomes the outer wall, sheet 1 the inner cavity"><input type="checkbox" id="cbWeld" style="accent-color:var(--accent)"> weld into a vessel</label>
+    <div class="group row" style="margin-top:6px"><label title="height of the rim / mouth">rim</label><input type="range" id="rWeldRim" min="0.5" max="1" step="0.02" value="0.9"><span class="val" id="vWeldRim">0.90</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="cavity floor height = wall thickness at the bottom">floor</label><input type="range" id="rWeldFloor" min="0" max="0.6" step="0.02" value="0.2"><span class="val" id="vWeldFloor">0.20</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">start from</div>
+    <select id="selPreset">
+      <optgroup label="chess">
+        <option value="knight" selected>knight (one-sided)</option>
+        <option value="pawn">pawn</option>
+        <option value="rook">rook</option>
+        <option value="bishop">bishop</option>
+        <option value="queen">queen</option>
+      </optgroup>
+      <optgroup label="stress test">
+        <option value="corner_test">◆ corner test (sharp box)</option>
+      </optgroup>
+      <optgroup label="primitives">
+        <option value="supershape">★ supershape (universe)</option>
+        <option value="cylinder">cylinder</option>
+        <option value="sphere">sphere</option>
+        <option value="ball">ball (round)</option>
+        <option value="egg">egg</option>
+        <option value="cone">cone</option>
+        <option value="diamond">diamond</option>
+        <option value="vase">vase</option>
+        <option value="rounded_cube">rounded cube</option>
+        <option value="square">square (sharp)</option>
+        <option value="rect">rectangle (sharp)</option>
+        <option value="cube">cube (sharp)</option>
+        <option value="thin_square">thin square (coin)</option>
+        <option value="thin_rect">thin rounded rectangle</option>
+      </optgroup>
+      <optgroup label="faceted">
+        <option value="gem">faceted gem</option>
+        <option value="fluted">fluted column</option>
+        <option value="brilliant">brilliant cut</option>
+        <option value="emerald">emerald cut</option>
+        <option value="quartz">quartz crystal</option>
+        <option value="twisted">twisted prism</option>
+        <option value="star">star spire</option>
+        <option value="spiked">spiked sphere</option>
+      </optgroup>
+    </select>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">supershape — the universe</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">pick “★ supershape” above, then sweep: circle → square → diamond → star → flower</div>
+    <div class="group row"><label title="rotational symmetry: number of corners / petals (4 = square family)">symmetry</label><input type="range" id="rSsM" min="0" max="10" step="1" value="4"><span class="val" id="vSsM">4</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="low → pinched star · ~2 → circle/ellipse · high → sharp polygon (this is the BASE cross-section)">corner base</label><input type="range" id="rSsN" min="0.3" max="8" step="0.1" value="8"><span class="val" id="vSsN">8.0</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="corner exponent at the TOP — set different from base to morph up the height (e.g. sharp base → round top)">corner top</label><input type="range" id="rSsNT" min="0.3" max="8" step="0.1" value="8"><span class="val" id="vSsNT">8.0</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="prism height: low = thin flat slab (just the 2D shape) · high = tall column. flat caps.">extrude</label><input type="range" id="rSsE" min="0.05" max="1" step="0.05" value="0.7"><span class="val" id="vSsE">0.70</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">transform — all shapes</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">applies to every object (presets and sculpted), non-destructive — scales the displayed shape</div>
+    <div class="group row"><label title="uniform radial scale">size</label><input type="range" id="rTsize" min="0.3" max="2" step="0.05" value="1"><span class="val" id="vTsize">1.00</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="x/z aspect — &lt;1 squashes one horizontal axis (circle→oval, square→rectangle)">aspect</label><input type="range" id="rTaspect" min="0.3" max="1.5" step="0.05" value="1"><span class="val" id="vTaspect">1.00</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="vertical scale — taller / shorter">height</label><input type="range" id="rTheight" min="0.2" max="2" step="0.05" value="1"><span class="val" id="vTheight">1.00</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">corner box — w · h · d</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">independent width / depth / height for the ◆ corner test — baked into the field, so they export to chess (the global aspect does not). Adjusts only while the corner test is loaded.</div>
+    <div class="group row"><label title="half-width along x (the θ=0 face)">width</label><input type="range" id="rBoxW" min="0.08" max="0.45" step="0.01" value="0.26"><span class="val" id="vBoxW">0.26</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="solid fraction of the height (the clip window)">height</label><input type="range" id="rBoxH" min="0.2" max="0.98" step="0.02" value="0.72"><span class="val" id="vBoxH">0.72</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="half-depth along z (the θ=90° face)">depth</label><input type="range" id="rBoxD" min="0.08" max="0.45" step="0.01" value="0.26"><span class="val" id="vBoxD">0.26</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="cap ramp width — 0 = hard cap (rings/ridges in chess), higher = smoother sides + rounder cap edge">cap softness</label><input type="range" id="rBoxCS" min="0" max="0.3" step="0.01" value="0.06"><span class="val" id="vBoxCS">0.06</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">deform — all shapes</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">non-destructive, applies to every object</div>
+    <div class="group row"><label title="top vs bottom width — cone / funnel">taper</label><input type="range" id="rDtaper" min="-1" max="1" step="0.05" value="0"><span class="val" id="vDtaper">0.00</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="barrel (+) or hourglass (−) — bulge at mid-height">bulge</label><input type="range" id="rDbulge" min="-1" max="1" step="0.05" value="0"><span class="val" id="vDbulge">0.00</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="rotate the cross-section with height (turns)">twist</label><input type="range" id="rDtwist" min="-2" max="2" step="0.05" value="0"><span class="val" id="vDtwist">0.00</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="lean / curve the column in one direction">bend</label><input type="range" id="rDbend" min="-1" max="1" step="0.05" value="0"><span class="val" id="vDbend">0.00</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">combine — boolean</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">combine the active sheet with a primitive — union (add), intersect (crop), or subtract (carve a cavity into an inner sheet). use op height/width to bite locally.</div>
+    <select id="selOp">
+      <option value="sphere">sphere</option>
+      <option value="cylinder">cylinder</option>
+      <option value="cube">cube</option>
+      <option value="cone">cone</option>
+      <option value="supershape">supershape (current)</option>
+    </select>
+    <div class="group row" style="margin-top:8px"><label title="operand size">op size</label><input type="range" id="rOpScale" min="0.1" max="1.5" step="0.05" value="0.35"><span class="val" id="vOpScale">0.35</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="vertical center of the operand">op height</label><input type="range" id="rOpH" min="0" max="1" step="0.02" value="0.5"><span class="val" id="vOpH">0.50</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="how much of the height the operand affects (small = local bite, large = global)">op width</label><input type="range" id="rOpW" min="0.05" max="0.5" step="0.01" value="0.25"><span class="val" id="vOpW">0.25</span></div>
+    <div class="btnrow" style="margin-top:8px"><button id="bUnion">union</button><button id="bIntersect">intersect</button></div>
+    <div class="btnrow" style="margin-top:4px"><button id="bSubtract">subtract (carve)</button></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">profile curve</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">draw a height curve (height vertical, value horizontal) and bind it to a parameter — applies to every object, non-destructive. the dashed center line is neutral. <b>supershape corner</b> morphs the silhouette and only applies to the ★ supershape.</div>
+    <div class="group row" style="border:none;padding:0;align-items:center;gap:8px">
+      <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0"><input type="checkbox" id="cbCurve" style="accent-color:var(--accent)"> active</label>
+      <select id="selCurveTarget" style="flex:1"><option value="envelope">radius envelope</option><option value="twist">twist</option><option value="corner">supershape corner</option></select>
+    </div>
+    <svg id="curveSvg" viewBox="0 0 200 130" style="width:100%;height:auto;background:#0c0c10;border:1px solid var(--line);border-radius:4px;display:block;cursor:crosshair;margin-top:6px" preserveAspectRatio="xMidYMid meet"></svg>
+    <div style="font-size:11px;color:var(--fg-muted);margin-top:4px">drag points · click line to add · right-click to remove</div>
+    <div class="btnrow" style="margin-top:4px"><button id="bCurveReset">reset (flat)</button></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">h reconstruction</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">the height axis can reconstruct two ways. <b>DCT cosine</b> (default) is the open-axis bridge — the topology-matched instrument of TB §15.1, cardinal at the leaves, the basis the chess export uses, so what you see is what exports. <b>RBF</b> is a legacy smoother: forgiving, but not a bridge instrument and approximate everywhere. θ is the bridge kernel either way.</div>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0"><input type="checkbox" id="cbHdct" checked style="accent-color:var(--accent)"> exact h (DCT cosine)</label>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">brush</div>
+    <select id="selBrush">
+      <option value="pull" selected>pull</option>
+      <option value="push">push</option>
+      <option value="grab">grab</option>
+      <option value="smooth">smooth</option>
+      <option value="sharpen">sharpen</option>
+      <option value="pinch">pinch</option>
+      <option value="spread">spread</option>
+      <option value="twist">twist</option>
+      <option value="bump">bump</option>
+      <option value="erase">erase</option>
+      <option value="block">block (lock)</option>
+      <option value="unblock">unblock</option>
+      <optgroup label="color"><option value="paint">paint</option></optgroup>
+      <optgroup label="draw"><option value="ridge">draw ridge</option><option value="groove">draw groove</option></optgroup>
+      <optgroup label="stamps"><option value="island">island</option><option value="pebble">pebble ripple</option><option value="crater">crater</option><option value="spike">spike</option><option value="dimple">dimple</option><option value="cone">cone</option></optgroup>
+    </select>
+    <div class="group row" style="margin-top:8px"><label>radius</label><input type="range" id="rBrushR" min="0.01" max="0.8" step="0.005" value="0.25"><span class="val" id="vBrushR">.25</span></div>
+    <div class="group row" style="border:none;padding:0"><label>strength</label><input type="range" id="rBrushS" min="0.005" max="0.08" step="0.005" value="0.02"><span class="val" id="vBrushS">.02</span></div>
+    <div class="group row" style="border:none;padding:0"><label title="soft wide edge → hard crisp edge">hardness</label><input type="range" id="rBrushHard" min="0" max="1" step="0.05" value="0"></div>
+    <div class="group row" style="border:none;padding:0"><label title="round dot → ridge (elongate in θ or h); left = tall ridge, right = wide ridge">shape</label><input type="range" id="rBrushShape" min="-1" max="1" step="0.1" value="0"></div>
+    <div class="menu-readout" style="margin-top:8px"><span class="k">point</span> <span id="rPt">—</span></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">symmetry &amp; mirror</div>
+    <select id="selSym">
+      <option value="none" selected>none</option>
+      <option value="2">2-fold</option>
+      <option value="3">3-fold</option>
+      <option value="4">4-fold</option>
+      <option value="6">6-fold</option>
+    </select>
+    <div class="group row" style="border:none;padding:0;margin-top:6px;gap:14px">
+      <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0" title="every stroke also fires at its left-right mirror across θ=0"><input type="checkbox" id="cbMirLR" style="accent-color:var(--accent)"> mirror L/R</label>
+      <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0" title="every stroke also fires at the antipodal position (θ→θ+π): front edit → back matches"><input type="checkbox" id="cbMirAnti" style="accent-color:var(--accent)"> opposite</label>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">paint color</div>
+    <div class="group row" style="border:none;padding:0;align-items:center">
+      <input type="color" id="paintColor" value="#d04040" style="width:30px;height:22px;border:1px solid var(--line);background:#0c0c10;cursor:pointer;padding:0" title="target color for the paint brush">
+      <span class="palette" style="display:flex;gap:3px;align-items:center" title="quick swatches (click to set target color)">
+        <span class="chip" data-c="#ffffff" style="width:16px;height:16px;background:#ffffff;border:1px solid var(--line);cursor:pointer;display:inline-block"></span>
+        <span class="chip" data-c="#000000" style="width:16px;height:16px;background:#000000;border:1px solid var(--line);cursor:pointer;display:inline-block"></span>
+        <span class="chip" data-c="#d04040" style="width:16px;height:16px;background:#d04040;border:1px solid var(--line);cursor:pointer;display:inline-block"></span>
+        <span class="chip" data-c="#3aa758" style="width:16px;height:16px;background:#3aa758;border:1px solid var(--line);cursor:pointer;display:inline-block"></span>
+        <span class="chip" data-c="#4080d0" style="width:16px;height:16px;background:#4080d0;border:1px solid var(--line);cursor:pointer;display:inline-block"></span>
+        <span class="chip" data-c="#e0c860" style="width:16px;height:16px;background:#e0c860;border:1px solid var(--line);cursor:pointer;display:inline-block"></span>
+      </span>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">display</div>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0"><input type="checkbox" id="cbSurface" checked style="accent-color:var(--accent)"> show surface</label>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0;margin-top:4px"><input type="checkbox" id="cbLeaves" style="accent-color:var(--accent)"> show leaves</label>
+    <div class="group row" style="border:none;padding:0;margin-top:4px"><label title="bounded-observation acuity — higher hides more sub-resolution leaves">acuity</label><input type="range" id="rLeafThresh" min="0.0005" max="0.02" step="0.0005" value="0.004"><span class="val" id="leafShown" style="min-width:60px;font-size:11px">—</span></div>
+    <div class="group row" style="border:none;padding:0;margin-top:4px"><label title="bounded-observer reconstruction window: leaves summed per axis around each query. lower = more local / faster (and more fisheye); higher = the full unbounded sum. exact at the leaves either way.">aperture</label><input type="range" id="rAperture" min="3" max="20" step="1" value="8"><span class="val" id="vAperture" style="min-width:28px">8</span></div>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0;margin-top:4px" title="the camera resolves the surface: distant view shows only coarse rungs, and each halving of distance fades in one more octave of detail (the §16 fly-in). turn off for full detail at any zoom while sculpting."><input type="checkbox" id="cbFlyin" style="accent-color:var(--accent)"> fly-in detail (resolve on approach)</label>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0;margin-top:4px"><input type="checkbox" id="cbWire" style="accent-color:var(--accent)"> show wireframe</label>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">draw profile (revolve)</div>
+    <div style="font-size:11px;color:var(--fg-muted);margin-bottom:6px">drag points · height up · radius right · click line to add · right-click point to remove</div>
+    <svg id="profSvg" viewBox="0 0 200 220" style="width:100%;height:auto;background:#0c0c10;border:1px solid var(--line);border-radius:4px;display:block;cursor:crosshair" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="btnrow" style="margin-top:6px">
+      <button id="bProfApply" title="add the revolved profile as a delta into the selected rung (preserves your other sculpting)">apply to rung</button>
+      <button id="bProfBase" title="replace the whole shape with this revolved profile (wipes all rungs)">set as base</button>
+    </div>
+    <div class="btnrow" style="margin-top:4px">
+      <button id="bProfFromShape" title="seed the profile from the current shape's rung-0 average radius per height">from shape</button>
+      <button id="bProfReset" title="reset to a straight cylinder profile">reset</button>
+    </div>
+    <div id="profMsg" style="font-size:11px;color:var(--fg-muted);min-height:14px;margin-top:4px"></div>
+  </div>
+
+  <div class="group">
+    <div class="menu-title">file</div>
+    <input type="file" id="fileInput" accept=".tvf3d,.txt" style="display:none">
+    <input type="file" id="imgInput" accept="image/*" style="display:none">
+    <div class="btnrow">
+      <button id="bExport">export .tvf3d (chess)</button>
+      <button id="bSTL">export .stl (mesh)</button>
+    </div>
+    <div class="btnrow">
+      <button id="bLoad">load .tvf3d</button>
+      <button id="bCopy">copy .tvf3d</button>
+    </div>
+    <div class="btnrow" style="margin-top:2px"><button id="bLoadImg">load grayscale image → field</button></div>
+    <div class="btnrow" style="margin-top:2px"><button id="bReset">reset</button></div>
+    <label class="ft-label" style="cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--fg-muted);text-transform:none;letter-spacing:0;margin-top:4px"><input type="checkbox" id="cbExFill" style="accent-color:var(--accent)"> fill height on export (stock-chess-safe box; off = height reaches chess)</label>
+    <div style="font-size:11px;color:var(--fg-muted);margin-top:4px"><b>.tvf3d</b> (chess): harmonic field; bakes radial warps (size/taper/bulge/envelope/twist), drops aspect &amp; bend (fixed-axis r(θ,h)). <b>.stl</b>: the exact visible mesh — warps, weld, all sheets — as triangles.</div>
+    <div id="fileMsg" style="font-size:11px;color:var(--fg-muted);min-height:14px"></div>
+  </div>
+</div>
+
+<div id="atomHud" style="position:fixed;left:12px;bottom:10px;z-index:6;background:rgba(8,8,10,.75);border:1px solid #26262c;border-radius:6px;padding:5px 10px;font-family:'Courier New',monospace;font-size:12px;color:#c8c8d0;pointer-events:none;line-height:1.5">
+  <span id="hudNum">read —</span><span id="hudRun" style="color:#8a8a92"></span><br>
+  <span id="hudLeaf" style="color:#6e6e7a">alt-click the surface to hold a leaf's registers</span>
+</div>
+
+<!-- ── ASSEMBLY ─────────────────────────────────────────────────────────────
+     One shape here is one surface round one vertical axis, r(θ,h): a lathe. That makes a
+     vase easy and a table impossible, since nothing can sit off the axis. The assembly is
+     the level above: each PART is a finished shape (a preset, or whatever you sculpted),
+     placed with its own position, rotation and size, and they are seen, saved and
+     exported as one object. Sculpting is unchanged; the assembly has its own scene. -->
+<div class="modebar">
+  <button id="modeSculpt" class="active" title="shape one part: the lathe editor">sculpt</button>
+  <button id="modeAssemble" title="put parts together into one object">assemble</button>
+  <button id="asmBack" hidden title="put the shape you are sculpting back into the assembly, in place of the part you opened">&#8617; update part</button>
+</div>
+<div class="asm-panel" id="asmPanel" hidden>
+  <div class="menu-title">assembly</div>
+  <div class="asm-note">Each part is one shape. Drag a part to slide it along the floor, alt-drag to lift it, shift-drag or drag empty space to look around.</div>
+  <div class="row"><button id="asmExTable" title="replace the assembly with an example table">example: table</button><button id="asmExSnowman" title="replace the assembly with an example snowman">example: snowman</button></div>
+  <div class="row"><select id="asmPreset" title="a preset to add as a new part"></select><button id="asmAddPreset" style="flex:none">+ add</button></div>
+  <div class="row"><button id="asmAdd" title="add the shape currently in the sculpt editor as a new part">+ sculpted shape</button></div>
+  <div class="asm-list" id="asmList"></div>
+  <div class="asm-sub" id="asmSel">
+    <div class="row"><input type="text" id="asmName" placeholder="part name" style="flex:1;min-width:0;cursor:text"><input type="color" id="asmColor" title="part colour" style="width:40px;padding:1px 2px"></div>
+    <div class="row"><label>x</label><input type="range" id="asmPX" min="-3" max="3" step="0.01" value="0"><span class="val" id="v_asmPX">0</span></div>
+    <div class="row"><label>y</label><input type="range" id="asmPY" min="-1" max="4" step="0.01" value="0"><span class="val" id="v_asmPY">0</span></div>
+    <div class="row"><label>z</label><input type="range" id="asmPZ" min="-3" max="3" step="0.01" value="0"><span class="val" id="v_asmPZ">0</span></div>
+    <div class="row"><label>turn x</label><input type="range" id="asmRX" min="-180" max="180" step="1" value="0"><span class="val" id="v_asmRX">0</span></div>
+    <div class="row"><label>turn y</label><input type="range" id="asmRY" min="-180" max="180" step="1" value="0"><span class="val" id="v_asmRY">0</span></div>
+    <div class="row"><label>turn z</label><input type="range" id="asmRZ" min="-180" max="180" step="1" value="0"><span class="val" id="v_asmRZ">0</span></div>
+    <div class="row"><label>size</label><input type="range" id="asmSize" min="0.05" max="4" step="0.01" value="1"><span class="val" id="v_asmSize">1</span></div>
+    <div class="row"><label>wide</label><input type="range" id="asmSX" min="0.05" max="6" step="0.01" value="1"><span class="val" id="v_asmSX">1</span></div>
+    <div class="row"><label>tall</label><input type="range" id="asmSY" min="0.05" max="6" step="0.01" value="1"><span class="val" id="v_asmSY">1</span></div>
+    <div class="row"><label>deep</label><input type="range" id="asmSZ" min="0.05" max="6" step="0.01" value="1"><span class="val" id="v_asmSZ">1</span></div>
+    <div class="row"><button id="asmFloor" title="lower or raise the part so it rests on the floor">to floor</button><button id="asmDup">duplicate</button><button id="asmDel">delete</button></div>
+    <div class="row"><button id="asmEdit" title="open this part in the sculpt editor; &#8617; update part brings it back">edit in sculpt</button></div>
+  </div>
+  <div class="asm-sub">
+    <div class="row"><button id="asmSave" title="download the assembly as a .3da file">save</button><button id="asmLoad" title="open a saved .3da assembly">open</button><button id="asmSTL" title="the whole assembly as one .stl mesh">export .stl</button></div>
+    <div class="row"><button id="asmClear">clear all</button></div>
+    <input type="file" id="asmFile" accept=".3da,.json" style="display:none">
+    <div class="asm-note" id="asmMsg"></div>
+  </div>
+</div>
+
+<div class="canvas-wrap" id="wrap">
+  <canvas id="gl"></canvas>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+const TAU=Math.PI*2, PI=Math.PI;
+const $=id=>document.getElementById(id);
+const RUNG_COLORS=['#d4a052','#5a9fd4','#7ac57a','#d96e5b','#b58dd9','#d99cd9'];
+
+// ── three.js scene ──
+const cv=$('gl');
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(45,1,0.01,100);
+let cT=1.15,cP=0.5,cR=3.4;
+const CR_NEAR=1.6;            // closest zoom = full detail; each halving of distance reveals one more rung (dyadic fly-in)
+let _meshFlyKey='';           // throttle: rebuild the mesh only when the resolved fly-in depth changes
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+addEventListener('resize',resize);
+scene.add(new THREE.AmbientLight(0xffffff,0.65));
+const dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(0.6,1,0.4);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0x88aaff,0.3);dl2.position.set(-0.5,0.3,-0.6);scene.add(dl2);
+{const g=new THREE.Mesh(new THREE.CircleGeometry(1.3,48),new THREE.MeshBasicMaterial({color:0x141a22,transparent:true,opacity:0.5,side:THREE.DoubleSide}));
+ g.rotation.x=-PI/2;g.position.y=-0.02;scene.add(g);}
+
+// ════════════════════════════════════════════════════════════════════
+// 2D RESIDUAL CASCADE on r(theta,h) — the multiresolution refinement of TB §14.
+// theta CLOSED (the even-N shifted bridge kernel, §4.1), h OPEN (cosine kernel,
+// the topology-matched open-axis instrument of §15.1; RBF kept as legacy smoother).
+// Rungs are DYNAMIC (add with +). Each rung r: Nt x Nh leaves doubling per rung,
+// storing the residual coarser rungs missed. Honesty note (§14): these per-rung
+// residuals are the INTERPOLATORY (oblique) projection, not the orthogonal one —
+// exact at every leaf, but an edit made while coarsened writes through to finer
+// rungs in that region. The clean per-rung detail layering wants the orthogonal
+// decomposition (two-scale coefficients now supplied in §14); upgrade path, not done.
+// ════════════════════════════════════════════════════════════════════
+const state={ baseT:8, baseH:6, rungs:4, selectedRung:3, cascade:[], sheets:[], activeSheet:0, soloSheet:false, hkernel:'dct', aperture:8, flyin:false, weld:{on:false,rim:0.9,floor:0.2}, combine:{op:'sphere',scale:0.35,hc:0.5,hw:0.25}, ss:{m:4,n:8,ext:0.7,nTop:8}, box:{w:0.26,d:0.26,ht:0.72,cs:0.06}, clip:{on:false,lo:0,hi:1,soft:0.06}, exFill:false, hRun:1, selLeaf:null };
+function rungDims(r){ return {Nt: state.baseT*(1<<r), Nh: state.baseH*(1<<r)}; }
+function leafTheta(j,Nt){ return (j+0.5)*TAU/Nt; }
+function leafH(i,Nh){ return (i+0.5)/Nh; }
+// REFERENCE (angle-chart) form of the even-N shifted bridge kernel, TB §4.1 —
+// kept for documentation and tests; the operation runs the slope-chart rows below (§11).
+function kernTheta(dphi,N){ let p=dphi; while(p>PI)p-=TAU; while(p<=-PI)p+=TAU;
+  if(Math.abs(p)<1e-12)return 1; const den=N*Math.tan(p/2); if(Math.abs(den)<1e-12)return 1; return Math.sin(N*p/2)/den; }
+function kernH(dh,N){ const u=dh*N; return Math.exp(-u*u*0.5); }
+// DCT-II cardinal interpolant for the OPEN h-axis: the exact open-axis bridge (cos-series interpolation
+// through midpoint leaf nodes). δ at nodes, partition of unity, exact on {cos(nπh)} — the same basis the
+// chess export uses. dDir(x)=1+2Σ_{n=1}^{N-1}cos(nπx)=sin((N-½)πx)/sin(πx/2). Oscillates / goes negative
+// (a cardinal kernel, not a smoother) — so it is NOT early-outed like the RBF.
+function dDir(x,N){ const sx=Math.sin(PI*x/2); if(Math.abs(sx)<1e-9)return 2*N-1; return Math.sin((N-0.5)*PI*x)/sx; }
+function kernHdct(h,hi,N){ return (dDir(h-hi,N)+dDir(h+hi,N))/(2*N); }
+function whFor(h,i,Nh){ return state.hkernel==='dct' ? kernHdct(h,leafH(i,Nh),Nh) : kernH(h-leafH(i,Nh),Nh); }   // reference-only; loops use the rows below
+
+// ── slope-chart evaluation (TB §11; §15.3 record standard: zero trig in the leaf loop) ──
+// Angles are held as unit pairs z=(cos,sin) advanced by complex multiplication; trig
+// appears only at the query boundary (seeding a row — the query arrives as an angle,
+// the lone permitted site) and in cached per-N step setup. w=z^N advances by exactly
+// −1 per leaf (even N), so the kernel loop is multiplication throughout.
+const _stepT={}, _stepH={}, _stepW={};
+function _tStep(Nt){ let s=_stepT[Nt]; if(!s){ const a=PI/Nt; s=_stepT[Nt]=[Math.cos(a),-Math.sin(a)]; } return s; }
+function _hSteps(Nh){ let s=_stepH[Nh]; if(!s){ const aA=(Nh-0.5)*PI/Nh, aB=PI/(2*Nh);
+  s=_stepH[Nh]={AmR:Math.cos(aA),AmI:-Math.sin(aA),BmR:Math.cos(aB),BmI:-Math.sin(aB),
+                ApR:Math.cos(aA),ApI: Math.sin(aA),BpR:Math.cos(aB),BpI: Math.sin(aB)}; } return s; }
+function _wStep(HW){ let s=_stepW[HW]; if(!s){ const a=PI/HW; s=_stepW[HW]=[Math.cos(a),Math.sin(a)]; } return s; }
+let _rowT=new Float64Array(64), _rowH=new Float64Array(64), _rowWT=new Float64Array(64), _rowWH=new Float64Array(64);
+function _ensure(len){ if(_rowT.length<len){_rowT=new Float64Array(len);_rowWT=new Float64Array(len);}
+  if(_rowH.length<len){_rowH=new Float64Array(len);_rowWH=new Float64Array(len);} }
+// θ kernel over a contiguous leaf window (unwrapped j is fine: K is 2π-periodic for even N)
+function thetaRow(theta,Nt,j0,len,out){
+  const phi0=theta-leafTheta(j0,Nt);
+  let zr=Math.cos(phi0/2), zi=Math.sin(phi0/2);           // boundary conversion
+  let wr=1, wi=0, br=zr, bi=zi, n=Nt;                     // w=z^Nt, multiplication only
+  while(n>0){ if(n&1){ const t=wr*br-wi*bi; wi=wr*bi+wi*br; wr=t; } const t=br*br-bi*bi; bi=2*br*bi; br=t; n>>=1; }
+  const s=_tStep(Nt), sr=s[0], si=s[1];
+  for(let k=0;k<len;k++){
+    out[k]=Math.abs(zi)<1e-9 ? 1 : wi*zr/(Nt*zi);
+    const t=zr*sr-zi*si; zi=zr*si+zi*sr; zr=t; wr=-wr; wi=-wi;
+  }
+}
+// DCT-II cardinal row over a contiguous h window: dDir(x)=sin((N−½)πx)/sin(πx/2),
+// both arguments advanced as pairs; the mirror term dDir(h+h_i) likewise.
+function dctRow(h,Nh,i0,len,out){
+  const x0=h-leafH(i0,Nh), y0=h+leafH(i0,Nh), c=(Nh-0.5)*PI;
+  let aMr=Math.cos(c*x0), aMi=Math.sin(c*x0), bMr=Math.cos(PI*x0/2), bMi=Math.sin(PI*x0/2);
+  let aPr=Math.cos(c*y0), aPi=Math.sin(c*y0), bPr=Math.cos(PI*y0/2), bPi=Math.sin(PI*y0/2);
+  const s=_hSteps(Nh), lim=2*Nh-1;
+  for(let k=0;k<len;k++){
+    const dM=Math.abs(bMi)<1e-9 ? lim : aMi/bMi;
+    const dP=Math.abs(bPi)<1e-9 ? lim : aPi/bPi;
+    out[k]=(dM+dP)/(2*Nh);
+    let t=aMr*s.AmR-aMi*s.AmI; aMi=aMr*s.AmI+aMi*s.AmR; aMr=t;
+    t=bMr*s.BmR-bMi*s.BmI; bMi=bMr*s.BmI+bMi*s.BmR; bMr=t;
+    t=aPr*s.ApR-aPi*s.ApI; aPi=aPr*s.ApI+aPi*s.ApR; aPr=t;
+    t=bPr*s.BpR-bPi*s.BpI; bPi=bPr*s.BpI+bPi*s.BpR; bPr=t;
+  }
+}
+// Hann taper row (the window is part of the cull, not the kernel — same accounting):
+// x_k=(w0+k−c)/HW, taper=x∈(−1,1)?½(1+cos πx):0, cos advanced as a pair.
+function hannRow(c,w0,len,HW,out){
+  const x0=(w0-c)/HW;
+  let tr=Math.cos(PI*x0), ti=Math.sin(PI*x0);             // boundary conversion
+  const s=_wStep(HW), sr=s[0], si=s[1];
+  for(let k=0;k<len;k++){
+    const x=x0+k/HW;
+    out[k]=(x<=-1||x>=1) ? 0 : 0.5*(1+tr);
+    const t=tr*sr-ti*si; ti=tr*si+ti*sr; tr=t;
+  }
+}
+function newCascade(){ const arr=[];
+  for(let r=0;r<state.rungs;r++){const {Nt,Nh}=rungDims(r);
+    arr.push({Nt,Nh,
+      v:new Float64Array(Nt*Nh),
+      cR:new Float64Array(Nt*Nh), cG:new Float64Array(Nt*Nh), cB:new Float64Array(Nt*Nh),     // per-leaf RGB (TB §12: color by channel — three scalar fields on the same leaves)
+      blocked:new Uint8Array(Nt*Nh)});}
+  const r0=arr[0]; for(let k=0;k<r0.Nt*r0.Nh;k++){r0.cR[k]=0.7; r0.cG[k]=0.7; r0.cB[k]=0.7;}   // seed rung-0 gray so the surface isn't black
+  return arr; }
+// initCascade rebuilds the ACTIVE sheet only (presets / reproject replace the active sheet's shape). Sheets share rung depth.
+function initCascade(){ const a=newCascade(); state.sheets[state.activeSheet]=a; state.cascade=a; }
+// Bounded observer: the reconstruction sums only the K leaves in view — a cyclic
+// window in θ (closed) and a clamped window in h (open) — never the completed grid;
+// N enters nothing (TB R5, §16). This finite window is the APPROXIMATE cull (TB §10.2
+// boundary; foundational §12.4): exactness between nodes is traded for boundedness.
+// Each leaf is Hann-tapered so membership changes at zero weight as the query sweeps
+// (no faceting); the stress record prices tapering at a few percent versus the exact
+// untapered sum — kept deliberately, for sweep continuity, and an axis fully covered
+// by the window uses the exact untapered sum. The kernels are CARDINAL at the nodes
+// and the taper is 1 there, so the fit stays exact at the finest rung's leaves
+// (DCT-h); only the between-node interpolation tightens. Cost is O(aperture²) per
+// query — the held set, not the projected system's extent.
+function rungEval(rg,theta,h){ const {Nt,Nh,v}=rg; let num=0,den=0; const dct=state.hkernel==='dct';
+  const HW=state.aperture, fullT=(2*HW+1>=Nt), fullH=(2*HW+1>=Nh);
+  const ct=theta*Nt/TAU-0.5, ch=h*Nh-0.5;
+  const i0=fullH?0:Math.max(0,Math.floor(ch-HW)), i1=fullH?Nh-1:Math.min(Nh-1,Math.ceil(ch+HW));
+  const j0=fullT?0:Math.floor(ct-HW), j1=fullT?Nt-1:Math.ceil(ct+HW);
+  const lenT=j1-j0+1, lenH=i1-i0+1; _ensure(Math.max(lenT,lenH));
+  thetaRow(theta,Nt,j0,lenT,_rowT);
+  if(dct) dctRow(h,Nh,i0,lenH,_rowH);
+  if(!fullT) hannRow(ct,j0,lenT,HW,_rowWT);
+  if(!fullH) hannRow(ch,i0,lenH,HW,_rowWH);
+  for(let i=i0;i<=i1;i++){ const thh=fullH?1:_rowWH[i-i0]; if(thh===0)continue;
+    const wh=(dct?_rowH[i-i0]:kernH(h-leafH(i,Nh),Nh))*thh; if(!dct && wh<1e-4)continue;
+    const base=i*Nt;
+    for(let j=j0;j<=j1;j++){ const tt=fullT?1:_rowWT[j-j0]; if(tt===0)continue;
+      const jj=fullT?j:((j%Nt)+Nt)%Nt;
+      const w=_rowT[j-j0]*wh*tt; num+=v[base+jj]*w; den+=w; } }
+  return Math.abs(den)<1e-12?0:num/den; }
+// color reconstruction: same bridge × h-kernel × taper as radius, per channel — the
+// separable extension of TB §12 (color by channel: three scalar fields on one leaf set)
+function rungEvalColor(rg,theta,h){ const {Nt,Nh,cR,cG,cB}=rg; let nR=0,nG=0,nB=0,den=0; const dct=state.hkernel==='dct';
+  const HW=state.aperture, fullT=(2*HW+1>=Nt), fullH=(2*HW+1>=Nh);
+  const ct=theta*Nt/TAU-0.5, ch=h*Nh-0.5;
+  const i0=fullH?0:Math.max(0,Math.floor(ch-HW)), i1=fullH?Nh-1:Math.min(Nh-1,Math.ceil(ch+HW));
+  const j0=fullT?0:Math.floor(ct-HW), j1=fullT?Nt-1:Math.ceil(ct+HW);
+  const lenT=j1-j0+1, lenH=i1-i0+1; _ensure(Math.max(lenT,lenH));
+  thetaRow(theta,Nt,j0,lenT,_rowT);
+  if(dct) dctRow(h,Nh,i0,lenH,_rowH);
+  if(!fullT) hannRow(ct,j0,lenT,HW,_rowWT);
+  if(!fullH) hannRow(ch,i0,lenH,HW,_rowWH);
+  for(let i=i0;i<=i1;i++){ const thh=fullH?1:_rowWH[i-i0]; if(thh===0)continue;
+    const wh=(dct?_rowH[i-i0]:kernH(h-leafH(i,Nh),Nh))*thh; if(!dct && wh<1e-4)continue;
+    const base=i*Nt;
+    for(let j=j0;j<=j1;j++){ const tt=fullT?1:_rowWT[j-j0]; if(tt===0)continue;
+      const jj=fullT?j:((j%Nt)+Nt)%Nt;
+      const w=_rowT[j-j0]*wh*tt; const k=base+jj; nR+=cR[k]*w; nG+=cG[k]*w; nB+=cB[k]*w; den+=w; } }
+  if(Math.abs(den)<1e-12) return [0,0,0];
+  return [nR/den, nG/den, nB/den]; }
+function evalUpTo(theta,h,R){ let t=0; for(let r=0;r<=R&&r<state.rungs;r++)t+=rungEval(state.cascade[r],theta,h); return t; }
+function evalColorUpTo(theta,h,R){ let r=0,g=0,b=0;
+  for(let s=0;s<=R&&s<state.rungs;s++){ const c=rungEvalColor(state.cascade[s],theta,h); r+=c[0]; g+=c[1]; b+=c[2]; }
+  return [r,g,b]; }
+function evalFull(theta,h){ return evalUpTo(theta,h,state.rungs-1); }
+// Fractional depth: sum rungs 0..floor(Rf) fully + the next rung faded in by frac(Rf),
+// so an octave of detail blends in smoothly as the camera approaches (no LOD popping).
+function evalUpToF(theta,h,Rf){ const R0=Math.floor(Rf), f=Rf-R0; let t=0;
+  for(let r=0;r<=R0 && r<state.rungs;r++) t+=rungEval(state.cascade[r],theta,h);
+  if(f>1e-4 && R0+1<state.rungs) t+=f*rungEval(state.cascade[R0+1],theta,h);
+  return t; }
+function evalColorUpToF(theta,h,Rf){ const R0=Math.floor(Rf), f=Rf-R0; let r=0,g=0,b=0;
+  for(let s=0;s<=R0 && s<state.rungs;s++){ const c=rungEvalColor(state.cascade[s],theta,h); r+=c[0]; g+=c[1]; b+=c[2]; }
+  if(f>1e-4 && R0+1<state.rungs){ const c=rungEvalColor(state.cascade[R0+1],theta,h); r+=f*c[0]; g+=f*c[1]; b+=f*c[2]; }
+  return [r,g,b]; }
+// The finest rung the camera can resolve from its current distance — one octave per
+// halving of distance (§16 fly-in: approach the surface and finer structure appears).
+function flyinDepth(){ return Math.max(0, Math.min(state.rungs-1, (state.rungs-1) - Math.log2(cR/CR_NEAR))); }
+function clipWin(h){ const c=state.clip; if(!c.on) return 1; if(h<=c.lo||h>=c.hi) return 0;
+  const m=Math.max(1e-4,c.soft||0); let t=Math.min((h-c.lo)/m,(c.hi-h)/m); t=Math.max(0,Math.min(1,t));
+  return t*t*(3-2*t); }   // smoothstep ramp at each cap → smooth h-profile → no Gibbs ridges in the cosine-h (chess) reconstruction
+function projectField(fn){ initCascade();
+  for(let r=0;r<state.rungs;r++){ const {Nt,Nh,v}=state.cascade[r];
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){ const th=leafTheta(j,Nt),h=leafH(i,Nh);
+      let prev=0; for(let s=0;s<r;s++)prev+=rungEval(state.cascade[s],th,h); v[i*Nt+j]=fn(th,h)-prev; } } }
+
+// ── presets ──
+const wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a));
+const PRESETS={
+  cylinder:(th,h)=>0.22,
+  pawn:(th,h)=>Math.max(0.05,0.10+0.14*Math.exp(-((h-0.12)**2)/0.02)+0.09*Math.exp(-((h-0.55)**2)/0.03)+0.12*Math.exp(-((h-0.85)**2)/0.012)),
+  rook:(th,h)=>{ let r=0.13; if(h<0.18)r=0.20-0.3*h; if(h>0.8)r=0.19; return Math.max(0.08,Math.min(0.22,r)); },
+  knight:(th,h)=>{ let r=0.16-0.05*h; const dM=wrapA(th-0);
+    r+=0.13*Math.exp(-(dM*dM)/(2*0.45*0.45))*Math.exp(-((h-0.72)**2)/(2*0.10*0.10));
+    r+=0.05*Math.exp(-(dM*dM)/(2*0.5*0.5))*Math.exp(-((h-0.88)**2)/(2*0.06*0.06));
+    const dMane=wrapA(th-PI); r+=0.09*Math.exp(-(dMane*dMane)/(2*0.55*0.55))*Math.exp(-((h-0.6)**2)/(2*0.22*0.22));
+    for(const ea of [2.4,3.9]){const d=wrapA(th-ea); r+=0.04*Math.exp(-(d*d)/(2*0.2*0.2))*Math.exp(-((h-0.95)**2)/(2*0.04*0.04));}
+    return Math.max(0.04,r); },
+  sphere:(th,h)=>Math.max(0.04, 0.26*Math.sin(PI*h)),
+  ball:(th,h)=>0.26*Math.sqrt(Math.max(0,1-(2*h-1)**2)),        // a round ball (the profile of a circle; sphere above comes to points)
+  egg:(th,h)=>Math.max(0.04, 0.26*Math.pow(Math.sin(PI*h*0.92+0.08),1.4)),
+  cone:(th,h)=>Math.max(0.04, 0.26*(1-h)+0.04),
+  diamond:(th,h)=>Math.max(0.04, 0.30*(1-Math.abs(2*h-1))+0.03),
+  vase:(th,h)=>Math.max(0.05, 0.10+0.13*Math.exp(-((h-0.08)**2)/0.01)+0.16*Math.pow(Math.sin(PI*Math.min(1,h*1.05)),1.6)-0.06*Math.exp(-((h-0.45)**2)/0.02)),
+  thin_rect:(th,h)=>{ const A=0.34,B=0.13,N=4;                              // wide thin rounded-rectangle slab (card/wallet form)
+    const cs=1/Math.pow(Math.pow(Math.abs(Math.cos(th))/A,N)+Math.pow(Math.abs(Math.sin(th))/B,N),1/N);
+    const u=2*Math.abs(h-0.5)/0.18, env=1-Math.pow(Math.max(0,Math.min(1,u)),4);
+    return Math.max(0.004, cs*env); },
+  thin_square:(th,h)=>{ const A=0.25,N=4;                                   // thin square slab (coin/disk form)
+    const cs=1/Math.pow(Math.pow(Math.abs(Math.cos(th))/A,N)+Math.pow(Math.abs(Math.sin(th))/A,N),1/N);
+    const u=2*Math.abs(h-0.5)/0.18, env=1-Math.pow(Math.max(0,Math.min(1,u)),4);
+    return Math.max(0.004, cs*env); },
+  supershape:(th,h)=>{ const s=state.ss, m=s.m;
+    const n=(curve.active&&curve.target==='corner') ? (0.3+7.7*curveVal(h))   // corner exponent driven by the profile curve (height-morph the silhouette)
+            : Math.max(0.2, s.n+(s.nTop-s.n)*h);                              // else: linear base→top loft (sharp base → round top, etc.)
+    const t=m*th/4;                                                                  // m = rotational symmetry (corners/petals); square is m=4. size/aspect/twist are global.
+    const e1=Math.pow(Math.abs(Math.cos(t)), n);                                     // n = shape exponent: ~2 round, large → sharp polygon, <1 → pinched star
+    const e2=Math.pow(Math.abs(Math.sin(t)), n);
+    let rr=Math.pow(e1+e2, -1/n); if(!isFinite(rr)) rr=0.04/0.26;
+    const half=s.ext*0.5, d=Math.abs(h-0.5), sh=(d-half)/0.03;                        // flat-topped prism of total height s.ext; 0.03 shoulder → crisp flat caps
+    const env = d<=half ? 1 : (sh>=1 ? 0 : 1-sh);                                      // outside the body, radius collapses toward the axis — no top/bottom stubs
+    return Math.max(0.004, Math.min(0.42, 0.26*rr)*env); },
+  corner_test:(th,h)=>{ const b=state.box;                                  // ◆ CORNER STRESS TEST — adjustable box (width · depth · height). Caps are the analytic render clip (state.clip) → no bleed; the 4 vertical edges run through the cascade (the actual Gibbs test).
+    const cs=1/Math.max(Math.abs(Math.cos(th))/b.w, Math.abs(Math.sin(th))/b.d);   // rectangle cross-section: half-width b.w along x (θ=0), half-depth b.d along z (θ=90°); cusps at the 4 vertical edges. Height = clip window.
+    return Math.max(0.004, Math.min(0.5, cs)); },
+  square:(th,h)=>{ const A=0.25;                                            // TRUE square slab — sharp corners (the N→∞ limit of thin_square: max() not p-norm)
+    const cs=A/Math.max(Math.abs(Math.cos(th)),Math.abs(Math.sin(th)));      // r(θ)=A/max(|cosθ|,|sinθ|): cusps at the diagonals θ=±45°,±135°
+    const u=2*Math.abs(h-0.5)/0.18, env=1-Math.pow(Math.max(0,Math.min(1,u)),8);
+    return Math.max(0.004, cs*env); },
+  rect:(th,h)=>{ const A=0.34,B=0.13;                                       // TRUE rectangle slab — sharp corners (sharp limit of thin_rect)
+    const cs=1/Math.max(Math.abs(Math.cos(th))/A,Math.abs(Math.sin(th))/B); // r(θ)=1/max(|cosθ|/A,|sinθ|/B): hit whichever face first
+    const u=2*Math.abs(h-0.5)/0.18, env=1-Math.pow(Math.max(0,Math.min(1,u)),8);
+    return Math.max(0.004, cs*env); },
+  cube:(th,h)=>{ const A=0.28;                                              // TRUE cube — sharp vertical edges (max in θ) + steep flat top/bottom
+    const cs=A/Math.max(Math.abs(Math.cos(th)),Math.abs(Math.sin(th)));
+    const u=2*Math.abs(h-0.5)/0.56, env=1-Math.pow(Math.max(0,Math.min(1,u)),12);
+    return Math.max(0.004, cs*env); },
+  rounded_cube:(th,h)=>{ const A=0.30,N=4;                                  // cube with rounded edges (w:d:h ≈ 1:1:1, verified)
+    const cs=1/Math.pow(Math.pow(Math.abs(Math.cos(th))/A,N)+Math.pow(Math.abs(Math.sin(th))/A,N),1/N);
+    const u=2*Math.abs(h-0.5)/0.55, env=1-Math.pow(Math.max(0,Math.min(1,u)),6);
+    return Math.max(0.004, cs*env); },
+  gem:(th,h)=>Math.max(0.04, (0.24*Math.sin(PI*h)+0.03)*(1+0.18*Math.cos(6*th))),
+  fluted:(th,h)=>Math.max(0.05, 0.20*(1+0.12*Math.cos(10*th))),
+  brilliant:(th,h)=>{ const env = h<=0.55 ? 0.32*(h/0.55) : 0.32 - (h-0.55)/0.45*0.13;
+    return Math.max(0.04, env*(1 + 0.15*Math.cos(8*th))); },                          // round brilliant: 8-fold, pointed culet, wide girdle, tabular crown
+  emerald:(th,h)=>{ const env = 0.22*Math.pow(Math.sin(PI*(h*0.8+0.1)), 0.6);
+    return Math.max(0.04, env*(1 + 0.20*Math.cos(4*th))); },                          // emerald cut: 4-fold rectangular, tapered ends
+  quartz:(th,h)=>{ const env = h<0.7 ? 0.22 : 0.22*(1 - (h-0.7)/0.30);
+    return Math.max(0.04, env*(1 + 0.10*Math.cos(6*th))); },                          // quartz crystal: 6-fold hex prism + pyramidal point on top
+  twisted:(th,h)=>Math.max(0.04, 0.20*(1 + 0.18*Math.cos(6*th + TAU*h))),              // helical 6-fold: facets rotate one full turn up the height
+  star:(th,h)=>{ const peak=Math.pow((1+Math.cos(5*th))/2, 3); const env=0.28*(1-h*0.85);
+    return Math.max(0.04, env*(0.55 + 0.45*peak)); },                                  // 5-pointed star tapered to spire
+  spiked:(th,h)=>{ const env=0.20*Math.sin(PI*h); const sp=Math.pow(Math.max(0,Math.cos(6*th)),2);
+    return Math.max(0.04, env*(1 + 0.40*sp)); },                                       // sphere with 6 sharp narrow spikes
+  bishop:(th,h)=>{ let r=0.09+0.13*Math.exp(-((h-0.1)**2)/0.012)+0.10*Math.pow(Math.sin(PI*Math.min(1,h)),1.3);
+    const slit=wrapA(th-0); r-=0.05*Math.exp(-(slit*slit)/(2*0.12*0.12))*Math.exp(-((h-0.82)**2)/(2*0.06*0.06)); return Math.max(0.05,r); },
+  queen:(th,h)=>{ let r=0.10+0.13*Math.exp(-((h-0.1)**2)/0.012)+0.09*Math.pow(Math.sin(PI*Math.min(1,h*0.95)),1.2);
+    if(h>0.82) r+=0.05*Math.max(0,Math.cos(8*th))*((h-0.82)/0.18); return Math.max(0.05,r); },
+};
+
+// ── mesh ──
+const MT=72, MH=56, HSCALE=1.1;
+// ── global transforms applied to EVERY object (presets + sculpted), non-destructive display-geometry scale.
+//    size = uniform radial scale · aspect = x/z anisotropy (squash one horizontal axis) · height = vertical scale.
+//    Generator params (supershape symmetry/corner/extrude) bake into the cascade; these do not — they scale the result. ──
+const xform={size:1, aspect:1, height:1, taper:0, bulge:0, twist:0, bend:0};
+// ── profile curve: a drawn height curve bound to a parameter (radius envelope or twist), applied at render
+//    through toXYZ like the deformers. pts are [h, v] with v in [0,1]; v=0.5 is neutral (no effect). ──
+const curve={active:false, target:'envelope', pts:[[0,0.5],[1,0.5]]};
+function curveVal(h){ const p=curve.pts; if(!p.length)return 0.5;
+  if(h<=p[0][0])return p[0][1]; if(h>=p[p.length-1][0])return p[p.length-1][1];
+  let i=0; while(i<p.length-1 && p[i+1][0]<h) i++;
+  const [h0,v0]=p[i],[h1,v1]=p[Math.min(i+1,p.length-1)]; const t=h1>h0?(h-h0)/(h1-h0):0; return v0+(v1-v0)*t; }
+function toXYZ(rad,th,h){
+  const cv = curve.active ? curveVal(h) : 0.5;
+  const envC = (curve.active && curve.target==='envelope') ? (0.2+1.6*cv) : 1;          // radius-envelope curve (v=0.5 neutral → ×1)
+  const twTurns = (curve.active && curve.target==='twist') ? (-2+4*cv) : xform.twist*h; // twist curve (turns) overrides the linear twist slider when bound
+  const a = th + twTurns*TAU;
+  const m = Math.max(0,(1+xform.taper*(2*h-1))*(1+xform.bulge*Math.sin(PI*h)));         // taper / bulge
+  // The run: ONE register under every leaf. The stored field is registers (rises);
+  // this division — here, at the display chart, once per point — is the only place
+  // the resolved radius exists. Home is the axis: every h write slides every point
+  // along its ray toward/away from it, and no read moves.
+  const r = (rad/(state.hRun||1))*m*envC;
+  const bx = xform.bend*0.8*h*h;                                                        // bend
+  return [ r*Math.cos(a)*xform.size + bx, h*HSCALE*xform.height, r*Math.sin(a)*xform.size*xform.aspect ];
+}
+let mesh=null, geom=null, wireMesh=null;
+let sheetMeshes=[], vesselMesh=null, vesselGeom=null;
+function buildSheetMeshes(){                                       // one mesh per overflow sheet; rebuilt when sheet count changes
+  for(const sm of sheetMeshes){ scene.remove(sm.mesh); sm.geom.dispose(); sm.mesh.material.dispose(); }
+  sheetMeshes=[];
+  const idx=[]; for(let i=0;i<MH-1;i++)for(let j=0;j<MT;j++){ const a=i*MT+j,b=i*MT+(j+1)%MT,c=(i+1)*MT+j,d=(i+1)*MT+(j+1)%MT; idx.push(a,c,b,b,c,d); }
+  for(let s=0;s<state.sheets.length;s++){
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(MT*MH*3),3));
+    g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(MT*MH*3),3));
+    g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(MT*MH*3),3));
+    g.setIndex(idx.slice());
+    const mat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:0.62,metalness:0.05,side:THREE.DoubleSide});
+    const m=new THREE.Mesh(g,mat); scene.add(m); sheetMeshes.push({geom:g,mesh:m});
+  }
+  mesh=sheetMeshes[state.activeSheet].mesh; geom=sheetMeshes[state.activeSheet].geom;   // mesh/geom track the ACTIVE sheet (picking, wireframe)
+  if(!wireMesh){ const wmat=new THREE.MeshBasicMaterial({color:0x2bb6a6,wireframe:true,transparent:true,opacity:0.5});
+    wireMesh=new THREE.Mesh(geom,wmat); wireMesh.visible=$('cbWire')&&$('cbWire').checked; scene.add(wireMesh); }
+  else wireMesh.geometry=geom;
+}
+function applySurfaceVis(){ const welded=state.weld.on && state.sheets.length>=2;
+  const on=$('cbSurface')?$('cbSurface').checked:true;       // show-surface hides via material (opacity 0) so the raycaster still picks the active sheet
+  for(let s=0;s<sheetMeshes.length;s++){ const m=sheetMeshes[s].mesh;
+    if(welded){ m.visible=true; m.material.transparent=true; m.material.opacity=0; m.material.depthWrite=false; m.material.needsUpdate=true; continue; }  // welded: raw shells hidden but still raycastable for editing
+    m.visible = !(state.soloSheet && s!==state.activeSheet);                             // solo: hide other sheets to inspect/edit the active one
+    m.material.transparent=!on; m.material.opacity=on?1:0; m.material.depthWrite=on; m.material.needsUpdate=true; } }
+// ── rim-weld: join sheet 0 (outer wall) and sheet 1 (inner cavity) into one closed vessel —
+//    base disk → outer wall → rim lip → inner wall → floor. Built fresh from the live sheet fields,
+//    through toXYZ so it honors every transform/deformer. Raw shells stay editable underneath. ──
+function buildVessel(){
+  const w=state.weld, can = w.on && state.sheets.length>=2;
+  if(!can){ if(vesselMesh) vesselMesh.visible=false; return; }
+  const NB=8, NOW=40, NR=4, NIW=40, NF=8, NS=NB+NOW+NR+NIW+NF;
+  const rim=Math.max(0.5,Math.min(1,w.rim)), floor=Math.max(0,Math.min(rim-0.04,w.floor));
+  const saved=state.cascade;
+  const oR=[], iR=[];
+  const oC=[], iC=[], cl=x=>Math.max(0,Math.min(1,x));
+  state.cascade=state.sheets[0]; for(let j=0;j<MT;j++){ const th=j/MT*TAU; const row=new Float64Array(MH), cr=new Float32Array(MH*3);
+    for(let i=0;i<MH;i++){ const h=i/(MH-1); row[i]=Math.max(0.02,evalUpTo(th,h,state.rungs-1)); const c=evalColorUpTo(th,h,state.rungs-1); cr[i*3]=cl(c[0]);cr[i*3+1]=cl(c[1]);cr[i*3+2]=cl(c[2]); } oR.push(row); oC.push(cr); }
+  state.cascade=state.sheets[1]; for(let j=0;j<MT;j++){ const th=j/MT*TAU; const row=new Float64Array(MH), cr=new Float32Array(MH*3);
+    for(let i=0;i<MH;i++){ const h=i/(MH-1); row[i]=Math.max(0.0,evalUpTo(th,h,state.rungs-1)); const c=evalColorUpTo(th,h,state.rungs-1); cr[i*3]=cl(c[0]);cr[i*3+1]=cl(c[1]);cr[i*3+2]=cl(c[2]); } iR.push(row); iC.push(cr); }
+  state.cascade=saved;
+  const rAt=(row,h)=>{ const x=Math.max(0,Math.min(MH-1,h*(MH-1))); const i0=Math.floor(x),i1=Math.min(MH-1,i0+1),fr=x-i0; return row[i0]*(1-fr)+row[i1]*fr; };
+  const cAt=(cr,h,out)=>{ const x=Math.max(0,Math.min(MH-1,h*(MH-1))); const i0=Math.floor(x),i1=Math.min(MH-1,i0+1),fr=x-i0;
+    out[0]=cr[i0*3]*(1-fr)+cr[i1*3]*fr; out[1]=cr[i0*3+1]*(1-fr)+cr[i1*3+1]*fr; out[2]=cr[i0*3+2]*(1-fr)+cr[i1*3+2]*fr; };
+  const verts=new Float32Array(MT*NS*3), cols=new Float32Array(MT*NS*3); const ct=[0,0,0], co=[0,0,0], ci=[0,0,0];
+  for(let j=0;j<MT;j++){ const th=j/MT*TAU, oRow=oR[j], iRow=iR[j], prof=[];
+    const oBot=oRow[0];
+    for(let k=0;k<NB;k++) prof.push([oBot*(k/(NB-1)), 0]);                          // base disk: axis → outer bottom
+    for(let k=1;k<=NOW;k++){ const h=rim*(k/NOW); prof.push([rAt(oRow,h), h]); }     // outer wall: 0 → rim
+    const orr=rAt(oRow,rim), irr=rAt(iRow,rim);
+    for(let k=1;k<=NR;k++){ const t=k/NR; prof.push([orr+(irr-orr)*t, rim]); }       // rim lip: outer → inner at the top
+    for(let k=1;k<=NIW;k++){ const t=k/NIW; const h=rim+(floor-rim)*t; prof.push([rAt(iRow,h), h]); }  // inner wall: rim → floor
+    const ifr=rAt(iRow,floor);
+    for(let k=1;k<=NF;k++){ const t=k/NF; prof.push([ifr*(1-t), floor]); }           // inner floor: inner → axis
+    const oc=oC[j], ic=iC[j];
+    for(let k=0;k<NS;k++){ const h=prof[k][1], P=toXYZ(prof[k][0], th, h); const o=(j*NS+k)*3; verts[o]=P[0]; verts[o+1]=P[1]; verts[o+2]=P[2];
+      if(k < NB+NOW){ cAt(oc,h,ct); }                                                                          // base + outer wall → outer paint
+      else if(k < NB+NOW+NR){ const t=(k-(NB+NOW)+1)/NR; cAt(oc,rim,co); cAt(ic,rim,ci);                        // rim lip → blend outer→inner
+        ct[0]=co[0]+(ci[0]-co[0])*t; ct[1]=co[1]+(ci[1]-co[1])*t; ct[2]=co[2]+(ci[2]-co[2])*t; }
+      else { cAt(ic,h,ct); }                                                                                    // inner wall + floor → inner paint
+      cols[o]=ct[0]; cols[o+1]=ct[1]; cols[o+2]=ct[2]; }
+  }
+  const idx=[];
+  for(let j=0;j<MT;j++){ const jn=(j+1)%MT; for(let k=0;k<NS-1;k++){ const a=j*NS+k,b=j*NS+k+1,c=jn*NS+k,d=jn*NS+k+1; idx.push(a,c,b,b,c,d); } }
+  if(!vesselGeom) vesselGeom=new THREE.BufferGeometry();
+  vesselGeom.setAttribute('position',new THREE.BufferAttribute(verts,3));
+  vesselGeom.setAttribute('color',new THREE.BufferAttribute(cols,3));
+  vesselGeom.setIndex(idx); vesselGeom.computeVertexNormals();
+  if(!vesselMesh){ const mat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:0.6,metalness:0.05,side:THREE.DoubleSide});
+    vesselMesh=new THREE.Mesh(vesselGeom,mat); scene.add(vesselMesh); }
+  vesselMesh.visible=true;
+}
+function updateMesh(){
+  const saved=state.cascade, active=state.activeSheet;
+  for(let s=0;s<state.sheets.length;s++){ const sm=sheetMeshes[s]; if(!sm)continue;
+    state.cascade=state.sheets[s];                                   // evaluate each sheet's own field (eval code reads state.cascade)
+    let R = s===active ? state.selectedRung : state.rungs-1;         // active sheet honors the rung-acuity preview; others render full
+    const fly = state.flyin, Rf = fly ? Math.min(R, flyinDepth()) : R;   // camera resolves the surface: distant → coarse rungs only
+    const pos=sm.geom.attributes.position.array, col=sm.geom.attributes.color.array;
+    for(let i=0;i<MH;i++){ const h=i/(MH-1);
+      for(let j=0;j<MT;j++){ const th=j/MT*TAU;
+        let r=Math.max(0, fly ? evalUpToF(th,h,Rf) : evalUpTo(th,h,R));   // no radius floor → caps pinch to the axis
+        r*=clipWin(h);   // soft height cap (smoothstep ramp at the ends): closes the box without a hard step, so the export has nothing to ring on
+        const c=fly ? evalColorUpToF(th,h,Rf) : evalColorUpTo(th,h,R);
+        const o=(i*MT+j)*3; const P=toXYZ(r,th,h);
+        pos[o]=P[0]; pos[o+1]=P[1]; pos[o+2]=P[2];
+        col[o]=Math.max(0,Math.min(1,c[0])); col[o+1]=Math.max(0,Math.min(1,c[1])); col[o+2]=Math.max(0,Math.min(1,c[2]));
+      }}
+    sm.geom.attributes.position.needsUpdate=true; sm.geom.attributes.color.needsUpdate=true; sm.geom.computeVertexNormals();
+  }
+  state.cascade=saved;
+  if(wireMesh && sheetMeshes[active]) wireMesh.geometry=sheetMeshes[active].geom;
+  buildVessel(); applySurfaceVis(); updateLeaves();
+  scheduleNumber(); hudLeaf();
+}
+
+// ── the shape's number: min/max of the word — read from REGISTERS, so it is deaf
+//    to the run by construction. Debounced: testimony refreshes after the hand rests. ──
+let _numTmo=null;
+function scheduleNumber(){ clearTimeout(_numTmo); _numTmo=setTimeout(computeNumber,300); }
+function computeNumber(){
+  const NH=24,NT=48; let mn=1e9,mx=-1e9;
+  for(let i=0;i<NH;i++){ const h=(i+0.5)/NH;
+    for(let j=0;j<NT;j++){ const v=evalFull(j/NT*TAU,h); if(v<mn)mn=v; if(v>mx)mx=v; } }
+  if(!$('hudNum')) return;
+  if(mx<=1e-9){ $('hudNum').textContent='read —'; $('hudRun').textContent=''; return; }
+  const lo=Math.max(0,mn);
+  $('hudNum').textContent='read '+lo.toFixed(3)+' : '+mx.toFixed(3)+' \u2192 '+(lo/mx).toFixed(3);
+  $('hudRun').textContent='  \u00b7  run '+state.hRun.toFixed(2)+(Math.abs(state.hRun-1)>1e-9?' (read unmoved)':'');
+}
+
+// ── the held leaf: registers on screen, keyboard-writable. One register per seat
+//    here (the rise r); \u2191\u2193 write it, \u2190\u2192 and PgUp/PgDn walk the seat lattice. ──
+let selLeafPts=null;
+function refreshSelLeafMarker(){
+  if(selLeafPts){ scene.remove(selLeafPts); selLeafPts.geometry.dispose(); selLeafPts.material.dispose(); selLeafPts=null; }
+  const sl=state.selLeaf; if(!sl) return;
+  const r=state.selectedRung, {Nt,Nh}=state.cascade[r];
+  const th=leafTheta(sl.j,Nt), h=leafH(sl.i,Nh);
+  const rad=Math.max(0.02, evalUpTo(th,h,r))*1.012;
+  const P=toXYZ(rad,th,h);
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(P),3));
+  selLeafPts=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:0.038,sizeAttenuation:true,depthTest:false}));
+  scene.add(selLeafPts);
+}
+function hudLeaf(){
+  const el=$('hudLeaf'); if(!el) return; const sl=state.selLeaf;
+  if(!sl){ el.textContent='alt-click the surface to hold a leaf\u2019s registers'; el.style.color='#6e6e7a'; refreshSelLeafMarker(); return; }
+  const r=state.selectedRung, cas=state.cascade[r], {Nt,Nh,v}=cas;
+  const th=leafTheta(sl.j,Nt), h=leafH(sl.i,Nh);
+  const resid=v[sl.i*Nt+sl.j], tot=evalUpTo(th,h,r), res=tot/(state.hRun||1);
+  el.style.color='#d4a052';
+  el.textContent='leaf ('+sl.j+','+sl.i+') rung '+r+' \u00b7 \u03b8 '+(th*180/PI).toFixed(0)+'\u00b0 h '+h.toFixed(2)
+    +' \u00b7 v '+(resid>=0?'+':'')+resid.toFixed(3)+' \u00b7 \u03a3r '+tot.toFixed(3)+' \u00b7 resolved '+res.toFixed(3)
+    +'   \u2014   \u2191\u2193 write v (\u21e7 \u00d74) \u00b7 \u2190\u2192 \u03b8 \u00b7 PgUp/Dn h';
+  refreshSelLeafMarker();
+}
+
+// ── bounded-observation leaf cull: a leaf is shown only if its EXTRACTABLE contribution resolves
+//    for the current observer: |residual| x clarity(distance, Cauchy) x facing(foreshorten) > threshold.
+//    This is the VCP gate — visibility is extraction, not geometry. Most fine-rung leaves carry
+//    near-zero residual (detail the coarse rungs already captured) and fall below acuity, so the
+//    displayed count collapses to the few leaves that actually shape the surface. ──
+let showLeaves=false, leafThresh=0.004, leafPts=null, blkLeafPts=null;
+function updateLeaves(){
+  if(!showLeaves){ if(leafPts)leafPts.visible=false; if(blkLeafPts)blkLeafPts.visible=false; if($('leafShown'))$('leafShown').textContent='—'; return; }
+  const r=state.selectedRung; const {Nt,Nh,v}=rungDims(r), cascR=state.cascade[r];
+  const camP=cam.position; const d0=2.0;
+  const pts=[], blkPts=[]; let total=0;
+  for(let i=0;i<Nh;i++){ const h=leafH(i,Nh);
+    for(let j=0;j<Nt;j++){ total++;
+      const th=leafTheta(j,Nt);
+      const rad=Math.max(0.02, evalUpTo(th,h,r));
+      const P=toXYZ(rad,th,h), x=P[0], y=P[1], z=P[2];
+      if(cascR.blocked && cascR.blocked[i*Nt+j]){ blkPts.push(x*1.008,y,z*1.008); continue; }  // locked: always shown, red
+      // extractable contribution = residual magnitude x clarity(distance) x facing
+      const resid=Math.abs(cascR.v[i*Nt+j]);
+      const dx=x-camP.x, dy=y-camP.y, dz=z-camP.z; const dist=Math.hypot(dx,dy,dz);
+      const clarity=1/(1+(dist/d0)*(dist/d0));                       // Cauchy falloff
+      const nx=Math.cos(th), nz=Math.sin(th); const vlen=dist||1e-6;
+      const facing=Math.max(0,(nx*(-dx)+nz*(-dz))/vlen);             // 1 face-on, 0 edge/back
+      const contrib=resid*clarity*(0.25+0.75*facing);
+      if(contrib>leafThresh){ pts.push(x*1.005,y,z*1.005); }
+    }}
+  if(leafPts){ scene.remove(leafPts); leafPts.geometry.dispose(); leafPts.material.dispose(); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pts),3));
+  const col=new THREE.Color(RUNG_COLORS[r%RUNG_COLORS.length]);
+  const m=new THREE.PointsMaterial({color:col,size:0.024,sizeAttenuation:true,depthTest:true});
+  leafPts=new THREE.Points(g,m); leafPts.visible=true; scene.add(leafPts);
+  // blocked leaves: red, always shown (the lock mask is editor state you want to see)
+  if(blkLeafPts){ scene.remove(blkLeafPts); blkLeafPts.geometry.dispose(); blkLeafPts.material.dispose(); blkLeafPts=null; }
+  if(blkPts.length){ const bg=new THREE.BufferGeometry(); bg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(blkPts),3));
+    const bm=new THREE.PointsMaterial({color:0xd64545,size:0.03,sizeAttenuation:true,depthTest:true});
+    blkLeafPts=new THREE.Points(bg,bm); scene.add(blkLeafPts); }
+  if($('leafShown'))$('leafShown').textContent=(pts.length/3)+' / '+total+(blkPts.length?' ('+(blkPts.length/3)+' locked)':'');
+}
+
+// ── sculpt into the SELECTED rung ──
+let brushMode='pull', brushR=0.25, brushS=0.02;
+let brushHard=0.0, brushAspectT=1.0, brushAspectH=1.0, brushSym='none';
+let brushMirrorLR=false, brushMirrorAnti=false;
+let paintTarget=[208/255, 64/255, 64/255];               // matches #d04040 default in color picker
+function hexToRGB(hex){const h=hex.replace('#','');
+  return [parseInt(h.substr(0,2),16)/255, parseInt(h.substr(2,2),16)/255, parseInt(h.substr(4,2),16)/255]; }
+// Compose all active symmetries (N-fold rotation × LR mirror × antipodal mirror) into the list of
+// theta positions a single stroke applies to, deduped so coincidences (e.g. theta=0 under LR) don't double.
+function symThetas(theta){
+  let list=[((theta%TAU)+TAU)%TAU];
+  if(typeof brushSym==='number' && brushSym>=2){
+    const out=[]; for(const t of list) for(let k=0;k<brushSym;k++) out.push((t+k*TAU/brushSym)%TAU); list=out; }
+  if(brushMirrorLR){ const out=[]; for(const t of list){ out.push(t); out.push((TAU-t)%TAU); } list=out; }
+  if(brushMirrorAnti){ const out=[]; for(const t of list){ out.push(t); out.push((t+PI)%TAU); } list=out; }
+  const seen=new Set(), out=[]; for(const t of list){ const k=Math.round(t*1e6); if(!seen.has(k)){ seen.add(k); out.push(t); } }
+  return out;
+}
+// STAMPS: one-shot feature patterns f(u) over normalized radius u∈[0,1] (0 at centre, 1 at rim),
+// returning a signed residual shape. Deposited scaled by strength; respect the lock mask + symmetry.
+const STAMPS={
+  island:  u => (u<0.6 ? 1 : 0.5*(1+Math.cos(PI*(u-0.6)/0.4))),          // raised plateau, soft shoulder
+  pebble:  u => Math.cos(2*PI*2.5*u)*(1-u),                              // pebble ripple: concentric rings, fading
+  crater:  u => 0.8*Math.exp(-(((u-0.65)/0.18)**2)) - Math.exp(-((u/0.35)**2)), // raised rim, sunken centre
+  spike:   u => Math.pow(1-u,5),                                        // sharp tall peak
+  dimple:  u => -(0.5*(1+Math.cos(PI*u))),                              // smooth sunken bowl
+  cone:    u => (1-u),                                                  // straight-sided cone
+};
+const STAMP_GAIN=3;
+function isStamp(m){ return STAMPS.hasOwnProperty(m); }
+// 4-neighbour helpers on the (theta,h) leaf grid (theta wraps, h clamps)
+function gv(v,Nt,Nh,i,j){ let jj=((j%Nt)+Nt)%Nt; let ii=Math.max(0,Math.min(Nh-1,i)); return v[ii*Nt+jj]; }
+function sculptOnce(theta,h){
+  const r=state.selectedRung; const {Nt,Nh,v}=state.cascade[r];
+  const blk=state.cascade[r].blocked;                     // per-rung lock mask (1 = leaf locked)
+  const S=brushS, R=brushR;
+  // falloff weight, shaped by hardness H in [0,1]: 0 = soft wide raised-cosine, 1 = hard flat-top crisp.
+  const pw = 1/(1 - 0.85*brushHard);
+  const wAt=(i,j)=>{ let dt=leafTheta(j,Nt)-theta; dt=Math.atan2(Math.sin(dt),Math.cos(dt));
+    const dh=leafH(i,Nh)-h;
+    const dist=Math.hypot(dt*0.5/brushAspectT, dh/brushAspectH); if(dist>R)return -1;
+    const rc=0.5*(1+Math.cos(PI*dist/R)); return Math.pow(rc, pw); };
+
+  // PAINT: deposit color delta into the selected rung's per-leaf cube. The delta is (target - displayedColor)
+  // at the brush center; each leaf in the footprint gets a fraction of that delta scaled by falloff and
+  // strength. Multiple strokes converge toward the target (saturating). Per TB §12: color rides the same leaves
+  // representation, blended by the same bridge as geometry, applied per channel.
+  if(brushMode==='paint'){
+    const tgt=paintTarget; const cur=evalColorUpTo(theta,h,state.rungs-1);
+    const dR=tgt[0]-cur[0], dG=tgt[1]-cur[1], dB=tgt[2]-cur[2];
+    const cR=state.cascade[r].cR, cG=state.cascade[r].cG, cB=state.cascade[r].cB;
+    // Coarse rungs have far fewer leaves in the brush footprint than fine rungs (rung 0: ~4, rung 4: ~768 at brushR=0.25),
+    // so they need a bigger per-leaf deposit to converge at similar rates. Scale gain ∝ 1/2^r so painting
+    // feels consistent regardless of which rung you're on.
+    const gain = 60 / (1 << r);                          // r=0:60, r=1:30, r=2:15, r=3:7.5, ...
+    for(let i=0;i<Nh;i++) for(let j=0;j<Nt;j++){ if(blk[i*Nt+j])continue;
+      const w=wAt(i,j); if(w<0) continue;
+      const dep=w*S*gain;
+      cR[i*Nt+j]+=dR*dep; cG[i*Nt+j]+=dG*dep; cB[i*Nt+j]+=dB*dep; }
+    return;
+  }
+
+  // STAMP: deposit a feature pattern (one-shot). The stamp's own f(u) is the shape; hardness is ignored.
+  if(isStamp(brushMode)){ const fn=STAMPS[brushMode];
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){ if(blk[i*Nt+j])continue;
+      let dt=leafTheta(j,Nt)-theta; dt=Math.atan2(Math.sin(dt),Math.cos(dt)); const dh=leafH(i,Nh)-h;
+      const dist=Math.hypot(dt*0.5/brushAspectT, dh/brushAspectH); if(dist>R)continue;
+      v[i*Nt+j]+= fn(dist/R) * S * STAMP_GAIN; }
+    return;
+  }
+
+  // block / unblock paint the lock mask (not the surface)
+  if(brushMode==='block' || brushMode==='unblock'){ const set=brushMode==='block'?1:0;
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){ if(wAt(i,j)>=0) blk[i*Nt+j]=set; }
+    return;
+  }
+
+  if(brushMode==='grab'){
+    let bi=0,bj=0,bd=1e9; for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){let dt=leafTheta(j,Nt)-theta;dt=Math.atan2(Math.sin(dt),Math.cos(dt));const dh=leafH(i,Nh)-h;const d=Math.hypot(dt*0.5,dh);if(d<bd){bd=d;bi=i;bj=j;}}
+    if(!blk[bi*Nt+bj]) v[bi*Nt+bj]+= S*3; return;
+  }
+  if(brushMode==='smooth'){
+    const tmp=new Float64Array(v);
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){const w=wAt(i,j);if(w<0||blk[i*Nt+j])continue;
+      const avg=(gv(v,Nt,Nh,i,j-1)+gv(v,Nt,Nh,i,j+1)+gv(v,Nt,Nh,i-1,j)+gv(v,Nt,Nh,i+1,j))/4;
+      tmp[i*Nt+j]=v[i*Nt+j]+(avg-v[i*Nt+j])*Math.min(1,w*S*6);}
+    v.set(tmp); return;
+  }
+  if(brushMode==='sharpen'){
+    const tmp=new Float64Array(v);
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){const w=wAt(i,j);if(w<0||blk[i*Nt+j])continue;
+      const avg=(gv(v,Nt,Nh,i,j-1)+gv(v,Nt,Nh,i,j+1)+gv(v,Nt,Nh,i-1,j)+gv(v,Nt,Nh,i+1,j))/4;
+      tmp[i*Nt+j]=v[i*Nt+j]+(v[i*Nt+j]-avg)*w*S*4;}
+    v.set(tmp); return;
+  }
+  if(brushMode==='twist'){
+    const tmp=new Float64Array(v);
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){const w=wAt(i,j);if(w<0||blk[i*Nt+j])continue;
+      const shift=w*S*8; const jf=j-shift; const j0=Math.floor(jf), fr=jf-j0;
+      tmp[i*Nt+j]=gv(v,Nt,Nh,i,j0)*(1-fr)+gv(v,Nt,Nh,i,j0+1)*fr;}
+    v.set(tmp); return;
+  }
+  const sign = (brushMode==='push'||brushMode==='pinch') ? -1 : 1;
+  for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){ const w=wAt(i,j); if(w<0||blk[i*Nt+j])continue;
+    if(brushMode==='erase'){                              // drive this rung's residual toward 0 (remove added detail)
+      v[i*Nt+j]+= (0 - v[i*Nt+j]) * Math.min(1, w*S*8);
+    } else if(brushMode==='bump'){
+      let dt=leafTheta(j,Nt)-theta;dt=Math.atan2(Math.sin(dt),Math.cos(dt));const dh=leafH(i,Nh)-h;
+      const g=Math.exp(-((dt/brushAspectT)**2*0.25+(dh/brushAspectH)**2)/(2*(R*0.4)*(R*0.4))); v[i*Nt+j]+=g*S*2;
+    } else if(brushMode==='pinch'||brushMode==='spread'){
+      v[i*Nt+j]*= (1 + sign*w*S*3);
+    } else {
+      v[i*Nt+j]+= sign*S*w;
+    }
+  }
+}
+// apply each stroke at every symmetry image (N-fold × LR × antipodal, deduped)
+function sculptAt(theta,h){
+  for(const t of symThetas(theta)) sculptOnce(t,h);
+  updateMesh();
+}
+
+// ── pick ──
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+function pickField(cx,cy){ ndc.x=(cx/innerWidth)*2-1; ndc.y=-(cy/innerHeight)*2+1; ray.setFromCamera(ndc,cam);
+  const hit=ray.intersectObject(mesh,false); if(!hit.length)return null; const p=hit[0].point;
+  const h=Math.max(0,Math.min(1, p.y/(HSCALE*xform.height)));
+  const cv = curve.active ? curveVal(h) : 0.5;
+  const twTurns = (curve.active && curve.target==='twist') ? (-2+4*cv) : xform.twist*h;
+  const bx=xform.bend*0.8*h*h;                                                          // undo bend, size/aspect, twist (envelope scales r only → doesn't move θ,h)
+  const X=(p.x-bx)/xform.size, Z=p.z/(xform.size*xform.aspect);
+  return {theta:((Math.atan2(Z,X) - twTurns*TAU)%TAU+TAU)%TAU, h}; }
+function showPt(f){ $('rPt').textContent='θ'+(f.theta*180/PI).toFixed(0)+'° h'+f.h.toFixed(2); updateBrushRing(f.theta,f.h); }
+
+// ── brush-radius ring: trace the brush ellipse (dt·0.5/aspectT)²+(dh/aspectH)²=R² in (θ,h),
+//    lift each point onto the surface, draw as a line loop so you see exactly what the brush covers ──
+let brushRing=null;
+function updateBrushRing(theta,h){
+  if(!brushRing){ const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(65*3),3));
+    brushRing=new THREE.LineLoop(geo,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.7}));
+    scene.add(brushRing); }
+  const R = isDraw(brushMode) ? drawThickness() : brushR;
+  const pos=brushRing.geometry.attributes.position.array; const N=64;
+  for(let k=0;k<=N;k++){ const a=k/N*TAU;
+    // ellipse in the brush metric -> back out (dt,dh): dt = R*cos(a)*aspectT/0.5 , dh = R*sin(a)*aspectH
+    const dt = R*Math.cos(a)*brushAspectT/0.5;
+    const dh = R*Math.sin(a)*brushAspectH;
+    const th=(theta+dt+TAU)%TAU; const hh=Math.max(0,Math.min(1,h+dh));
+    const rad=Math.max(0.02, evalUpTo(th,hh,state.selectedRung))*1.01;
+    const o=k*3; const P=toXYZ(rad,th,hh); pos[o]=P[0]; pos[o+1]=P[1]; pos[o+2]=P[2];
+  }
+  brushRing.geometry.attributes.position.needsUpdate=true; brushRing.visible=true;
+}
+
+// ── interaction ──
+let mode=null,lx=0,ly=0;
+// DRAW MODE: trace a continuous ridge/groove along the path. Unlike brushes (blob per pointer sample),
+// a stroke (1) interpolates between successive points so it is even at any drag speed, and (2) accumulates
+// into a per-stroke MAX-weight buffer applied once on release, so overlapping steps don't over-pile.
+let drawAcc=null, drawPrev=null;
+function isDraw(m){ return m==='ridge'||m==='groove'; }
+function drawThickness(){            // line thickness lerped between min/max by the strength slider (0.005..0.08)
+  const t=Math.max(0,Math.min(1,(brushS-0.005)/(0.08-0.005)));
+  return 0.02 + t*(0.30-0.02);      // thin (0.02) at min strength -> thick (0.30) at max
+}
+function drawStamp(theta,h){            // accumulate a narrow cross-section at one point into drawAcc (max-weight)
+  const r=state.selectedRung; const {Nt,Nh}=state.cascade[r]; const R=drawThickness();  // thickness from strength
+  for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){
+    let dt=leafTheta(j,Nt)-theta; dt=Math.atan2(Math.sin(dt),Math.cos(dt)); const dh=leafH(i,Nh)-h;
+    const dist=Math.hypot(dt*0.5/brushAspectT, dh/brushAspectH); if(dist>R)continue;
+    const w=0.5*(1+Math.cos(PI*dist/R)); const idx=i*Nt+j;
+    if(w>(drawAcc[idx]||0)) drawAcc[idx]=w;            // MAX weight, not sum
+  }
+}
+function drawStampSym(theta,h){ for(const t of symThetas(theta)) drawStamp(t,h); }
+function drawStrokeTo(theta,h){         // interpolate from drawPrev to (theta,h), stamping along the way
+  const r=state.selectedRung; const {Nt,Nh}=state.cascade[r];
+  if(!drawPrev){ drawStampSym(theta,h); drawPrev={theta,h}; return; }
+  let dth=theta-drawPrev.theta; dth=Math.atan2(Math.sin(dth),Math.cos(dth));  // shortest way around
+  const dh=h-drawPrev.h; const segLen=Math.hypot(dth*0.5,dh);
+  const stepN=Math.max(1, Math.ceil(segLen/(drawThickness()*0.25)));   // dense enough to be continuous
+  for(let s=1;s<=stepN;s++){ const t=s/stepN;
+    drawStampSym((drawPrev.theta+dth*t+TAU)%TAU, drawPrev.h+dh*t); }
+  drawPrev={theta,h};
+}
+function commitStroke(){                // apply the accumulated stroke to the residual once, then clear
+  if(!drawAcc) return; const r=state.selectedRung; const {Nt,Nh,v}=state.cascade[r]; const blk=state.cascade[r].blocked;
+  const sign = brushMode==='groove' ? -1 : 1;
+  for(let idx=0; idx<v.length; idx++){ const w=drawAcc[idx]; if(!w||blk[idx])continue; v[idx]+= sign*0.06*w; }  // fixed depth; strength sets thickness
+  drawAcc=null; drawPrev=null; updateMesh();
+}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{ cv.setPointerCapture(e.pointerId); lx=e.clientX; ly=e.clientY;
+  if(asm.on){ asmPointerDown(e); return; }
+  if(e.button===2||e.shiftKey){mode='orbit';return;}
+  if(e.altKey && e.button===0){ const f=pickField(e.clientX,e.clientY);
+    if(f){ const r=state.selectedRung, {Nt,Nh}=state.cascade[r];
+      const j=((Math.round(f.theta*Nt/TAU-0.5))%Nt+Nt)%Nt;
+      const i=Math.max(0,Math.min(Nh-1,Math.round(f.h*Nh-0.5)));
+      state.selLeaf=(state.selLeaf&&state.selLeaf.j===j&&state.selLeaf.i===i)?null:{j,i};
+      hudLeaf(); }
+    mode=null; return; }
+  const f=pickField(e.clientX,e.clientY);
+  if(f){
+    pushHistory();                       // gesture-boundary snapshot (brushes/stamps/draw)
+    if(isDraw(brushMode)){ mode='draw'; const {Nt,Nh}=state.cascade[state.selectedRung]; drawAcc=new Float64Array(Nt*Nh); drawPrev=null; drawStrokeTo(f.theta,f.h); }
+         else { mode='sculpt'; sculptAt(f.theta,f.h); } showPt(f); }
+  else mode='orbit'; });
+cv.addEventListener('pointermove',e=>{
+  if(asm.on && asmPointerMove(e)) return;
+  if(mode==='orbit'){cP-=(e.clientX-lx)*0.008;cT=Math.max(0.15,Math.min(2.2,cT-(e.clientY-ly)*0.008));lx=e.clientX;ly=e.clientY;}
+  else if(mode==='draw'){const f=pickField(e.clientX,e.clientY);if(f){ drawStrokeTo(f.theta,f.h); showPt(f);}}
+  else if(mode==='sculpt'){const f=pickField(e.clientX,e.clientY);if(f){ if(!isStamp(brushMode)) sculptAt(f.theta,f.h); showPt(f);}}
+  else if(asm.on){ cv.style.cursor='default'; }
+  else {const f=pickField(e.clientX,e.clientY);cv.style.cursor=f?'crosshair':'default';if(f)showPt(f);else if(brushRing)brushRing.visible=false;} });
+cv.addEventListener('pointerup',e=>{ if(mode==='draw') commitStroke(); mode=null; asmDrag.part=null; try{cv.releasePointerCapture(e.pointerId);}catch(_){} });
+cv.addEventListener('wheel',e=>{e.preventDefault();cR=Math.max(1.6,Math.min(8,cR+e.deltaY*0.002));},{passive:false});
+
+// ── rung bar (1D editor style: + add, then one button per rung) ──
+function rebuildRungBar(){
+  const bar=$('rungBar'); if(!bar)return;
+  if(state.selectedRung>=state.rungs)state.selectedRung=state.rungs-1;
+  if(state.selectedRung<0)state.selectedRung=0;
+  let html='<span class="rb-label">rung</span><button class="rb-add" id="rbAdd" title="add detail rung">+</button>';
+  for(let r=0;r<state.rungs;r++){ const sel=r===state.selectedRung; const color=RUNG_COLORS[r%RUNG_COLORS.length];
+    html+=`<button class="${sel?'sel':''}" style="${sel?`background:${color};`:''}" data-rung="${r}">${r}</button>`; }
+  bar.innerHTML=html;
+  $('rbAdd').addEventListener('click',addRung);
+  bar.querySelectorAll('button[data-rung]').forEach(b=>b.addEventListener('click',()=>selectRung(+b.dataset.rung)));
+}
+function selectRung(r){
+  // seats do not survive a rung change (disjoint lattices) — release the held leaf
+  if(state.selLeaf){ state.selLeaf=null; if(typeof hudLeaf==='function') hudLeaf(); }
+  state.selectedRung=r; const {Nt,Nh}=rungDims(r);
+  $('rungReadout').innerHTML=`<span class="k">editing rung</span><br>${r} &nbsp; (${Nt}×${Nh} = ${Nt*Nh} leaves)`;
+  rebuildRungBar(); updateMesh(); }
+
+// ── sheets (overflow): each sheet is an independent cascade — a surface along the ray. The next sheet holds
+//    what the previous couldn't (the overflow): inner walls, cavities, nested shells. state.cascade is a live
+//    reference to the ACTIVE sheet, so all editing/eval code targets it unchanged; only the mesh renders all. ──
+function rebuildSheetBar(){ const bar=$('sheetBar'); if(!bar)return;
+  let html='<span class="rb-label">sheet</span><button class="rb-add" id="shAdd" title="add an inner sheet (the overflow)">+</button>';
+  for(let s=0;s<state.sheets.length;s++){ const sel=s===state.activeSheet;
+    html+=`<button class="${sel?'sel':''}" style="${sel?'background:var(--accent);':''}" data-sheet="${s}">${s}</button>`; }
+  if(state.sheets.length>1) html+='<button id="shDel" title="remove the active sheet" style="margin-left:8px">−</button>';
+  bar.innerHTML=html;
+  $('shAdd').addEventListener('click',addSheet);
+  const del=$('shDel'); if(del) del.addEventListener('click',removeSheet);
+  bar.querySelectorAll('button[data-sheet]').forEach(b=>b.addEventListener('click',()=>selectSheet(+b.dataset.sheet)));
+}
+function selectSheet(i){ state.activeSheet=Math.max(0,Math.min(state.sheets.length-1,i));
+  state.cascade=state.sheets[state.activeSheet];
+  if(sheetMeshes[state.activeSheet]){ mesh=sheetMeshes[state.activeSheet].mesh; geom=sheetMeshes[state.activeSheet].geom; }
+  if(state.selectedRung>=state.rungs)state.selectedRung=state.rungs-1;
+  undoStack.length=0; redoStack.length=0;                            // history is per active-sheet; clear on switch
+  rebuildSheetBar(); rebuildRungBar(); updateMesh(); }
+function addSheet(){ if(state.sheets.length>=4)return;
+  const src=state.sheets[state.activeSheet];
+  const copy=src.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,
+    v:Float64Array.from(rg.v,x=>x*0.66),                            // new sheet starts as a 66% inner shell of the current one — then brush it independently
+    cR:new Float64Array(rg.cR), cG:new Float64Array(rg.cG), cB:new Float64Array(rg.cB), blocked:new Uint8Array(rg.blocked)}));
+  state.sheets.push(copy); state.activeSheet=state.sheets.length-1; state.cascade=copy;
+  undoStack.length=0; redoStack.length=0;
+  buildSheetMeshes(); rebuildSheetBar(); rebuildRungBar(); updateMesh(); }
+function removeSheet(){ if(state.sheets.length<=1)return;
+  state.sheets.splice(state.activeSheet,1);
+  state.activeSheet=Math.min(state.activeSheet,state.sheets.length-1); state.cascade=state.sheets[state.activeSheet];
+  undoStack.length=0; redoStack.length=0;
+  buildSheetMeshes(); rebuildSheetBar(); rebuildRungBar(); updateMesh(); }
+
+// ── field combine (boolean): combine the active sheet with a positionable primitive. union=max, intersect=min
+//    (single-valued, in place). subtract carves a cavity — which is multi-valued, so it writes min(outer,op)
+//    into an INNER sheet (then weld to close it). The operand is windowed to a height band so it can bite locally. ──
+function applyCombine(mode){
+  const c=state.combine, base=PRESETS[c.op]||PRESETS.sphere;
+  const inBand=h=>Math.abs(h-c.hc)<=c.hw;
+  const opR=(th,h)=>{ const hl=0.5+(h-c.hc)/(2*c.hw); return base(th,Math.max(0,Math.min(1,hl)))*c.scale; };
+  const NH=64,NT=128,gA=[];                                                  // snapshot the active field before re-projecting
+  for(let i=0;i<NH;i++){ const h=i/(NH-1); const row=[]; for(let j=0;j<NT;j++) row.push(evalFull(j/NT*TAU,h)); gA.push(row); }
+  const rA=(th,h)=>{ const i=Math.max(0,Math.min(NH-1,Math.round(h*(NH-1)))); let jj=Math.round((th/TAU)*NT)%NT; if(jj<0)jj+=NT; return gA[i][jj]; };
+  if(mode==='subtract'){
+    if(state.sheets.length<4) addSheet();                                    // inner cavity sheet (becomes active); else carve the active sheet directly
+    projectField((th,h)=> inBand(h)? Math.min(rA(th,h),opR(th,h)) : rA(th,h));
+    fileMsg&&fileMsg('subtracted → inner sheet (weld to close the cavity)');
+  } else {
+    pushHistory();
+    projectField((th,h)=>{ if(!inBand(h)) return rA(th,h); const a=rA(th,h), b=opR(th,h);
+      return mode==='union'? Math.max(a,b) : Math.min(a,b); });
+    fileMsg&&fileMsg(mode+' applied');
+  }
+  selectRung(state.selectedRung); updateMesh();
+}
+function addRung(){ if(state.rungs>=6)return; const r=state.rungs; const {Nt,Nh}=rungDims(r);
+  for(const cas of state.sheets){ cas.push({Nt,Nh,v:new Float64Array(Nt*Nh),
+    cR:new Float64Array(Nt*Nh), cG:new Float64Array(Nt*Nh), cB:new Float64Array(Nt*Nh),
+    blocked:new Uint8Array(Nt*Nh)}); }
+  state.rungs++; undoStack.length=0; redoStack.length=0; selectRung(r); }
+
+// ── base-leaf sliders: re-project current field at new resolution ──
+function reproject(){
+  // Exact reseat: sample the OLD cascade directly (kernel evaluation), never a
+  // rasterized snapshot. A nearest-neighbor grid between read and write is a
+  // piecewise-constant chart — it injects top-band content every pass, and
+  // iterated reprojection pumps (measured: accelerating drift, extremes off ~2%/round
+  // by round 8). With the exact sampler the iterated oblique projection CONTRACTS
+  // to its fixed point at float precision (rms step 1e-8 → 4e-17 in four rounds):
+  // the retraction P²=P, recovered by pinning the chart between read and write.
+  const old = state.cascade.map(rg => ({ Nt: rg.Nt, Nh: rg.Nh, v: Float64Array.from(rg.v) }));
+  const sampled = (th, h) => { let t = 0; for (const rg of old) t += rungEval(rg, th, h); return t; };
+  projectField(sampled); selectRung(state.selectedRung); updateMesh();
+}
+// ── h-kernel swap (RBF ↔ DCT cosine). Re-fits every sheet's radius IN PLACE under the new kernel
+//    (color cubes + locks preserved) so the shape is kept and merely reconstructed differently. ──
+function reprojectRadiusInPlace(sampled){
+  for(let r=0;r<state.rungs;r++){ const {Nt,Nh,v}=state.cascade[r];
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){ const th=leafTheta(j,Nt),h=leafH(i,Nh);
+      let prev=0; for(let s=0;s<r;s++)prev+=rungEval(state.cascade[s],th,h); v[i*Nt+j]=sampled(th,h)-prev; } }
+}
+function setHKernel(mode){
+  if(state.hkernel===mode){ updateMesh(); return; }
+  const NH=64,NT=128;
+  const snaps=state.sheets.map(sh=>{ state.cascade=sh; const g=[];
+    for(let i=0;i<NH;i++){const h=i/(NH-1);const row=new Float64Array(NT);for(let j=0;j<NT;j++)row[j]=evalFull(j/NT*TAU,h);g.push(row);} return g; });
+  state.hkernel=mode;
+  for(let si=0;si<state.sheets.length;si++){ state.cascade=state.sheets[si]; const g=snaps[si];
+    const sampled=(th,h)=>{const i=Math.max(0,Math.min(NH-1,Math.round(h*(NH-1))));let jj=Math.round((th/TAU)*NT)%NT;if(jj<0)jj+=NT;return g[i][jj];};
+    reprojectRadiusInPlace(sampled); }
+  state.cascade=state.sheets[state.activeSheet];
+  undoStack.length=0; redoStack.length=0; selectRung(state.selectedRung); updateMesh();
+  exToast(mode==='dct'?'h-kernel: DCT cosine (exact — matches export)':'h-kernel: Gaussian RBF (smooth)');
+}
+$('rBT').addEventListener('change',e=>{state.baseT=Math.max(4,(+e.target.value)&~1);$('vBT').textContent=state.baseT;e.target.value=state.baseT;reproject();});   // even-N required: TB §4.1 (shifted even-N kernel; K periodicity/cardinality need even Nt)
+$('rBH').addEventListener('change',e=>{state.baseH=+e.target.value;$('vBH').textContent=state.baseH;reproject();});
+$('rBT').addEventListener('input',e=>$('vBT').textContent=e.target.value);
+// ── the run: common-mode write. All display, no register moves; the number is deaf to it. ──
+$('rRun').addEventListener('input',e=>{ state.hRun=Math.pow(2,+e.target.value); $('vRun').textContent=state.hRun.toFixed(2); updateMesh(); });
+$('rRun').addEventListener('dblclick',e=>{ e.target.value=0; state.hRun=1; $('vRun').textContent='1.00'; updateMesh(); });
+$('rBH').addEventListener('input',e=>$('vBH').textContent=e.target.value);
+// ── corner-box dimensions: width/depth bake into the field (rect cross-section), height sets the clip window ──
+function refreshBox(){ if($('selPreset').value!=='corner_test') return;
+  state.clip={on:true,lo:0.5-state.box.ht/2,hi:0.5+state.box.ht/2,soft:state.box.cs};
+  projectField(PRESETS.corner_test); selectRung(state.selectedRung); updateMesh(); }
+$('rBoxW').addEventListener('input',e=>$('vBoxW').textContent=(+e.target.value).toFixed(2));
+$('rBoxH').addEventListener('input',e=>$('vBoxH').textContent=(+e.target.value).toFixed(2));
+$('rBoxD').addEventListener('input',e=>$('vBoxD').textContent=(+e.target.value).toFixed(2));
+$('rBoxW').addEventListener('change',e=>{state.box.w=+e.target.value; pushHistory(); refreshBox();});
+$('rBoxH').addEventListener('change',e=>{state.box.ht=+e.target.value; pushHistory(); refreshBox();});
+$('rBoxD').addEventListener('change',e=>{state.box.d=+e.target.value; pushHistory(); refreshBox();});
+$('rBoxCS').addEventListener('input',e=>$('vBoxCS').textContent=(+e.target.value).toFixed(2));
+$('rBoxCS').addEventListener('change',e=>{state.box.cs=+e.target.value; state.clip.soft=state.box.cs; pushHistory(); refreshBox();});
+
+// ── brush controls (footer) ──
+$('selBrush').addEventListener('change',e=>{ brushMode=e.target.value;
+  if((brushMode==='block'||brushMode==='unblock') && !showLeaves){ showLeaves=true; $('cbLeaves').checked=true; updateLeaves(); } });
+$('cbLeaves').addEventListener('change',e=>{ showLeaves=e.target.checked; updateLeaves(); });
+$('cbWire').addEventListener('change',e=>{ if(wireMesh) wireMesh.visible=e.target.checked; });
+$('cbSurface').addEventListener('change',applySurfaceVis);
+$('cbSolo').addEventListener('change',e=>{ state.soloSheet=e.target.checked; applySurfaceVis(); });
+$('cbWeld').addEventListener('change',e=>{ state.weld.on=e.target.checked; updateMesh(); });
+$('rWeldRim').addEventListener('input',e=>{ state.weld.rim=+e.target.value; $('vWeldRim').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rWeldFloor').addEventListener('input',e=>{ state.weld.floor=+e.target.value; $('vWeldFloor').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rLeafThresh').addEventListener('input',e=>{ leafThresh=+e.target.value; updateLeaves(); });
+$('rAperture').addEventListener('input',e=>{ state.aperture=+e.target.value; $('vAperture').textContent=e.target.value; updateMesh(); updateLeaves(); });
+$('cbFlyin').addEventListener('change',e=>{ state.flyin=e.target.checked; _meshFlyKey=''; updateMesh(); });
+$('rBrushR').addEventListener('input',e=>{brushR=+e.target.value;$('vBrushR').textContent=brushR.toFixed(2).slice(1);});
+$('rBrushS').addEventListener('input',e=>{brushS=+e.target.value;$('vBrushS').textContent=brushS.toFixed(3).slice(1);});
+$('rBrushHard').addEventListener('input',e=>{brushHard=+e.target.value;});
+$('rBrushShape').addEventListener('input',e=>{ const s=+e.target.value;   // -1 tall ridge .. 0 round .. +1 wide ridge
+  if(s>=0){ brushAspectT=1+2*s; brushAspectH=1; } else { brushAspectT=1; brushAspectH=1-2*s; } });
+$('selSym').addEventListener('change',e=>{ brushSym = (e.target.value==='none') ? 'none' : +e.target.value; });
+$('cbMirLR').addEventListener('change',e=>{ brushMirrorLR=e.target.checked; });
+$('cbMirAnti').addEventListener('change',e=>{ brushMirrorAnti=e.target.checked; });
+$('paintColor').addEventListener('input',e=>{ paintTarget=hexToRGB(e.target.value); });
+document.querySelectorAll('.palette .chip').forEach(el=>{ el.addEventListener('click',e=>{
+  const hex=e.target.dataset.c; $('paintColor').value=hex; paintTarget=hexToRGB(hex); }); });
+
+// ── presets ──
+function loadPreset(name){ pushHistory(); state.clip = (name==='corner_test') ? {on:true,lo:0.5-state.box.ht/2,hi:0.5+state.box.ht/2,soft:state.box.cs} : {on:false,lo:0,hi:1,soft:0.06}; projectField(PRESETS[name]||PRESETS.cylinder); selectRung(state.selectedRung); updateMesh(); }
+$('selPreset').addEventListener('change',e=>loadPreset(e.target.value));
+$('bReset').addEventListener('click',()=>loadPreset($('selPreset').value));
+
+// ── supershape live controls: re-project the superformula when any param moves (only while it's the active base) ──
+function reprojSuper(){ if($('selPreset').value==='supershape'){ projectField(PRESETS.supershape); selectRung(state.selectedRung); updateMesh(); } }
+$('rSsM').addEventListener('input',e=>{ state.ss.m=+e.target.value; $('vSsM').textContent=state.ss.m; reprojSuper(); });
+$('rSsN').addEventListener('input',e=>{ state.ss.n=+e.target.value; $('vSsN').textContent=(+e.target.value).toFixed(1); reprojSuper(); });
+$('rSsNT').addEventListener('input',e=>{ state.ss.nTop=+e.target.value; $('vSsNT').textContent=(+e.target.value).toFixed(1); reprojSuper(); });
+$('rSsE').addEventListener('input',e=>{ state.ss.ext=+e.target.value; $('vSsE').textContent=(+e.target.value).toFixed(2); reprojSuper(); });
+// global transforms — apply to every object; display-geometry only, so just re-mesh (no re-projection)
+$('rTsize').addEventListener('input',e=>{ xform.size=+e.target.value; $('vTsize').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rTaspect').addEventListener('input',e=>{ xform.aspect=+e.target.value; $('vTaspect').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rTheight').addEventListener('input',e=>{ xform.height=+e.target.value; $('vTheight').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rDtaper').addEventListener('input',e=>{ xform.taper=+e.target.value; $('vDtaper').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rDbulge').addEventListener('input',e=>{ xform.bulge=+e.target.value; $('vDbulge').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rDtwist').addEventListener('input',e=>{ xform.twist=+e.target.value; $('vDtwist').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('rDbend').addEventListener('input',e=>{ xform.bend=+e.target.value; $('vDbend').textContent=(+e.target.value).toFixed(2); updateMesh(); });
+$('selOp').addEventListener('change',e=>{ state.combine.op=e.target.value; });
+$('rOpScale').addEventListener('input',e=>{ state.combine.scale=+e.target.value; $('vOpScale').textContent=(+e.target.value).toFixed(2); });
+$('rOpH').addEventListener('input',e=>{ state.combine.hc=+e.target.value; $('vOpH').textContent=(+e.target.value).toFixed(2); });
+$('rOpW').addEventListener('input',e=>{ state.combine.hw=+e.target.value; $('vOpW').textContent=(+e.target.value).toFixed(2); });
+$('bUnion').addEventListener('click',()=>applyCombine('union'));
+$('bIntersect').addEventListener('click',()=>applyCombine('intersect'));
+$('bSubtract').addEventListener('click',()=>applyCombine('subtract'));
+
+// ── draw profile (revolve): a side-view profile r(h) sketched on a small SVG, applied as a delta
+//    into the selected rung (revolved θ-independently) or as the base shape. Control points are [h,r],
+//    h in [0,1] bottom→top, r in [0.04, 0.6]. Linear interpolation between points; piecewise-linear
+//    profiles are clean for the cascade (no Gibbs unless slopes change sharply, and even then the
+//    cascade resolves them as it would any feature).
+const profPts=[ [0.0,0.18],[0.5,0.18],[1.0,0.18] ];   // straight cylinder default
+const PROF_RMIN=0.04, PROF_RMAX=0.60;
+const SVG_W=200, SVG_H=220, SVG_PAD=12;
+function profSampleAt(h){                              // linear interp in h
+  let i=0; while(i<profPts.length-1 && profPts[i+1][0]<h) i++;
+  const [h0,r0]=profPts[i], [h1,r1]=profPts[Math.min(i+1,profPts.length-1)];
+  if(h1<=h0) return r0; const t=(h-h0)/(h1-h0); return r0+(r1-r0)*Math.max(0,Math.min(1,t));
+}
+function profToSvg([h,r]){ return [ SVG_PAD + (r-PROF_RMIN)/(PROF_RMAX-PROF_RMIN) * (SVG_W-2*SVG_PAD),
+                                    SVG_PAD + (1-h) * (SVG_H-2*SVG_PAD) ]; }
+function svgToProf(x,y){ const r=PROF_RMIN + (x-SVG_PAD)/(SVG_W-2*SVG_PAD)*(PROF_RMAX-PROF_RMIN);
+                         const h=1 - (y-SVG_PAD)/(SVG_H-2*SVG_PAD);
+                         return [Math.max(0,Math.min(1,h)), Math.max(PROF_RMIN,Math.min(PROF_RMAX,r))]; }
+function profMsg(s){ const el=$('profMsg'); if(el){el.textContent=s; if(s)setTimeout(()=>{if(el.textContent===s)el.textContent='';},2000);} }
+
+function drawProf(){
+  const svg=$('profSvg'); if(!svg)return;
+  // axes + grid for orientation
+  let h='<line x1="'+SVG_PAD+'" y1="'+SVG_PAD+'" x2="'+SVG_PAD+'" y2="'+(SVG_H-SVG_PAD)+'" stroke="#333" stroke-width="0.5"/>'+
+        '<line x1="'+SVG_PAD+'" y1="'+(SVG_H-SVG_PAD)+'" x2="'+(SVG_W-SVG_PAD)+'" y2="'+(SVG_H-SVG_PAD)+'" stroke="#333" stroke-width="0.5"/>'+
+        '<text x="'+(SVG_PAD-6)+'" y="'+SVG_PAD+'" fill="#666" font-size="9" text-anchor="end">h=1</text>'+
+        '<text x="'+(SVG_PAD-6)+'" y="'+(SVG_H-SVG_PAD)+'" fill="#666" font-size="9" text-anchor="end">h=0</text>'+
+        '<text x="'+SVG_PAD+'" y="'+(SVG_H-2)+'" fill="#666" font-size="9">r='+PROF_RMIN.toFixed(2)+'</text>'+
+        '<text x="'+(SVG_W-SVG_PAD)+'" y="'+(SVG_H-2)+'" fill="#666" font-size="9" text-anchor="end">'+PROF_RMAX.toFixed(2)+'</text>';
+  // mirror-revolved silhouette preview: draw both sides (right=outline; left=mirror) shaded
+  const centerX = SVG_PAD + (0-PROF_RMIN)/(PROF_RMAX-PROF_RMIN)*(SVG_W-2*SVG_PAD); // off-canvas left if RMIN>0
+  let polyR='', polyL='';
+  const NS=40;
+  for(let k=0;k<=NS;k++){const hh=k/NS; const rr=profSampleAt(hh);
+    const [x,y]=profToSvg([hh,rr]); polyR+=x.toFixed(1)+','+y.toFixed(1)+' ';
+    // mirror: x_mirror = 2*centerLine - x, with centerLine = profToSvg([h,0])[0]
+    const cx=SVG_PAD + (0-PROF_RMIN)/(PROF_RMAX-PROF_RMIN)*(SVG_W-2*SVG_PAD);
+    polyL+=(2*cx-x).toFixed(1)+','+y.toFixed(1)+' ';}
+  h+='<polyline points="'+polyR+'" fill="none" stroke="#d4a052" stroke-width="1.5"/>';
+  h+='<polyline points="'+polyL+'" fill="none" stroke="#d4a05266" stroke-width="1"/>';
+  // dragable control points
+  for(let i=0;i<profPts.length;i++){const [x,y]=profToSvg(profPts[i]);
+    h+='<circle data-i="'+i+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4" fill="#d4a052" stroke="#fff" stroke-width="1" style="cursor:grab"/>';}
+  svg.innerHTML=h;
+}
+function profPointerXY(e){ const svg=$('profSvg'); const r=svg.getBoundingClientRect();
+  return [ (e.clientX-r.left)/r.width*SVG_W, (e.clientY-r.top)/r.height*SVG_H ]; }
+let profDragI=-1;
+function onProfDown(e){ e.preventDefault();
+  if(e.button===2){ // right-click: remove if on a point
+    const el=e.target; if(el.tagName==='circle' && profPts.length>2){ const i=+el.dataset.i; profPts.splice(i,1); drawProf(); } return; }
+  const el=e.target;
+  if(el.tagName==='circle'){ profDragI=+el.dataset.i; el.setPointerCapture&&el.setPointerCapture(e.pointerId); }
+  else { // click on line/empty: insert new point at click position, sorted by h
+    const [sx,sy]=profPointerXY(e); const [h,r]=svgToProf(sx,sy); profPts.push([h,r]);
+    profPts.sort((a,b)=>a[0]-b[0]); drawProf();
+    // grab the newly-inserted point so a click-and-drag works
+    profDragI=profPts.findIndex(p=>p[0]===h && p[1]===r); }
+}
+function onProfMove(e){ if(profDragI<0)return; const [sx,sy]=profPointerXY(e); profPts[profDragI]=svgToProf(sx,sy);
+  // keep h-order stable but allow dragging across other points: re-sort and track
+  const cur=profPts[profDragI]; profPts.sort((a,b)=>a[0]-b[0]); profDragI=profPts.indexOf(cur); drawProf(); }
+function onProfUp(){ profDragI=-1; }
+
+function applyProfileToRung(){      // delta into the selected rung's residual: profile(h) - current revolved-at-h
+  pushHistory();
+  const r=state.selectedRung; const {Nt,Nh,v}=state.cascade[r];
+  // current θ-averaged radius at each h (the revolved baseline up to and including this rung's prior contribution
+  // is captured by evalUpTo(., ., r-1) if r>0, else 0)
+  for(let i=0;i<Nh;i++){const h=leafH(i,Nh); const target=profSampleAt(h);
+    // current radius averaged over θ at this h (what the cascade already reconstructs to)
+    let avg=0; const NS=16; for(let s=0;s<NS;s++){ const th=s/NS*TAU; avg+=evalUpTo(th,h,state.rungs-1); } avg/=NS;
+    const delta=target-avg;
+    for(let j=0;j<Nt;j++){ if(state.cascade[r].blocked[i*Nt+j])continue; v[i*Nt+j]+=delta; }
+  }
+  updateMesh(); profMsg('applied to rung '+r);
+}
+function applyProfileAsBase(){      // replace the field entirely with the revolved profile
+  pushHistory();
+  projectField((th,h)=>profSampleAt(h)); selectRung(state.selectedRung); updateMesh(); profMsg('set as base'); }
+function profileFromShape(){       // seed control points from the current shape's mean radius at sampled heights
+  const NP=8; profPts.length=0;
+  for(let k=0;k<=NP;k++){const h=k/NP; let avg=0;const NS=24;
+    for(let s=0;s<NS;s++){avg+=evalUpTo(s/NS*TAU,h,state.rungs-1);} avg/=NS;
+    profPts.push([h, Math.max(PROF_RMIN,Math.min(PROF_RMAX,avg))]); }
+  drawProf(); profMsg('seeded from current shape'); }
+function profileReset(){ profPts.length=0; profPts.push([0,0.18],[0.5,0.18],[1,0.18]); drawProf(); }
+
+$('profSvg').addEventListener('pointerdown',onProfDown);
+$('profSvg').addEventListener('pointermove',onProfMove);
+$('profSvg').addEventListener('pointerup',onProfUp);
+$('profSvg').addEventListener('contextmenu',e=>e.preventDefault());
+
+// ── profile-curve editor (mirrors the profile pad): drag points, click line to add, right-click to remove ──
+const CV_W=200, CV_H=130, CV_PAD=14;
+function curveToSvg(h,v){ return [ CV_PAD+v*(CV_W-2*CV_PAD), (CV_H-CV_PAD)-h*(CV_H-2*CV_PAD) ]; }
+function svgToCurve(x,y){ const v=(x-CV_PAD)/(CV_W-2*CV_PAD), h=((CV_H-CV_PAD)-y)/(CV_H-2*CV_PAD); return [ Math.max(0,Math.min(1,h)), Math.max(0,Math.min(1,v)) ]; }
+function curvePointerXY(e){ const svg=$('curveSvg'); const r=svg.getBoundingClientRect(); return [ (e.clientX-r.left)/r.width*CV_W, (e.clientY-r.top)/r.height*CV_H ]; }
+function drawCurve(){ const svg=$('curveSvg'); if(!svg)return; const mid=curveToSvg(0,0.5)[0];
+  let h='<line x1="'+CV_PAD+'" y1="'+CV_PAD+'" x2="'+CV_PAD+'" y2="'+(CV_H-CV_PAD)+'" stroke="#333" stroke-width="0.5"/>'+
+        '<line x1="'+CV_PAD+'" y1="'+(CV_H-CV_PAD)+'" x2="'+(CV_W-CV_PAD)+'" y2="'+(CV_H-CV_PAD)+'" stroke="#333" stroke-width="0.5"/>'+
+        '<line x1="'+mid.toFixed(1)+'" y1="'+CV_PAD+'" x2="'+mid.toFixed(1)+'" y2="'+(CV_H-CV_PAD)+'" stroke="#2a2a2a" stroke-width="0.5" stroke-dasharray="2 2"/>'+
+        '<text x="'+(CV_PAD-4)+'" y="'+(CV_PAD+3)+'" fill="#666" font-size="9" text-anchor="end">h1</text>'+
+        '<text x="'+(CV_PAD-4)+'" y="'+(CV_H-CV_PAD)+'" fill="#666" font-size="9" text-anchor="end">h0</text>';
+  const pts=curve.pts.slice().sort((a,b)=>a[0]-b[0]); let poly='';
+  for(const [hh,vv] of pts){ const [x,y]=curveToSvg(hh,vv); poly+=x.toFixed(1)+','+y.toFixed(1)+' '; }
+  h+='<polyline points="'+poly+'" fill="none" stroke="#2bb6a6" stroke-width="1.5"/>';
+  for(let i=0;i<curve.pts.length;i++){ const [x,y]=curveToSvg(curve.pts[i][0],curve.pts[i][1]);
+    h+='<circle data-i="'+i+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4" fill="#2bb6a6" stroke="#fff" stroke-width="1" style="cursor:grab"/>'; }
+  svg.innerHTML=h; }
+let curveDragI=-1;
+function curveRefresh(){   // corner morphs the field (re-project the supershape); envelope/twist are render-time
+  if(curve.target==='corner' && $('selPreset').value==='supershape') reprojSuper(); else updateMesh(); }
+function applyCurve(){ if(curve.active) curveRefresh(); }
+function onCurveDown(e){ e.preventDefault();
+  if(e.button===2){ const el=e.target; if(el.tagName==='circle'&&curve.pts.length>2){ curve.pts.splice(+el.dataset.i,1); drawCurve(); applyCurve(); } return; }
+  const el=e.target;
+  if(el.tagName==='circle'){ curveDragI=+el.dataset.i; el.setPointerCapture&&el.setPointerCapture(e.pointerId); }
+  else { const [sx,sy]=curvePointerXY(e); const pt=svgToCurve(sx,sy); curve.pts.push(pt); curve.pts.sort((a,b)=>a[0]-b[0]); curveDragI=curve.pts.indexOf(pt); drawCurve(); applyCurve(); } }
+function onCurveMove(e){ if(curveDragI<0)return; const [sx,sy]=curvePointerXY(e); const cur=curve.pts[curveDragI]=svgToCurve(sx,sy); curve.pts.sort((a,b)=>a[0]-b[0]); curveDragI=curve.pts.indexOf(cur); drawCurve(); applyCurve(); }
+function onCurveUp(){ curveDragI=-1; }
+$('curveSvg').addEventListener('pointerdown',onCurveDown);
+$('curveSvg').addEventListener('pointermove',onCurveMove);
+$('curveSvg').addEventListener('pointerup',onCurveUp);
+$('curveSvg').addEventListener('contextmenu',e=>e.preventDefault());
+$('cbCurve').addEventListener('change',e=>{ curve.active=e.target.checked; curveRefresh(); });
+$('selCurveTarget').addEventListener('change',e=>{ curve.target=e.target.value; curveRefresh(); });
+$('bCurveReset').addEventListener('click',()=>{ curve.pts=[[0,0.5],[1,0.5]]; drawCurve(); curveRefresh(); });
+
+// ── EXPORT .tvf3d: write the active sheet's field as the harmonic spectrum the chess program reads. ──
+//    chess reconstruction: r(θ,h)=Σ_n cos(nπh)·Σ_m (Aa[n][m]cos mθ + Ab[n][m]sin mθ), six color rows
+//    likewise. We forward-transform the editor's reconstructed field: θ-Fourier × h-cosine (DCT-II on
+//    midpoint h-nodes — the open-axis bridge the chess demo uses, NOT the RBF). Radial-family warps
+//    (size/taper/bulge/envelope/twist) are baked in (they ARE r(θ,h)); aspect/bend can't be (they leave
+//    the fixed-axis radial model the chess piece uses) so they're dropped with a warning.
+let EX_NH=24, EX_MT=32; const EX_PTH=256, EX_PH=96;   // NH/MT set per-export to the finest rung
+function exEnvTwist(h){ const cv=curve.active?curveVal(h):0.5;
+  const env=(curve.active&&curve.target==='envelope')?(0.2+1.6*cv):1;
+  const tw =(curve.active&&curve.target==='twist')?(-2+4*cv):xform.twist*h; return [env,tw]; }
+function exRadius(thD,h){ let hh=h, win=1;
+  if(state.clip.on){ if(state.exFill) hh=state.clip.lo+h*(state.clip.hi-state.clip.lo);   // fill: stretch body across the whole export height
+    else win=clipWin(h); }                                                                // keep: soft window → smooth h-profile → no ridges in chess
+  const [env,tw]=exEnvTwist(hh);
+  const m=Math.max(0,(1+xform.taper*(2*hh-1))*(1+xform.bulge*Math.sin(PI*hh)));
+  return Math.max(0, evalFull(thD-tw*TAU,hh)*m*env*xform.size*win); }
+function exColor(thD,h,ch){ let hh=h; if(state.clip.on&&state.exFill) hh=state.clip.lo+h*(state.clip.hi-state.clip.lo); const [,tw]=exEnvTwist(hh); return evalColorUpTo(thD-tw*TAU,hh,state.rungs-1)[ch]; }
+function exSample(fn){ const g=new Float64Array(EX_PTH*EX_PH);
+  for(let q=0;q<EX_PH;q++){ const h=(q+0.5)/EX_PH; for(let p=0;p<EX_PTH;p++){ g[q*EX_PTH+p]=fn(TAU*p/EX_PTH,h); } } return g; }
+function exForward(grid){ const Aa=[],Ab=[];
+  const cosM=[],sinM=[]; for(let m=0;m<EX_MT;m++){const cp=new Float64Array(EX_PTH),sp=new Float64Array(EX_PTH);for(let p=0;p<EX_PTH;p++){const th=TAU*p/EX_PTH;cp[p]=Math.cos(m*th);sp[p]=Math.sin(m*th);}cosM.push(cp);sinM.push(sp);}
+  const cosN=[]; for(let n=0;n<EX_NH;n++){const cn=new Float64Array(EX_PH);for(let q=0;q<EX_PH;q++)cn[q]=Math.cos(n*PI*(q+0.5)/EX_PH);cosN.push(cn);}
+  for(let n=0;n<EX_NH;n++){ Aa.push(new Float64Array(EX_MT)); Ab.push(new Float64Array(EX_MT)); const hnorm=(n===0)?1:0.5; const cn=cosN[n];
+    for(let m=0;m<EX_MT;m++){ let Icc=0,Ics=0; const cm=cosM[m],sm=sinM[m];
+      for(let q=0;q<EX_PH;q++){ const base=q*EX_PTH,w=cn[q]; let ac=0,as=0;
+        for(let p=0;p<EX_PTH;p++){const fv=grid[base+p];ac+=fv*cm[p];as+=fv*sm[p];} Icc+=w*ac; Ics+=w*as; }
+      Icc/=(EX_PTH*EX_PH); Ics/=(EX_PTH*EX_PH); const thc=(m===0)?1:0.5;
+      Aa[n][m]=Icc/(hnorm*thc); Ab[n][m]=(m===0)?0:Ics/(hnorm*0.5); } }
+  return {Aa,Ab}; }
+function exRows(tag,rows){ let s=''; for(const row of rows) s+=tag+' '+Array.from(row,x=>x.toFixed(6)).join(' ')+'\n'; return s; }
+function exToast(msg){ let t=document.getElementById('exToast');
+  if(!t){ t=document.createElement('div'); t.id='exToast'; t.style.cssText='position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(8,8,10,.92);color:var(--accent,#2bb6a6);border:1px solid var(--line,#2a2a2a);padding:8px 14px;border-radius:6px;font:12px/1.4 system-ui;z-index:99;max-width:80%;text-align:center'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(t._tmo); t._tmo=setTimeout(()=>{t.style.transition='opacity .5s';t.style.opacity='0';},3200); }
+function buildChessTVF3D(){   // the single .tvf3d writer: warp-baked field, finest-rung dims, harmonic projection
+  const warn=[]; if(Math.abs(xform.aspect-1)>1e-3)warn.push('aspect'); if(Math.abs(xform.bend)>1e-3)warn.push('bend');
+  const _fd=rungDims(state.rungs-1); EX_NH=Math.min(EX_PH-1,_fd.Nh); EX_MT=Math.min(EX_PTH/2-1,_fd.Nt);   // capture the finest rung exactly (DCT mode → no truncation gap)
+  const R =exForward(exSample(exRadius));
+  const Cr=exForward(exSample((t,h)=>exColor(t,h,0)));
+  const Cg=exForward(exSample((t,h)=>exColor(t,h,1)));
+  const Cb=exForward(exSample((t,h)=>exColor(t,h,2)));
+  let txt='TVF3D '+EX_NH+' '+EX_MT+' color\n'
+    +exRows('Aa',R.Aa)+exRows('Ab',R.Ab)+exRows('Cra',Cr.Aa)+exRows('Crb',Cr.Ab)
+    +exRows('Cga',Cg.Aa)+exRows('Cgb',Cg.Ab)+exRows('Cba',Cb.Aa)+exRows('Cbb',Cb.Ab);
+  const rc=(A,B,th,h)=>{let r=0;for(let n=0;n<EX_NH;n++){const hb=Math.cos(n*PI*h);for(let m=0;m<EX_MT;m++)r+=hb*(A[n][m]*Math.cos(m*th)+B[n][m]*Math.sin(m*th));}return r;};
+  let e=0; for(let q=0;q<40;q++){const h=(q+0.5)/40;for(let p=0;p<71;p++){const th=TAU*p/71;e=Math.max(e,Math.abs(exRadius(th,h)-rc(R.Aa,R.Ab,th,h)));}}
+  return {txt, e, warn, NH:EX_NH, MT:EX_MT};
+}
+function exportTVF3D(){ const o=buildChessTVF3D();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([o.txt],{type:'text/plain'})); a.download='shape.tvf3d'; a.click(); URL.revokeObjectURL(a.href);
+  const msg='exported '+o.NH+'×'+o.MT+' .tvf3d · round-trip '+o.e.toExponential(1)+(o.warn.length?' · dropped '+o.warn.join('+'):''); fileMsg(msg); exToast(msg);
+}
+// STL: the exact visible mesh (sheets and/or welded vessel) with all warps baked by toXYZ, as world-space triangles.
+function exportSTL(){
+  const meshes=[];
+  if(asm.on) for(const p of asm.parts) meshes.push(p.mesh);                // assembling: every placed part, in place
+  else { if(vesselMesh&&vesselMesh.visible)meshes.push(vesselMesh);
+    for(const m of sheetMeshes) if(m&&m.mesh&&m.mesh.visible&&m.mesh.material.opacity>0.1) meshes.push(m.mesh); }
+  if(!meshes.length){ fileMsg('nothing visible to export'); return; }
+  const vA=new THREE.Vector3(),vB=new THREE.Vector3(),vC=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),nr=new THREE.Vector3();
+  const f=x=>x.toFixed(5); let s='solid field_rung\n', tris=0;
+  for(const m of meshes){ m.updateMatrixWorld(true); const g=m.geometry, pos=g.attributes.position, idx=g.index, mw=m.matrixWorld;
+    const tri=(a,b,c)=>{ vA.fromBufferAttribute(pos,a).applyMatrix4(mw); vB.fromBufferAttribute(pos,b).applyMatrix4(mw); vC.fromBufferAttribute(pos,c).applyMatrix4(mw);
+      ab.subVectors(vB,vA); ac.subVectors(vC,vA); nr.crossVectors(ab,ac); if(nr.lengthSq()>1e-20)nr.normalize();
+      tris++; s+='facet normal '+f(nr.x)+' '+f(nr.y)+' '+f(nr.z)+'\n outer loop\n  vertex '+f(vA.x)+' '+f(vA.y)+' '+f(vA.z)+'\n  vertex '+f(vB.x)+' '+f(vB.y)+' '+f(vB.z)+'\n  vertex '+f(vC.x)+' '+f(vC.y)+' '+f(vC.z)+'\n endloop\nendfacet\n'; tris++; };
+    if(idx){ const ia=idx.array; for(let i=0;i<ia.length;i+=3)tri(ia[i],ia[i+1],ia[i+2]); }
+    else { for(let i=0;i<pos.count;i+=3)tri(i,i+1,i+2); } }
+  s+='endsolid field_rung\n';
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([s],{type:'model/stl'})); a.download=asm.on?'assembly.stl':'shape.stl'; a.click(); URL.revokeObjectURL(a.href);
+  fileMsg('exported STL ('+tris+' triangles)'); exToast('exported STL ('+tris+' triangles)');
+}
+$('bExport').addEventListener('click',exportTVF3D);
+$('cbExFill').addEventListener('change',e=>{ state.exFill=e.target.checked; });
+$('bSTL').addEventListener('click',exportSTL);
+$('cbHdct').addEventListener('change',e=>setHKernel(e.target.checked?'dct':'rbf'));
+$('bProfApply').addEventListener('click',applyProfileToRung);
+$('bProfBase').addEventListener('click',applyProfileAsBase);
+$('bProfFromShape').addEventListener('click',profileFromShape);
+$('bProfReset').addEventListener('click',profileReset);
+drawProf();
+
+// ── menu open/close ──
+$('gearBtn').addEventListener('click',()=>{ const open=$('settingsMenu').classList.toggle('open'); $('menuScrim').classList.toggle('open',open); });
+function closeMenu(){$('settingsMenu').classList.remove('open');$('menuScrim').classList.remove('open');}
+$('menuClose').addEventListener('click',closeMenu); $('menuScrim').addEventListener('click',closeMenu);
+
+// ── TVF3D: build the coefficient text (the format chess_trillion imports) ──
+// Radius rows (Aa cos-θ, Ab sin-θ) carry geometry; color rows (Cra/Crb, Cga/Cgb, Cba/Cbb) carry
+// the displayed RGB cube field on the same Fourier basis — TB §12 color-by-channel, projected onto the
+// open-h × closed-θ basis chess_trillion already uses, so color flows through one shared file.
+// Header gets a 'color' marker so old loaders silently skip the color rows (backward compatible).
+function fileMsg(s){ const el=$('fileMsg'); if(el){el.textContent=s; if(s)setTimeout(()=>{if(el.textContent===s)el.textContent='';},2500);} }
+async function copyTVF3D(){ const o=buildChessTVF3D();
+  try{ await navigator.clipboard.writeText(o.txt); fileMsg('copied .tvf3d \u2713'); }
+  catch(_){ const ta=document.createElement('textarea'); ta.value=o.txt; document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy');fileMsg('copied .tvf3d \u2713');}catch(e){fileMsg('copy failed — use export');} document.body.removeChild(ta); } }
+$('bCopy').addEventListener('click',copyTVF3D);
+
+// ── load a TVF3D field: parse coeffs -> field function -> project into the cascade (keep sculpting) ──
+// Backward compatible: files without color rows load radius only (old behavior). With 'color' marker
+// in the header and Cra/Crb/Cga/Cgb/Cba/Cbb rows, the color cube field is projected into the cascade too.
+function loadTVF3D(text){
+  const lines=text.replace(/\r/g,'').split('\n');
+  const hdr=lines.find(l=>l.startsWith('TVF3D')); if(!hdr)throw new Error('not a TVF3D field');
+  const hp=hdr.split(/\s+/); const Nh=+hp[1], Mt=+hp[2]; const hasColor=hp.includes('color');
+  const Aa=[],Ab=[],Cra=[],Crb=[],Cga=[],Cgb=[],Cba=[],Cbb=[];
+  for(const l of lines){ const t=l.trim();
+    if(t.startsWith('Aa '))Aa.push(t.slice(3).trim().split(/\s+/).map(Number));
+    else if(t.startsWith('Ab '))Ab.push(t.slice(3).trim().split(/\s+/).map(Number));
+    else if(t.startsWith('Cra '))Cra.push(t.slice(4).trim().split(/\s+/).map(Number));
+    else if(t.startsWith('Crb '))Crb.push(t.slice(4).trim().split(/\s+/).map(Number));
+    else if(t.startsWith('Cga '))Cga.push(t.slice(4).trim().split(/\s+/).map(Number));
+    else if(t.startsWith('Cgb '))Cgb.push(t.slice(4).trim().split(/\s+/).map(Number));
+    else if(t.startsWith('Cba '))Cba.push(t.slice(4).trim().split(/\s+/).map(Number));
+    else if(t.startsWith('Cbb '))Cbb.push(t.slice(4).trim().split(/\s+/).map(Number)); }
+  if(Aa.length!==Nh||Ab.length!==Nh)throw new Error('coefficient rows do not match header');
+  pushHistory();
+  const field=(theta,h)=>{ let r=0; for(let n=0;n<Nh;n++){const hb=Math.cos(n*PI*h);
+    for(let m=0;m<Mt;m++)r+=hb*(Aa[n][m]*Math.cos(m*theta)+Ab[n][m]*Math.sin(m*theta));} return Math.max(0.02,r); };
+  projectField(field);
+  if(hasColor && Cra.length===Nh){
+    const fn=(A,B)=>(theta,h)=>{ let c=0; for(let n=0;n<Nh;n++){const hb=Math.cos(n*PI*h);
+      for(let m=0;m<Mt;m++)c+=hb*(A[n][m]*Math.cos(m*theta)+B[n][m]*Math.sin(m*theta));} return c; };
+    projectColorField(fn(Cra,Crb), fn(Cga,Cgb), fn(Cba,Cbb));
+  }
+  selectRung(state.selectedRung); updateMesh(); fileMsg('loaded field ('+Nh+'×'+Mt+(hasColor?', color)':')'));
+}
+// Distribute an imported color field onto the cascade rungs (parallel to projectField for radius)
+function projectColorField(rfn,gfn,bfn){
+  for(let r=0;r<state.rungs;r++){ const rg=state.cascade[r]; const Nt=rg.Nt,Nh=rg.Nh;
+    for(let i=0;i<Nh;i++)for(let j=0;j<Nt;j++){ const t=leafTheta(j,Nt),h=leafH(i,Nh);
+      let pR=0,pG=0,pB=0;
+      for(let s=0;s<r;s++){const c=rungEvalColor(state.cascade[s],t,h); pR+=c[0]; pG+=c[1]; pB+=c[2];}
+      rg.cR[i*Nt+j]=rfn(t,h)-pR; rg.cG[i*Nt+j]=gfn(t,h)-pG; rg.cB[i*Nt+j]=bfn(t,h)-pB; } }
+}
+$('bLoad').addEventListener('click',()=>$('fileInput').click());
+$('fileInput').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return;
+  const rd=new FileReader(); rd.onload=()=>{ try{loadTVF3D(rd.result);}catch(err){fileMsg('load error: '+err.message);} }; rd.readAsText(f);
+  e.target.value=''; });
+
+// ── load a grayscale image as the radial field (heightmap) ──
+// The image's brightness becomes the radius r(θ,h): θ wraps around the
+// profile (image x), h runs up the object (image y, flipped so the top of
+// the image is the top of the piece), brightness 0..1 maps to a sensible
+// radius range. Sampled through a small offscreen canvas, then projected
+// onto the cascade via projectField (so it stays fully sculptable after).
+function loadImageAsField(img){
+  const SW=256, SH=256;                                   // sampling resolution
+  const oc=document.createElement('canvas'); oc.width=SW; oc.height=SH;
+  const octx=oc.getContext('2d');
+  octx.drawImage(img,0,0,SW,SH);
+  const data=octx.getImageData(0,0,SW,SH).data;
+  // Precompute the grayscale grid once (luma), so the field fn is cheap.
+  const gray=new Float32Array(SW*SH);
+  for(let p=0;p<SW*SH;p++){ const o=p*4;
+    gray[p]=(0.299*data[o]+0.587*data[o+1]+0.114*data[o+2])/255; }
+  const sample=(u,v)=>{                                   // u,v in [0,1], bilinear, u wraps
+    const x=((u%1)+1)%1*(SW-1), y=Math.max(0,Math.min(1,v))*(SH-1);
+    const x0=Math.floor(x), y0=Math.floor(y);
+    const x1=(x0+1)%SW, y1=Math.min(SH-1,y0+1);
+    const fx=x-x0, fy=y-y0;
+    const g00=gray[y0*SW+x0], g10=gray[y0*SW+x1], g01=gray[y1*SW+x0], g11=gray[y1*SW+x1];
+    return (g00*(1-fx)+g10*fx)*(1-fy)+(g01*(1-fx)+g11*fx)*fy;
+  };
+  const RMIN=0.05, RMAX=0.30;                             // brightness → radius range
+  const field=(th,h)=>{
+    const u=th/TAU;                                       // θ∈[0,2π) → image column (wraps)
+    const v=1-h;                                          // h∈[0,1]  → image row (top of image = top)
+    const g=sample(u,v);
+    return RMIN + (RMAX-RMIN)*g;                          // bright = large radius
+  };
+  pushHistory();
+  state.clip={on:false,lo:0,hi:1,soft:0.06};
+  projectField(field);
+  selectRung(state.selectedRung); updateMesh();
+  fileMsg('loaded image as field ('+img.width+'×'+img.height+')');
+}
+$('bLoadImg').addEventListener('click',()=>$('imgInput').click());
+$('imgInput').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return;
+  const url=URL.createObjectURL(f); const img=new Image();
+  img.onload=()=>{ try{loadImageAsField(img);}catch(err){fileMsg('image error: '+err.message);} URL.revokeObjectURL(url); };
+  img.onerror=()=>{ fileMsg('could not load image'); URL.revokeObjectURL(url); };
+  img.src=url; e.target.value=''; });
+
+// ── undo/redo: per-gesture snapshots of the cascade (v + blocked per rung) ──
+// Snapshot BEFORE each gesture (pointerdown for brushes/stamps/draw, profile apply, preset, addRung,
+// file load). Cap history at HIST_CAP to keep memory bounded across long sessions.
+const HIST_CAP = 50;
+const undoStack = [], redoStack = [];
+function snapshotCascade(){ return state.cascade.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,
+  v:new Float64Array(rg.v), cR:new Float64Array(rg.cR), cG:new Float64Array(rg.cG), cB:new Float64Array(rg.cB),
+  blocked:new Uint8Array(rg.blocked)})); }
+function restoreCascade(snap){ state.cascade=snap.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,
+  v:new Float64Array(rg.v), cR:new Float64Array(rg.cR), cG:new Float64Array(rg.cG), cB:new Float64Array(rg.cB),
+  blocked:new Uint8Array(rg.blocked)}));
+  state.sheets[state.activeSheet]=state.cascade;
+  state.rungs=state.cascade.length; if(state.selectedRung>=state.rungs)state.selectedRung=state.rungs-1;
+  rebuildRungBar(); updateMesh(); }
+function pushHistory(){ undoStack.push(snapshotCascade()); if(undoStack.length>HIST_CAP) undoStack.shift(); redoStack.length=0; }
+function undo(){ if(!undoStack.length){fileMsg&&fileMsg('nothing to undo');return;} redoStack.push(snapshotCascade()); restoreCascade(undoStack.pop()); fileMsg&&fileMsg('undo'); }
+function redo(){ if(!redoStack.length){fileMsg&&fileMsg('nothing to redo');return;} undoStack.push(snapshotCascade()); restoreCascade(redoStack.pop()); fileMsg&&fileMsg('redo'); }
+
+// ── keyboard ──
+// Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z (or Ctrl+Y) = redo, digits 0..5 = rung select, [ / ] = radius step.
+window.addEventListener('keyup',e=>{ if(e.key==='ArrowUp'||e.key==='ArrowDown') state._leafNudged=false; });
+window.addEventListener('keydown',e=>{
+  // skip when typing in inputs / selects
+  const t=e.target; if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')) return;
+  const meta=e.metaKey||e.ctrlKey;
+  if(meta && (e.key==='z'||e.key==='Z')){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
+  if(meta && (e.key==='y'||e.key==='Y')){ e.preventDefault(); redo(); return; }
+  if(/^[0-9]$/.test(e.key)){ const n=+e.key; if(n<state.rungs){ e.preventDefault(); selectRung(n); } return; }
+  if(state.selLeaf && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','PageUp','PageDown'].includes(e.key)){
+    e.preventDefault();
+    const r=state.selectedRung, cas=state.cascade[r], {Nt,Nh,v}=cas; const sl=state.selLeaf;
+    if(e.key==='ArrowLeft') sl.j=((sl.j-1)%Nt+Nt)%Nt;
+    else if(e.key==='ArrowRight') sl.j=(sl.j+1)%Nt;
+    else if(e.key==='PageUp') sl.i=Math.min(Nh-1,sl.i+1);
+    else if(e.key==='PageDown') sl.i=Math.max(0,sl.i-1);
+    else { const idx=sl.i*Nt+sl.j;
+      if(cas.blocked && cas.blocked[idx]){ hudLeaf(); return; }         // locked seat: testimony only
+      if(!state._leafNudged){ pushHistory(); state._leafNudged=true; }  // one undo entry per nudge burst
+      v[idx]+=(e.shiftKey?0.04:0.01)*(e.key==='ArrowUp'?1:-1);
+      updateMesh(); }
+    hudLeaf(); return; }
+  if(e.key==='['){ e.preventDefault(); const inp=$('rBrushR'); inp.value=Math.max(+inp.min, +inp.value - +inp.step); inp.dispatchEvent(new Event('input')); return; }
+  if(e.key===']'){ e.preventDefault(); const inp=$('rBrushR'); inp.value=Math.min(+inp.max, +inp.value + +inp.step); inp.dispatchEvent(new Event('input')); return; }
+});
+
+
+// ════════════════════════════════════════════════════════════════════
+// ASSEMBLY — many shapes, placed, as one object.
+// A part is a finished shape baked to a mesh, plus where it sits: position, a rotation
+// (degrees about x, y, z) and a size (uniform × per-axis stretch). The assembly lives in
+// its own scene, so the sculpt editor's meshes, rings and leaf markers never mix with it,
+// and switching modes is only a question of which scene the loop draws.
+// Each part keeps its SOURCE too ({preset} or {tvf3d}), so "edit in sculpt" can open it
+// in the lathe editor and "update part" can bring the result back.
+// ════════════════════════════════════════════════════════════════════
+const asmScene=new THREE.Scene();
+asmScene.add(new THREE.AmbientLight(0xffffff,0.6));
+{ const d1=new THREE.DirectionalLight(0xffffff,0.85); d1.position.set(0.6,1,0.4); asmScene.add(d1);
+  const d2=new THREE.DirectionalLight(0x88aaff,0.3); d2.position.set(-0.5,0.3,-0.6); asmScene.add(d2);
+  const fl=new THREE.Mesh(new THREE.CircleGeometry(2.6,64),new THREE.MeshBasicMaterial({color:0x141a22,transparent:true,opacity:0.6,side:THREE.DoubleSide}));
+  fl.rotation.x=-PI/2; fl.position.y=-0.005; asmScene.add(fl); }
+const asm={ on:false, parts:[], sel:-1, nextId:1, editing:null, target:new THREE.Vector3(0,0.5,0) };
+
+/* A revolved mesh straight from a radius function r(θ,h) (and optional colour functions),
+   with the two ends closed by fans to the axis so a cylinder is a solid, not a tube. The
+   shape's own frame is the sculpt editor's: axis up, base at y=0, height HSCALE. */
+function asmGeomFromField(rf, cf){
+  const NT=MT, NH=MH, pos=[], col=[], idx=[];
+  for(let i=0;i<NH;i++){ const h=i/(NH-1);
+    for(let j=0;j<NT;j++){ const th=j/NT*TAU, r=Math.max(0,rf(th,h));
+      pos.push(r*Math.cos(th), h*HSCALE, r*Math.sin(th));
+      const c=cf?cf(th,h):[1,1,1]; col.push(...c.map(x=>Math.max(0,Math.min(1,x)))); } }
+  for(let i=0;i<NH-1;i++)for(let j=0;j<NT;j++){ const a=i*NT+j,b=i*NT+(j+1)%NT,c=(i+1)*NT+j,d=(i+1)*NT+(j+1)%NT; idx.push(a,c,b,b,c,d); }
+  const bot=pos.length/3; pos.push(0,0,0); col.push(...col.slice(0,3));
+  const top=bot+1; pos.push(0,HSCALE,0); col.push(...col.slice((NH-1)*NT*3,(NH-1)*NT*3+3));
+  for(let j=0;j<NT;j++){ const jn=(j+1)%NT; idx.push(bot,jn,j); idx.push(top,(NH-1)*NT+j,(NH-1)*NT+jn); }
+  return asmMakeGeom(pos,col,idx);
+}
+function asmMakeGeom(pos,col,idx){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+/* What the sculpt editor is showing right now, as one mesh: the welded vessel if it is on,
+   otherwise every visible sheet — the same set the editor's own .stl export writes. */
+function asmGeomFromSculpt(){
+  const ms=[]; if(vesselMesh&&vesselMesh.visible) ms.push(vesselMesh);
+  else for(const sm of sheetMeshes) if(sm&&sm.mesh.visible&&sm.mesh.material.opacity>0.1) ms.push(sm.mesh);
+  if(!ms.length) return null;
+  const pos=[], col=[], idx=[];
+  for(const m of ms){ const g=m.geometry, base=pos.length/3, P=g.attributes.position, C=g.attributes.color;
+    for(let k=0;k<P.count;k++){ pos.push(P.getX(k),P.getY(k),P.getZ(k)); if(C) col.push(C.getX(k),C.getY(k),C.getZ(k)); else col.push(1,1,1); }
+    const I=g.index.array; for(let k=0;k<I.length;k++) idx.push(base+I[k]);
+    if(m!==vesselMesh) asmCapRings(pos,col,idx,base); }                  // a sheet is open at both ends; the vessel is already closed
+  return asmMakeGeom(pos,col,idx);
+}
+/* Close a sheet's bottom and top rings (rows 0 and MH-1 of its MT×MH grid) with fans to
+   their own centres, so a sculpted shape arrives as a solid rather than a tube. */
+function asmCapRings(pos,col,idx,base){
+  for(const [row,flip] of [[0,true],[MH-1,false]]){
+    let cx=0,cy=0,cz=0; for(let j=0;j<MT;j++){ const o=(base+row*MT+j)*3; cx+=pos[o]; cy+=pos[o+1]; cz+=pos[o+2]; }
+    const c=pos.length/3; pos.push(cx/MT,cy/MT,cz/MT); const o0=(base+row*MT)*3; col.push(col[o0],col[o0+1],col[o0+2]);
+    for(let j=0;j<MT;j++){ const a=base+row*MT+j, b=base+row*MT+(j+1)%MT; if(flip) idx.push(c,b,a); else idx.push(c,a,b); } }
+}
+function asmPresetGeom(name){ return asmGeomFromField(PRESETS[name]||PRESETS.cylinder); }
+function asmPresetLabel(name){ const o=document.querySelector('#selPreset option[value="'+name+'"]'); return o?o.textContent.replace(/^[^a-z0-9]+/i,'').replace(/\s*\(.*\)$/,''):name; }
+
+function asmAddPart(o){
+  const p=Object.assign({ id:asm.nextId++, name:'part', color:null, pos:[0,0,0], rot:[0,0,0], size:1, stretch:[1,1,1], src:null }, o);
+  const mat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:0.6,metalness:0.05,side:THREE.DoubleSide});
+  p.mesh=new THREE.Mesh(p.geom,mat); p.mesh.userData.part=p; asmScene.add(p.mesh);
+  asm.parts.push(p); asmApply(p); return p;
+}
+function asmApply(p){
+  const m=p.mesh; m.position.set(...p.pos);
+  m.rotation.set(p.rot[0]*PI/180,p.rot[1]*PI/180,p.rot[2]*PI/180,'XYZ');
+  m.scale.set(p.size*p.stretch[0],p.size*p.stretch[1],p.size*p.stretch[2]);
+  m.material.vertexColors=!p.color; m.material.color.set(p.color||0xffffff);
+  m.material.emissive.set(asm.parts[asm.sel]===p?0x3a2a08:0x000000); m.material.needsUpdate=true;
+}
+function asmRemove(p){ asmScene.remove(p.mesh); p.geom.dispose(); p.mesh.material.dispose(); asm.parts.splice(asm.parts.indexOf(p),1); }
+function asmClearAll(){ while(asm.parts.length) asmRemove(asm.parts[0]); asm.sel=-1; }
+function asmMsg(s){ const el=$('asmMsg'); if(el){ el.textContent=s; if(s) setTimeout(()=>{ if(el.textContent===s) el.textContent=''; },3000); } }
+
+/* ── the panel ── */
+const ASM_SLIDERS=[['asmPX','pos',0],['asmPY','pos',1],['asmPZ','pos',2],['asmRX','rot',0],['asmRY','rot',1],['asmRZ','rot',2],
+                   ['asmSize','size',-1],['asmSX','stretch',0],['asmSY','stretch',1],['asmSZ','stretch',2]];
+const asmFmt=(id,v)=>id.startsWith('asmR')?Math.round(v)+'°':(+v).toFixed(2);
+function asmSelect(i){ asm.sel=i; for(const p of asm.parts) asmApply(p); asmRefreshPanel(); }
+function asmRefreshPanel(){
+  const list=$('asmList'); list.innerHTML='';
+  asm.parts.forEach((p,i)=>{ const b=document.createElement('button'); b.className=i===asm.sel?'sel':'';
+    const sw=document.createElement('span'); sw.className='sw'; sw.style.background=p.color||'linear-gradient(135deg,#d4a052,#5a9fd4)';
+    b.append(sw,document.createTextNode(p.name)); b.addEventListener('click',()=>asmSelect(i)); list.appendChild(b); });
+  if(!asm.parts.length){ const n=document.createElement('div'); n.className='asm-note'; n.textContent='No parts yet: try an example, or add a preset.'; list.appendChild(n); }
+  const p=asm.parts[asm.sel]; $('asmSel').style.display=p?'':'none'; if(!p) return;
+  $('asmName').value=p.name; $('asmColor').value=p.color||'#ffffff';
+  for(const [id,key,k] of ASM_SLIDERS){ const v=k<0?p[key]:p[key][k]; $(id).value=v; $('v_'+id).textContent=asmFmt(id,v); }
+}
+for(const [id,key,k] of ASM_SLIDERS) $(id).addEventListener('input',e=>{ const p=asm.parts[asm.sel]; if(!p) return;
+  const v=+e.target.value; if(k<0) p[key]=v; else p[key][k]=v; $('v_'+id).textContent=asmFmt(id,v); asmApply(p); });
+$('asmName').addEventListener('input',e=>{ const p=asm.parts[asm.sel]; if(!p) return; p.name=e.target.value||'part';
+  const b=$('asmList').children[asm.sel]; if(b) b.lastChild.textContent=p.name; });
+$('asmColor').addEventListener('input',e=>{ const p=asm.parts[asm.sel]; if(!p) return; p.color=e.target.value; asmApply(p);
+  const b=$('asmList').children[asm.sel]; if(b) b.firstChild.style.background=p.color; });
+
+/* Rest the part on the floor: the lowest point of its placed mesh goes to y = 0. */
+function asmToFloor(p){ p.mesh.updateMatrixWorld(true); const b=new THREE.Box3().setFromObject(p.mesh); p.pos[1]-=b.min.y; asmApply(p); }
+/* Frame the camera on the whole assembly. */
+function asmFrame(){
+  const b=new THREE.Box3(); for(const p of asm.parts){ p.mesh.updateMatrixWorld(true); b.expandByObject(p.mesh); }
+  if(b.isEmpty()){ asm.target.set(0,0.5,0); cR=3.4; return; }
+  const c=b.getCenter(new THREE.Vector3()), r=b.getSize(new THREE.Vector3()).length()/2;
+  asm.target.copy(c); cR=Math.max(1.6,Math.min(8,r*2.6));
+}
+
+/* ── the two examples. All parts are presets, so every one can be opened in sculpt. ──
+   ball preset: radius 0.26 across, HSCALE (1.1) tall, so a round ball of radius R is a
+   stretch of (R/0.26, 2R/1.1, R/0.26). cylinder preset: radius 0.22, 1.1 tall. */
+const asmBall=R=>[R/0.26, 2*R/HSCALE, R/0.26];             // for the ball preset
+const asmRod=(R,L)=>[R/0.22, L/HSCALE, R/0.22];
+function asmPresetPart(preset,o){ return asmAddPart(Object.assign({ geom:asmPresetGeom(preset), src:{preset}, name:asmPresetLabel(preset) },o)); }
+function asmExampleTable(){
+  asmClearAll();
+  const wood='#9a6b3f', legH=0.78, topT=0.06;
+  asmPresetPart('cylinder',{ name:'table top', color:wood, pos:[0,legH,0], stretch:[0.9/0.22,topT/HSCALE,0.55/0.22] });
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz],i)=>
+    asmPresetPart('cylinder',{ name:'leg '+(i+1), color:'#7a5230', pos:[sx*0.62,0,sz*0.34], stretch:asmRod(0.035,legH) }));
+  asmPresetPart('vase',{ name:'vase', color:'#5a9fd4', pos:[0.1,legH+topT,0], size:0.42 });
+  asmPresetPart('ball',{ name:'apple', color:'#c8402e', pos:[-0.42,legH+topT,0.12], stretch:asmBall(0.07) });
+  asmSelect(0); asmFrame(); asmMsg('example table: 7 parts');
+}
+function asmExampleSnowman(){
+  asmClearAll();
+  const snow='#eef2f7', coal='#1b1b1f';
+  const balls=[['bottom',0.45,0],['middle',0.33,0.78],['head',0.23,1.36]];
+  for(const [n,R,y] of balls) asmPresetPart('ball',{ name:n, color:snow, pos:[0,y,0], stretch:asmBall(R) });
+  const hc=1.36+0.23;                                                 // head centre
+  asmPresetPart('cone',{ name:'nose', color:'#ff8a2a', pos:[0,hc-0.02,0.19], rot:[90,0,0], stretch:[0.16,0.2/HSCALE,0.16] });
+  for(const sx of [-1,1]) asmPresetPart('ball',{ name:sx<0?'left eye':'right eye', color:coal, pos:[sx*0.08,hc+0.04,0.19], stretch:asmBall(0.028) });
+  [1.0,1.13,1.26].forEach((y,i)=>asmPresetPart('ball',{ name:'button '+(i+1), color:coal, pos:[0,y-0.03,Math.sqrt(0.33*0.33-(y-1.11)**2)-0.01], stretch:asmBall(0.03) }));
+  for(const sx of [-1,1]) asmPresetPart('cylinder',{ name:sx<0?'left arm':'right arm', color:'#6b4423', pos:[sx*0.27,1.18,0], rot:[0,0,-sx*58], stretch:asmRod(0.018,0.62) });
+  asmPresetPart('cylinder',{ name:'hat brim', color:coal, pos:[0,hc+0.17,0], stretch:asmRod(0.25,0.03) });
+  asmPresetPart('cylinder',{ name:'hat', color:coal, pos:[0,hc+0.19,0], stretch:asmRod(0.16,0.24) });
+  asmSelect(0); asmFrame(); asmMsg('example snowman: '+asm.parts.length+' parts');
+}
+
+/* ── adding, copying, removing, editing ── */
+function asmAddSculpted(){
+  const g=asmGeomFromSculpt(); if(!g){ asmMsg('nothing visible in sculpt to add'); return; }
+  let src=null; try{ src={tvf3d:buildChessTVF3D().txt}; }catch(_){}
+  const p=asmAddPart({ geom:g, src, name:'sculpted '+asm.nextId, pos:[0,0,0] });
+  asmToFloor(p); asmSelect(asm.parts.indexOf(p)); asmMsg('added the sculpted shape');
+}
+function asmDuplicate(){ const p=asm.parts[asm.sel]; if(!p) return;
+  const q=asmAddPart({ geom:p.geom.clone(), src:p.src, name:p.name+' copy', color:p.color, pos:[p.pos[0]+0.3,p.pos[1],p.pos[2]], rot:p.rot.slice(), size:p.size, stretch:p.stretch.slice() });
+  asmSelect(asm.parts.indexOf(q)); }
+function asmDelete(){ const p=asm.parts[asm.sel]; if(!p) return; asmRemove(p); asmSelect(Math.min(asm.sel,asm.parts.length-1)); }
+function asmEditPart(){ const p=asm.parts[asm.sel]; if(!p) return;
+  if(p.src&&p.src.preset){ $('selPreset').value=p.src.preset; loadPreset(p.src.preset); }
+  else if(p.src&&p.src.tvf3d){ try{ loadTVF3D(p.src.tvf3d); }catch(e){ asmMsg('could not open: '+e.message); return; } }
+  else { asmMsg('this part has no source to open'); return; }
+  asm.editing=p.id; setAsmMode(false); }
+function asmUpdateFromSculpt(){ const p=asm.parts.find(q=>q.id===asm.editing); asm.editing=null;
+  if(!p){ setAsmMode(true); return; }
+  const g=asmGeomFromSculpt(); if(!g){ setAsmMode(true); asmMsg('nothing visible in sculpt'); return; }
+  p.geom.dispose(); p.geom=g; p.mesh.geometry=g;
+  try{ p.src={tvf3d:buildChessTVF3D().txt}; }catch(_){}
+  setAsmMode(true); asmSelect(asm.parts.indexOf(p)); asmMsg('updated '+p.name); }
+
+/* ── saving: the placed parts with their baked meshes (so they reopen exactly), plus each
+   part's source so it can still be opened in sculpt. A plain JSON file, extension .3da. ── */
+function asmSerialize(){
+  const r4=x=>Math.round(x*1e4)/1e4, r3=x=>Math.round(x*1e3)/1e3;
+  return JSON.stringify({ format:'3d-assembly', version:1, parts:asm.parts.map(p=>({
+    name:p.name, color:p.color, pos:p.pos, rot:p.rot, size:p.size, stretch:p.stretch, src:p.src,
+    mesh: asmRegenerates(p) ? undefined :
+      { position:Array.from(p.geom.attributes.position.array,r4), color:Array.from(p.geom.attributes.color.array,r3), index:Array.from(p.geom.index.array) } })) });
+}
+/* A plain preset part is rebuilt exactly from its preset, so its mesh is not written. The
+   supershape is the exception: it reads the live supershape sliders. */
+function asmRegenerates(p){ return !!(p.src && p.src.preset && PRESETS[p.src.preset] && p.src.preset!=='supershape'); }
+function asmDeserialize(text){
+  const d=JSON.parse(text); if(d.format!=='3d-assembly') throw new Error('not a 3d assembly file');
+  asmClearAll();
+  for(const q of d.parts){ const g=q.mesh ? asmMakeGeom(q.mesh.position,q.mesh.color,q.mesh.index) : asmPresetGeom(q.src.preset);
+    asmAddPart({ geom:g, name:q.name, color:q.color, pos:q.pos, rot:q.rot, size:q.size, stretch:q.stretch, src:q.src }); }
+  asmSelect(asm.parts.length?0:-1); asmFrame();
+}
+function asmDownload(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+/* ── the mode switch ── */
+function setAsmMode(on){
+  asm.on=!!on; $('asmPanel').hidden=!asm.on;
+  $('modeSculpt').classList.toggle('active',!asm.on); $('modeAssemble').classList.toggle('active',asm.on);
+  const ed=asm.parts.find(q=>q.id===asm.editing); $('asmBack').hidden=asm.on||!ed;
+  if(ed) $('asmBack').textContent='↩ update '+ed.name;
+  if(!asm.on&&!ed) asm.editing=null;
+  if(asm.on){ closeMenu(); asmRefreshPanel(); if(!asm._framed){ asm._framed=true; asmFrame(); } }
+  else { cR=Math.max(1.6,Math.min(8,cR)); }
+}
+$('modeSculpt').addEventListener('click',()=>setAsmMode(false));
+$('modeAssemble').addEventListener('click',()=>{ asm.editing=null; setAsmMode(true); });
+$('asmBack').addEventListener('click',asmUpdateFromSculpt);
+$('asmExTable').addEventListener('click',asmExampleTable);
+$('asmExSnowman').addEventListener('click',asmExampleSnowman);
+{ const sel=$('asmPreset'); for(const o of document.querySelectorAll('#selPreset option')) if(PRESETS[o.value]&&o.value!=='corner_test'){ const c=o.cloneNode(true); c.selected=false; sel.appendChild(c); } sel.value='ball'; }
+$('asmAddPreset').addEventListener('click',()=>{ const n=$('asmPreset').value; const p=asmPresetPart(n,{}); asmSelect(asm.parts.indexOf(p)); });
+$('asmAdd').addEventListener('click',asmAddSculpted);
+$('asmDup').addEventListener('click',asmDuplicate);
+$('asmDel').addEventListener('click',asmDelete);
+$('asmFloor').addEventListener('click',()=>{ const p=asm.parts[asm.sel]; if(p){ asmToFloor(p); asmRefreshPanel(); } });
+$('asmEdit').addEventListener('click',asmEditPart);
+$('asmClear').addEventListener('click',()=>{ asmClearAll(); asmRefreshPanel(); });
+$('asmSave').addEventListener('click',()=>{ if(!asm.parts.length){ asmMsg('nothing to save'); return; } asmDownload('assembly.3da',asmSerialize(),'application/json'); asmMsg('saved '+asm.parts.length+' parts'); });
+$('asmLoad').addEventListener('click',()=>$('asmFile').click());
+$('asmFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+  rd.onload=()=>{ try{ asmDeserialize(rd.result); asmMsg('opened '+asm.parts.length+' parts'); }catch(err){ asmMsg('open failed: '+err.message); } }; rd.readAsText(f); e.target.value=''; });
+$('asmSTL').addEventListener('click',exportSTL);
+
+/* ── pointer, in assemble mode: drag a part along the floor (alt: up and down), else orbit ── */
+const asmDrag={ part:null, plane:new THREE.Plane(), offset:new THREE.Vector3(), hit:new THREE.Vector3() };
+function asmRay(e){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ndc,cam); }
+function asmPointerDown(e){
+  if(e.button===2||e.shiftKey){ mode='orbit'; return; }
+  asmRay(e); const hits=ray.intersectObjects(asm.parts.map(p=>p.mesh),false);
+  if(!hits.length){ mode='orbit'; return; }
+  const p=hits[0].object.userData.part; asmSelect(asm.parts.indexOf(p));
+  const n=e.altKey ? new THREE.Vector3(cam.position.x-p.mesh.position.x,0,cam.position.z-p.mesh.position.z).normalize() : new THREE.Vector3(0,1,0);
+  asmDrag.plane.setFromNormalAndCoplanarPoint(n,hits[0].point);
+  asmDrag.offset.copy(hits[0].point).sub(p.mesh.position); asmDrag.part=p; asmDrag.vertical=e.altKey; mode='asmMove';
+}
+function asmPointerMove(e){
+  if(mode!=='asmMove'||!asmDrag.part) return false;
+  asmRay(e); if(!ray.ray.intersectPlane(asmDrag.plane,asmDrag.hit)) return true;
+  const p=asmDrag.part, q=asmDrag.hit.sub(asmDrag.offset);
+  if(asmDrag.vertical) p.pos[1]=q.y; else { p.pos[0]=q.x; p.pos[2]=q.z; }
+  asmApply(p); asmRefreshPanel(); return true;
+}
+
+let _leafCamKey='';
+const _sculptTarget=new THREE.Vector3(0,0.5,0);
+function loop(){requestAnimationFrame(loop);
+  cam.position.set(cR*Math.sin(cT)*Math.cos(cP),cR*Math.cos(cT)+0.5,cR*Math.sin(cT)*Math.sin(cP));
+  const tgt = asm.on ? asm.target : _sculptTarget;
+  cam.position.x+=tgt.x; cam.position.y+=tgt.y-0.5; cam.position.z+=tgt.z;
+  cam.up.set(0,1,0); cam.lookAt(tgt);
+  if(state.flyin){ const dk=(Math.round(flyinDepth()/0.05)*0.05).toFixed(2);   // rebuild only when the resolved depth crosses a 0.05-octave step
+    if(dk!==_meshFlyKey){ _meshFlyKey=dk; updateMesh(); } }
+  if(showLeaves){ const key=cT.toFixed(2)+','+cP.toFixed(2)+','+cR.toFixed(2);   // recull only when the view changed
+    if(key!==_leafCamKey){ _leafCamKey=key; updateLeaves(); } }
+  renderer.render(asm.on?asmScene:scene,cam);}
+resize(); initCascade(); buildSheetMeshes();
+loadPreset('knight'); selectRung(state.rungs-1); rebuildRungBar(); rebuildSheetBar(); drawCurve(); loop();
+</script>
+</body>
+</html>
