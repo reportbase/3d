@@ -203,6 +203,10 @@
           <button id="aiGo" class="go" title="build it (Ctrl+Enter in the box)">build</button>
         </div>
         <div class="aistatus" id="aiStatus"></div>
+        <div class="row">
+          <button id="aiFix" style="flex:1" title="Claude looks at pictures of the object from three sides, compares them with what you asked for, and fixes what is wrong. Type a note in the box first to steer it (&quot;the head should point forward&quot;), or leave it to check against the last description." disabled>look &amp; fix</button>
+          <button id="aiCopy" title="copy what Claude last sent back, to paste into a bug report" disabled>copy reply</button>
+        </div>
         <details id="aiAccount"><summary>account &amp; model</summary>
           <div class="row"><button id="aiSignIn" style="flex:1">sign in</button></div>
           <div class="row"><select id="aiModel" style="flex:1" title="which Claude builds it: opus is the most careful, sonnet quicker, haiku fastest and cheapest">
@@ -3676,7 +3680,7 @@ function renderGallery(){
   const GATEWAY='https://login.tangent.workers.dev', SESSION_LS='tangent.login.v1', MODEL_LS='studio.aiModel';
   const pop=$('aiPop'), btn=$('aiBtn'), promptEl=$('aiPrompt'), goBtn=$('aiGo'), modeEl=$('aiMode'), statusEl=$('aiStatus'),
         signInEl=$('aiSignIn'), modelEl=$('aiModel'), acct=$('aiAccount');
-  let session='', me=null, busy=false;
+  let session='', me=null, busy=false, lastText='', lastAsk='';
   try{ session=localStorage.getItem(SESSION_LS)||''; const m=localStorage.getItem(MODEL_LS); if(m&&[...modelEl.options].some(o=>o.value===m)) modelEl.value=m; }catch(_){}
   modelEl.onchange=()=>{ try{ localStorage.setItem(MODEL_LS,modelEl.value); }catch(_){} };
   const setStatus=(m,err)=>{ statusEl.textContent=m||''; statusEl.className='aistatus'+(err?' err':''); };
@@ -3742,8 +3746,13 @@ function renderGallery(){
     '  "rot": [x, y, z]          (degrees, applied X then Y then Z, turning about the base centre; [90,0,0] lays a part along +z, [0,0,-90] along +x)',
     '  "scale": [sx, sy, sz]     (a part is 1 tall before scaling, and ~2*r wide; sy is its height)',
     '  "color": "#rrggbb", "stripes"?: 0..10, "stripeColor"?: "#rrggbb" }',
+    'The FRONT of the object faces +z. Things that point sideways or forward are TURNED parts: every part is round about its own axis, so a muzzle, a nose, an arm, a branch, a spout, a tail or a boat\'s length is a part laid over with rot. A head that looks forward and a little down is an egg or ball, longer than wide, at rot [100,0,0]; ears are small cones; a crest or mane is a row of 4 to 8 small flattened parts (section squash 0.3) along the back of the neck; a curved neck is two or three overlapping cylinders, each tilted a little more than the one below (or use bend lean, which curves the top toward +x before rot turns it).',
+    'Every part must touch or overlap its neighbour: work out where each part ends (a part standing upright reaches from pos.y to pos.y + scale[1]) and start the next one at or just below that. Check each part before you answer; nothing should float or sit buried.',
+    'Chess pieces: about 1.0 to 1.3 tall (king tallest, pawn about 0.6), base diameter about half the height, the base a third of the height or less, and the figure on top the largest, most recognisable mass. A knight is mostly a horse\'s head and neck, leaning forward, with the muzzle pointing out over the front of the base.',
+    'Colour parts plainly. "stripes" are only for things that really are striped (a lighthouse, a flag, a candy cane), never to suggest marble, wood grain or shading.',
     'Build like a sculptor: a few large parts for the masses, then smaller ones for detail. Parts may overlap; rest each part on the one below it so nothing floats. Keep the whole object about 1 to 2 units tall unless told otherwise. Use real proportions and believable colours.',
     'Example, a snowman: {"name":"snowman","parts":[{"name":"bottom","shape":"ball","pos":[0,0,0],"scale":[0.7,0.7,0.7],"color":"#f4f6fa"},{"name":"middle","shape":"ball","pos":[0,0.6,0],"scale":[0.5,0.5,0.5],"color":"#f4f6fa"},{"name":"head","shape":"ball","pos":[0,1.03,0],"scale":[0.36,0.36,0.36],"color":"#f4f6fa"},{"name":"nose","shape":"cone","pos":[0,1.2,0.16],"rot":[90,0,0],"scale":[0.1,0.2,0.1],"color":"#ff8a2a"},{"name":"left arm","shape":"cylinder","outline":[[0,0.03],[1,0.03]],"pos":[-0.22,0.86,0],"rot":[0,0,58],"scale":[1,0.55,1],"color":"#6b4423"},{"name":"hat","shape":"cylinder","outline":[[0,0.5],[1,0.5]],"pos":[0,1.36,0],"scale":[0.28,0.26,0.28],"color":"#1b1b1f"}]}',
+    'You may add "notes": a short sentence on what you changed or noticed. When shown pictures of the object, compare them with what was asked for, name what is wrong in "notes", and return the corrected whole object the same way as a change.',
     'When asked to CHANGE an object you are given its current parts as JSON. Return the whole object again: keep the "id" of every part you keep (give only the fields you change, plus pos/rot/scale), leave out parts to delete, and add new parts without an id.',
   ].join('\n');
 
@@ -3791,6 +3800,7 @@ function renderGallery(){
   function parseReply(data){
     if(data.stop_reason==='refusal') throw new Error('Claude declined this one — try describing it differently');
     const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    lastText=text; $('aiCopy').disabled=!text;
     const a=text.indexOf('{'), z=text.lastIndexOf('}');
     if(a<0||z<a) throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for fewer parts':'no object came back — try rephrasing');
     let spec; try{ spec=JSON.parse(text.slice(a,z+1)); }catch(e){ throw new Error('the answer was not readable JSON — try again'); }
@@ -3811,35 +3821,80 @@ function renderGallery(){
     S.sel=(added[0]||S.parts[0]||{}).id||null; refreshAll(); frameAll();
     commit('describe: '+(spec.name||'object')); return added.length; }
 
+  /* WHAT CLAUDE GETS TO SEE. It builds blind: the first answer is worked out in numbers,
+     and a head that was meant to point forward can come out standing upright without
+     anything in the numbers saying so (Oct 4: the first knight was a candlestick). So the
+     object is drawn from three sides in one picture, with a ground grid for scale and none
+     of the editor's dimming, gizmo or highlight, and sent back with the request. draw's
+     "check & fix" does the same for its pictures. */
+  function viewsPng(){
+    const W=384, H=384, out=document.createElement('canvas'); out.width=W*3; out.height=H;
+    const g=out.getContext('2d'), r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); r.setSize(W,H,false);
+    const sc=new THREE.Scene(); sc.background=new THREE.Color(0x30333b);
+    sc.add(new THREE.HemisphereLight(0xffffff,0x303030,0.75)); const d=new THREE.DirectionalLight(0xffffff,0.7); d.position.set(2,4,3); sc.add(d);
+    const b=boxOf(S.parts), c=b.getCenter(new THREE.Vector3()), size=b.getSize(new THREE.Vector3()), R=Math.max(0.3,size.length()/2);
+    const gr=new THREE.GridHelper(Math.ceil(R*4),Math.ceil(R*4)*4,0x6a6f7a,0x444852); gr.position.set(c.x,0,c.z); sc.add(gr);
+    for(const p of S.parts){ const m=new THREE.Mesh(p.mesh.geometry,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.55,side:THREE.DoubleSide}));
+      m.position.copy(p.mesh.position); m.rotation.copy(p.mesh.rotation); m.scale.copy(p.mesh.scale); sc.add(m); }
+    const views=[['front (looking at +z side)',[0,0.15,1]],['side (from +x)',[1,0.15,0]],['three-quarter, from above',[0.8,0.7,0.9]]];
+    const cam=new THREE.PerspectiveCamera(32,1,0.01,100);
+    views.forEach(([label,dir],i)=>{ const v=new THREE.Vector3(...dir).normalize().multiplyScalar(R/Math.sin(16*PI/180)*1.08);
+      cam.position.copy(c).add(v); cam.lookAt(c); r.render(sc,cam); g.drawImage(r.domElement,i*W,0);
+      g.fillStyle='#e8e4da'; g.font='15px sans-serif'; g.fillText(label,i*W+10,22); });
+    r.dispose(); sc.traverse(o=>{ if(o.material&&o!==gr) o.material.dispose(); });
+    return out.toDataURL('image/png').split(',')[1]; }
+
+  async function lookAndFix(){
+    if(busy) return;
+    if(!S.parts.length){ setStatus('nothing to look at yet',true); return; }
+    if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
+    const note=promptEl.value.trim(), ask=lastAsk||note;
+    busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus('looking…');
+    const content=[
+      {type:'text',text:'What was asked for: '+(ask||'(not known: judge it as a well-made object)')+(note&&note!==ask?'\nThe user adds: '+note:'')+'\n\nThe object now, as JSON:\n'+describeScene()},
+      {type:'image',source:{type:'base64',media_type:'image/png',data:viewsPng()}},
+      {type:'text',text:'These are renders of it from the front, the side and above. Compare them with what was asked for. Say in "notes" what is wrong (floating or buried parts, proportions, parts pointing the wrong way, missing features), then return the corrected whole object as a change.'}];
+    try{
+      const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content}]}));
+      const spec=parseReply(data); apply(spec,'edit');
+      setStatus((spec.notes?spec.notes+'\n':'')+'fixed — '+S.parts.length+' parts. Undo takes it back.');
+    }catch(e){ setStatus(e.message,true); }
+    finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!S.parts.length; }
+  }
+  async function callWithFallback(body){
+    try{ return await apiCall(body(modelEl.value)); }
+    catch(e){ /* a gateway that has not been told about a model yet answers 400/403 naming
+                 it; fall back once to the model draw already uses rather than leave the
+                 button dead */
+      if((e.status===400||e.status===403||e.status===404)&&/model/i.test(e.message)&&modelEl.value!=='claude-sonnet-5'){ setStatus('trying another model…'); return await apiCall(body('claude-sonnet-5')); }
+      throw e; } }
+
   async function build(){
     if(busy) return; const text=promptEl.value.trim(), mode=modeEl.value;
     if(!text){ setStatus('describe something first',true); promptEl.focus(); return; }
     if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
     if(mode==='edit'&&!S.parts.length){ setStatus('there is nothing to change yet — use "new object"',true); return; }
-    busy=true; goBtn.disabled=true; setStatus('building…');
+    busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus('building…');
     const user=mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+text:'Build: '+text;
     const body=m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
     try{
-      let data;
-      try{ data=await apiCall(body(modelEl.value)); }
-      catch(e){ /* a gateway that has not been told about a model yet answers 400/403 naming
-                   it; fall back once to the model draw already uses rather than leave the
-                   button dead */
-        if((e.status===400||e.status===403||e.status===404)&&/model/i.test(e.message)&&modelEl.value!=='claude-sonnet-5'){ setStatus('trying another model…'); data=await apiCall(body('claude-sonnet-5')); }
-        else throw e; }
+      const data=await callWithFallback(body);
       const spec=parseReply(data), n=apply(spec,mode);
-      setStatus((spec.name?spec.name+': ':'')+(mode==='edit'?'changed — '+S.parts.length+' parts':n+' part'+(n===1?'':'s')+' built')+'. Undo takes it back.');
+      if(mode!=='edit') lastAsk=text; else if(lastAsk) lastAsk+='; then: '+text; else lastAsk=text;
+      setStatus((spec.notes?spec.notes+'\n':'')+(spec.name?spec.name+': ':'')+(mode==='edit'?'changed — '+S.parts.length+' parts':n+' part'+(n===1?'':'s')+' built')+'. Undo takes it back. "look & fix" lets Claude check it.');
       if(mode!=='edit') modeEl.value='edit';                 // the natural next step is a refinement
     }catch(e){ setStatus(e.message,true); }
-    finally{ busy=false; goBtn.disabled=false; }
+    finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!S.parts.length; }
   }
-  goBtn.onclick=build;
+  const fixBtn=$('aiFix'); fixBtn.disabled=!S.parts.length;
+  goBtn.onclick=build; fixBtn.onclick=lookAndFix;
+  $('aiCopy').onclick=()=>{ if(lastText) navigator.clipboard.writeText(lastText).then(()=>setStatus('Claude\'s last reply is on the clipboard'),err=>setStatus('copy failed: '+err.message,true)); };
   promptEl.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); build(); } });
   btn.onclick=e=>{ e.stopPropagation(); const open=pop.hidden; $('fileMenu').hidden=true; pop.hidden=!open;
-    if(open){ if(!session){ acct.open=true; setStatus('sign in below to start'); } setTimeout(()=>promptEl.focus(),0); } };
+    if(open){ fixBtn.disabled=busy||!S.parts.length; if(!session){ acct.open=true; setStatus('sign in below to start'); } setTimeout(()=>promptEl.focus(),0); } };
   addEventListener('click',e=>{ if(!e.target.closest('#aiPop')&&!e.target.closest('#aiBtn')) pop.hidden=true; });
   syncAccount(); refreshMe();
-  window.__describe={apply,parseReply,describeScene,SYS};    // tests drive it without the network
+  window.__describe={apply,parseReply,describeScene,SYS,viewsPng};    // tests drive it without the network
 })();
 
 /* ══ GO ══ */
