@@ -38,6 +38,15 @@ The screen has five areas:
 
   On the right of the tool strip, the undo history shows a picture of every step.
 
+**describe ✦** (top bar) builds an object from words: type "a rook with a red
+band" or "a little wooden boat" and Claude makes it from parts, which you can
+then shape and sculpt like any others. Switch to **change it** to keep going
+("give it a taller mast", "make the band gold"): Claude sees the current parts
+and edits them, and a hand-sculpted part that is only moved or recoloured
+keeps its sculpting. Undo takes any step back. It runs through the same
+sign-in as draw's AI button (the tangent login gateway holds the key; each
+account has a daily allowance).
+
 **advanced** (top right) shows the engine's own controls: which rung the brush
 writes to, leaf counts, the kernel, aperture and the run.
 
@@ -77,6 +86,7 @@ become a 3D section or silhouette.
 | --- | --- |
 | `.3da` | The whole object: every part's settings, sculpting and paint. Files from the classic editor's assemble mode open too. |
 | `.tvf3d` | One part, for the chess pieces in [games](https://github.com/reportbase/games). Lean and hollow aren't representable in it, and the export says so. |
+| `.tvf3d` (chess piece) | The whole object as one chess piece for games: every part's field plus where it goes, stood on the board and sized to a square. Name the file after the piece it replaces (`knight.tvf3d`) and drop it on the games page to try it. |
 | `.stl` | The whole object as one mesh, for 3D printing. |
 
 three.js (r128) loads from a CDN at runtime, so the page needs an internet
@@ -104,9 +114,13 @@ error, or when an action has no effect.
   colour changed)
 - every tool slider
 - `.tvf3d` export, checking it matches the part, then importing it back
+- exporting the snowman as a chess piece, rebuilding it from its parts as games
+  does, and checking it stands on the board, is centred and keeps its proportions
 - `.stl` export
 - `.3da` save and open, checking it reopens the same, plus an old assemble-mode
   file
+- **describe it**, against a stand-in gateway: building an object, changing
+  one (keeping a sculpted part's sculpting), and failed replies changing nothing
 - every starting shape
 - duplicate, delete, undo and redo
 
