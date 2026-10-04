@@ -1,10 +1,10 @@
-// Smoke test: load 3d.html in headless Chromium and work every control that
-// does not open a file dialog or start a download: each preset, each brush and
-// symmetry, every checkbox and slider, the boolean and profile buttons, the
-// rung and sheet buttons, and a sculpting drag on the view. Then the assembly:
-// both examples, every part slider, dragging a part, adding, duplicating,
-// deleting, editing a part in sculpt and bringing it back. Fails if the page
-// throws an uncaught error.
+// Smoke test for classic.html, the previous editor: load it in headless Chromium
+// and work every control that does not open a file dialog or start a download:
+// each preset, each brush and symmetry, every checkbox and slider, the boolean
+// and profile buttons, the rung and sheet buttons, and a sculpting drag on the
+// view. Then its assemble mode: both examples, every part slider, dragging a
+// part, adding, duplicating, deleting, editing a part in sculpt and bringing it
+// back. Fails if the page throws an uncaught error.
 //
 //   npm test                       serves the repo itself on a free port
 //   BASE_URL=http://host/ npm test test an already-running server instead
@@ -89,7 +89,7 @@ async function sculpt(){
 
 let code = 0;
 try {
-  await page.goto(new URL('3d.html', base).href, { waitUntil: 'load' });
+  await page.goto(new URL('classic.html', base).href, { waitUntil: 'load' });
   await page.waitForFunction(() => typeof THREE !== 'undefined' && document.querySelector('canvas'), null, { timeout: 60000 });
   await page.waitForTimeout(1000);
   console.log('page loaded');

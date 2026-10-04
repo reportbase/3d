@@ -1,77 +1,82 @@
 # 3D
 
-A 3D shape editor ("field rung editor — r(θ,h)") in one page. Every shape is a
-radius r(θ, h) around its own axis, built up in "rungs" of detail. Start from a
-preset (chess pieces, primitives, gems and more), then sculpt with brushes,
-combine shapes (union, intersect, carve), revolve a profile, and bend, taper or
-twist the whole thing.
-
-Shapes export as `.tvf3d`, the format the chess pieces in
-[games](https://github.com/reportbase/games) use, or as `.stl` for 3D printing.
+A 3D shape studio in one page. You build an object from **parts**. Each part is
+a shape turned around its own axis, like something on a lathe, which you then
+shape, sculpt, bend, paint and hollow. You place the parts together, and save
+or export them as one object.
 
 **Use it:** https://reportbase.github.io/3d/ (once GitHub Pages is turned on
 for this repo; see Publishing below)
 
-## Studio (interface mockup)
+## How it works
 
-**Try it:** https://reportbase.github.io/3d/studio.html
+The screen has five areas:
 
-`studio.html` is a clickable mockup of a new interface for the editor. It's
-for trying out and reacting to; `3d.html` stays the real tool. It shows:
+- **Parts** (left): every part in the object. Click a part to select it, and
+  double-click it to **shape it in place**. The other parts fade to ghosts so
+  you can still see the whole object; Esc steps back out.
+- **The 3D view** (centre): move / turn / size handles (W / E / R). With snap
+  on, a part settles onto whatever is under it when you let go.
+- **Side outline** (right): drag the points to change how wide the part is at
+  each height. Click the line to add a point, and double-click a point to remove
+  it. **from a drawing…** takes the outline from the silhouette of an `.svg`, or
+  of a `.tvf` saved in draw.
+- **Section** (right): the part's shape going around: round, polygon, star,
+  petals, supershape, or **drawn**. A drawn section is a curve whose points you
+  drag. You can start it from draw's shapes (circle, superellipse, polygon,
+  star, blob, rose), smooth it, give it n-fold symmetry, or mirror it. It can
+  also come in from an `.svg`, a draw `.tvf`, or paste from draw, and go back
+  out to draw with **to draw**.
+- **Tools** (bottom):
+  - **shape:** a gallery of starting shapes and the classic presets (knight, rook,
+    gem, …)
+  - **sculpt:** 14 brushes and 6 stamps, with symmetry and mirror
+  - **bend:** taper, bulge, twist, lean
+  - **paint:** the part's colour, stripes, and a paint brush
+  - **hollow:** wall thickness and floor height
+  - **detail:** how finely parts are drawn, and the sculpt levels
 
-- **one workspace:** the parts list is always there; double-click a part to
-  shape it in place while the rest of the object fades to ghosts (Esc steps out)
-- **three linked views of a part:** the 3D view, its **side outline** (drag
-  points to reshape it) and its **section** (round, polygon, star, petals)
-- **tools named by what you're doing:** shape, sculpt, bend, paint, hollow,
-  detail, with the engine's own controls behind an **advanced** switch
-- **move / turn / size handles** with snapping (a part settles onto whatever is
-  under it), and one undo history with thumbnails
-- **examples:** a table, a snowman and a lighthouse
+  On the right of the tool strip, the undo history shows a picture of every step.
 
-To keep the mockup small, each part is `outline(h) × section(θ)`, bent, plus a
-sculpt layer: the same kind of shape the editor makes, but without its rung
-engine, `.tvf3d` files or brush painting. The "describe it" box isn't wired up
-yet.
+**advanced** (top right) shows the engine's own controls: which rung the brush
+writes to, leaf counts, the kernel, aperture and the run.
 
-## Assembling parts into one object
+### What a part is
 
-A single shape is one surface around one vertical axis, like something turned
-on a lathe. That makes a vase easy but a table impossible, since nothing can sit
-off to the side. The **assemble** button (top left) adds a level above that:
+    r(θ,h) = core(θ,h) · outline(h) · section(θ + twist·h) · taper·bulge(h)  +  sculpt(θ,h)
 
-- **Parts:** each part is one shape, either a preset or whatever you sculpted
-  (**+ sculpted shape**).
-- **Placing:** each part has its own position, rotation, size and stretch
-  (wide / tall / deep), plus a name and a colour. Drag a part to slide it along
-  the floor, alt-drag to lift it, and shift-drag or drag empty space to look
-  around.
-- **Editing:** **edit in sculpt** opens a part in the normal editor, and
-  **↩ update part** puts your changes back.
-- **Saving:** **save** / **open** use a `.3da` file. **export .stl** writes the
-  whole assembly as one mesh.
-- **Examples:** **example: table** (a top, four legs, a vase and an apple) and
-  **example: snowman** (three balls, a carrot nose, eyes, buttons, stick arms
-  and a top hat) show how parts fit together.
+- **core:** what the part started as: plain, a classic preset, a loaded
+  `.tvf3d`, or a grayscale image. With an untouched outline, a classic preset
+  is reproduced exactly; the outline then reshapes it.
+- **sculpt:** the multi-resolution **rung cascade** from the classic editor.
+  Every brush writes into one rung. The brush size picks the rung: big brushes
+  move the broad form and small brushes add detail. Brush paint lives in the
+  same cascade.
 
-Assemblies don't export to `.tvf3d`, because that format holds a single
-surface.
+### From draw
 
-## Presets
-
-- **Chess:** knight, pawn, rook, bishop, queen
-- **Primitives:** supershape, cylinder, sphere, ball (round), egg, cone, diamond, vase, rounded cube, square, rectangle, cube and thin variants
-- **Gems and more:** gem, fluted, brilliant, emerald, quartz, twisted, star, spiked
-- **Stress test:** corner test (sharp box)
+The section editor and the drawing import reuse two parts of
+[draw](https://github.com/reportbase/draw), copied unchanged: its curve library
+**tvf-core** (closed curves whose points lie on the curve) and its **SVG
+importer**. They also read draw's `.tvf` format, so a shape made in draw can
+become a 3D section or silhouette.
 
 ## Files
 
 | File | What it is |
 | --- | --- |
-| `3d.html` | The whole editor: one self-contained page. This is the file to edit. |
+| `3d.html` | The shape studio: one self-contained page. This is the file to edit. |
+| `classic.html` | The previous editor, kept whole. It still has the engine instruments the studio doesn't show (sheets, booleans, the profile curve, the leaf registers) and its own assemble mode. |
 | `index.html` | Forwards `/3d/` to `3d.html`. |
-| `studio.html` | The interface mockup (see above). |
-| `tests/smoke.mjs`, `tests/studio.mjs` | The smoke tests (see below). |
+| `tests/editor.mjs`, `tests/classic.mjs` | The smoke tests (see below). |
+
+**Saving and exporting:**
+
+| Format | What it holds |
+| --- | --- |
+| `.3da` | The whole object: every part's settings, sculpting and paint. Files from the classic editor's assemble mode open too. |
+| `.tvf3d` | One part, for the chess pieces in [games](https://github.com/reportbase/games). Lean and hollow aren't representable in it, and the export says so. |
+| `.stl` | The whole object as one mesh, for 3D printing. |
 
 three.js (r128) loads from a CDN at runtime, so the page needs an internet
 connection.
@@ -83,24 +88,30 @@ python3 -m http.server 8000
 # then open http://localhost:8000/3d.html
 ```
 
-## Smoke test
+## Smoke tests
 
-Every pull request runs `tests/smoke.mjs` in GitHub Actions. It opens the page
-in headless Chromium and works every control except the ones that open a file
-dialog or download a file:
+Every pull request runs both tests in GitHub Actions. They fail on any uncaught
+error, or when an action has no effect.
 
-- each preset, brush (with a sculpting drag), symmetry, operand and curve target
-- every checkbox and every slider (moved to its minimum, its maximum and back)
-- the union, intersect, carve, profile, rung and sheet buttons
-- the assembly: both examples, every part slider, dragging a part, adding,
-  duplicating and deleting parts, editing a part in sculpt and bringing it back,
-  and saving and reopening
+`tests/editor.mjs` covers the studio:
 
-`tests/studio.mjs` does the same for the studio mockup: every example, tool,
-section type and starting shape, dragging an outline point, sculpting in place,
-duplicate, delete, undo and redo.
+- every example and every section kind
+- dragging an outline point and a section point
+- draw's shapes, an `.svg` and a draw `.tvf` coming in as a section and as an
+  outline
+- every brush and stamp (checking the surface moved), and painting (checking the
+  colour changed)
+- every tool slider
+- `.tvf3d` export, checking it matches the part, then importing it back
+- `.stl` export
+- `.3da` save and open, checking it reopens the same, plus an old assemble-mode
+  file
+- every starting shape
+- duplicate, delete, undo and redo
 
-They fail if anything throws an uncaught error. To run them yourself:
+`tests/classic.mjs` covers the classic editor.
+
+To run them yourself:
 
 ```sh
 npm install
