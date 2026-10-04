@@ -42,6 +42,12 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
     `.tvf3d` block (`buildPieceTVF3D`). The matrix already stands the piece on
     y=0, centres it and fits it to games' square; games reads it in
     `parseTVF3D` / `buildPartsGeometry`. Change the two together.
+- **describe it** (the `DESCRIBE IT` block) asks Claude, through the
+  `login.tangent.workers.dev` gateway with draw's sign-in, for the object as JSON
+  in the panels' own terms (shape, outline, section, bend, hollow, pos/rot/scale,
+  colour). Every field is clamped before `partFrom` sees it; "change it" sends
+  the current parts with their ids and updates kept parts in place. If you add a
+  part property, add it to the prompt (`SYS`), `opts` and `describeScene`.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing

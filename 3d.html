@@ -69,6 +69,17 @@
   .dropdown button:hover{background:var(--bg4)}
   .dropdown button span{color:var(--faint);font-size:11px}
   .dropdown hr{border:none;border-top:1px solid var(--line);margin:4px 2px}
+  .aipop{width:340px;padding:10px;gap:8px}
+  .aipop textarea{width:100%;min-height:84px;resize:vertical;background:var(--bg2);color:var(--fg);border:1px solid var(--line2);border-radius:6px;padding:8px;font:inherit;font-size:13px}
+  .aipop .row{display:flex;gap:6px;align-items:center}
+  .aipop select{flex:1;min-width:0}
+  .aipop .go{background:var(--accent);color:#1a1408;border-color:var(--accent);font-weight:600}
+  .aipop .go:disabled{opacity:.5}
+  .aipop .aistatus{font-size:12px;color:var(--dim);min-height:1em;white-space:pre-wrap}
+  .aipop .aistatus.err{color:#e8735c}
+  .aipop details summary{cursor:pointer;color:var(--dim);font-size:12px}
+  .aipop details[open]{display:flex;flex-direction:column;gap:6px}
+  .aipop .note{font-size:11px;color:var(--faint);line-height:1.4}
   /* ── panels ── */
   .panel{background:var(--bg2);overflow-y:auto;display:flex;flex-direction:column}
   .parts{grid-area:parts;border-right:1px solid var(--line)}
@@ -182,6 +193,25 @@
       <option value="chess">chess pieces</option>
       <option value="flowers">flower pots</option>
     </select>
+    <div class="menuwrap"><button id="aiBtn" title="describe an object in words and Claude builds it from parts">describe &#10022;</button>
+      <div class="dropdown aipop" id="aiPop" hidden>
+        <textarea id="aiPrompt" placeholder="describe an object… e.g. a rook with a crenellated top, or a little wooden boat with a red sail" spellcheck="false"></textarea>
+        <div class="row">
+          <select id="aiMode" title="new: start over from the description. add: put it beside what is there. change: Claude sees the object you have and edits it (move, recolour, add or remove parts), keeping your sculpting on parts it leaves alone">
+            <option value="new">new object</option><option value="add">add to it</option><option value="edit">change it</option>
+          </select>
+          <button id="aiGo" class="go" title="build it (Ctrl+Enter in the box)">build</button>
+        </div>
+        <div class="aistatus" id="aiStatus"></div>
+        <details id="aiAccount"><summary>account &amp; model</summary>
+          <div class="row"><button id="aiSignIn" style="flex:1">sign in</button></div>
+          <div class="row"><select id="aiModel" style="flex:1" title="which Claude builds it: opus is the most careful, sonnet quicker, haiku fastest and cheapest">
+            <option value="claude-opus-5-5">claude-opus-5-5</option><option value="claude-sonnet-5-5">claude-sonnet-5-5</option><option value="claude-haiku-4-5">claude-haiku-4-5</option>
+          </select></div>
+          <div class="note">Runs through the tangent login gateway, which holds the Anthropic key: nothing secret is kept in this browser. The same sign-in as draw; each account has a daily allowance.</div>
+        </details>
+      </div>
+    </div>
     <button id="undo" title="undo (Ctrl+Z)">&#8630;</button>
     <button id="redo" title="redo (Ctrl+Shift+Z)">&#8631;</button>
     <div class="grow"></div>
@@ -3631,6 +3661,186 @@ function renderGallery(){
     r.render(sc,c); galleryImgs[k]=r.domElement.toDataURL(); sc.remove(m); m.geometry.dispose(); m.material.dispose(); }
   detail=keep; r.dispose();
 }
+
+/* ══ DESCRIBE IT ══ (Oct 4: "describe it" with Claude in 3d) Words in, an object out. Claude
+   answers with the same things the panels set (a starting shape, an outline, a section,
+   bends, paint, and where each part goes) as JSON, and the parts are made by the same
+   partFrom the examples use. Nothing downstream knows a model wrote them: they shape,
+   sculpt, save and export like any other part.
+   The request goes through the `login` Worker, exactly as draw's AI button does: the Worker
+   holds the Anthropic key and gives each account a daily allowance, so this page carries
+   no credential, only a session token from signing in. The token lives under draw's
+   storage key, and draw and the studio share an origin (reportbase.github.io), so signing
+   in on either page signs in on both. */
+(function(){
+  const GATEWAY='https://login.tangent.workers.dev', SESSION_LS='tangent.login.v1', MODEL_LS='studio.aiModel';
+  const pop=$('aiPop'), btn=$('aiBtn'), promptEl=$('aiPrompt'), goBtn=$('aiGo'), modeEl=$('aiMode'), statusEl=$('aiStatus'),
+        signInEl=$('aiSignIn'), modelEl=$('aiModel'), acct=$('aiAccount');
+  let session='', me=null, busy=false;
+  try{ session=localStorage.getItem(SESSION_LS)||''; const m=localStorage.getItem(MODEL_LS); if(m&&[...modelEl.options].some(o=>o.value===m)) modelEl.value=m; }catch(_){}
+  modelEl.onchange=()=>{ try{ localStorage.setItem(MODEL_LS,modelEl.value); }catch(_){} };
+  const setStatus=(m,err)=>{ statusEl.textContent=m||''; statusEl.className='aistatus'+(err?' err':''); };
+  function setSession(t){ session=t||''; try{ t?localStorage.setItem(SESSION_LS,t):localStorage.removeItem(SESSION_LS); }catch(_){} me=null; syncAccount(); }
+  function syncAccount(){
+    if(!session){ signInEl.textContent='sign in'; return; }
+    const who=(me&&me.user&&(me.user.email||me.user.id))||'signed in', q=me&&me.quota;
+    signInEl.textContent=who.split('@')[0]+(q?' · '+q.remaining+' left':'')+'  (sign out)'; }
+  async function refreshMe(){ if(!session){ syncAccount(); return; }
+    try{ const r=await fetch(GATEWAY+'/auth/me',{headers:{authorization:'Bearer '+session}}); if(r.status===401){ setSession(null); return; } me=await r.json(); }catch(_){ me=null; }
+    syncAccount(); }
+  /* The popup has to open inside the click itself; anything awaited first ends the user
+     gesture and the browser blocks it silently. Same flow as draw. */
+  function signIn(){
+    if(location.protocol==='file:'){ setStatus('sign-in needs the page served over http(s)',true); return; }
+    const back=location.href.split('#')[0];
+    let w=null; try{ w=window.open(GATEWAY+'/auth/login?redirect_uri='+encodeURIComponent(back)+'&mode=popup','tangent-login','width=520,height=680'); }catch(_){}
+    if(!w||w.closed){ location.href=GATEWAY+'/auth/login?redirect_uri='+encodeURIComponent(back)+'&mode=redirect'; return; }
+    const origin=new URL(GATEWAY).origin; let done=false;
+    const finish=()=>{ if(done) return; done=true; removeEventListener('message',onMsg); clearInterval(poll); refreshMe(); };
+    const onMsg=ev=>{ if(ev.origin!==origin) return; const d=ev.data; if(!d||d.type!=='claude-gateway-auth') return;
+      if(d.ok&&d.token){ setSession(d.token); setStatus('signed in'); } else setStatus('sign-in failed: '+(d.error||'unknown error'),true); finish(); };
+    addEventListener('message',onMsg); const poll=setInterval(()=>{ if(w.closed) finish(); },500);
+  }
+  // A redirect-mode sign-in comes back with the token in the fragment; take it and tidy the URL.
+  (function(){ const h=location.hash||''; if(h.indexOf('claude_gateway_')<0) return; const p=new URLSearchParams(h.slice(1));
+    const t=p.get('claude_gateway_token'), e=p.get('claude_gateway_error'); if(t) setSession(t);
+    p.delete('claude_gateway_token'); p.delete('claude_gateway_error'); const rest=p.toString();
+    try{ history.replaceState(null,'',location.pathname+location.search+(rest?'#'+rest:'')); }catch(_){} if(e) setStatus('sign-in failed: '+e,true); })();
+  signInEl.onclick=()=>{ session?setSession(null):signIn(); };
+
+  async function apiCall(body){
+    const res=await fetch(GATEWAY+'/v1/messages',{method:'POST',headers:{'content-type':'application/json','anthropic-version':'2023-06-01',authorization:'Bearer '+session},body:JSON.stringify(body)});
+    const rem=res.headers.get('x-gateway-quota-remaining');
+    if(rem!=null){ me=me||{user:{}}; me.quota={remaining:+rem,limit:+(res.headers.get('x-gateway-quota-limit')||0)}; syncAccount(); }
+    const data=await res.json().catch(()=>null);
+    if(!res.ok){ const msg=data&&data.error&&data.error.message, type=data&&data.error&&data.error.type;
+      if(res.status===401){ setSession(null); acct.open=true; throw new Error('signed out — sign in again'); }
+      if(type==='quota_exceeded') throw new Error(msg||'daily allowance used up — it resets at midnight UTC');
+      if(res.status===429) throw new Error('too many requests — wait a moment and try again');
+      const e=new Error(msg||('request failed — HTTP '+res.status)); e.status=res.status; throw e; }
+    return data;
+  }
+
+  /* What Claude is told. Every number here is the studio's own unit, so the answer drops
+     straight into partFrom: a part is one unit tall before scaling, its outline radius is in
+     the same units (0.5 spans a unit), and pos is the centre of its base. */
+  const KINDS=[...Object.keys(LATHE),...CLASSIC_OK()];
+  const SYS=[
+    'You build 3D objects for a shape studio. Every object is a set of PARTS. Each part is a solid of revolution around its own vertical axis: a profile (the outline) spun around, optionally with a non-round cross-section, then scaled, turned and placed.',
+    'Reply with ONE JSON object and nothing else: no markdown fences, no commentary.',
+    '{"name": string, "parts": [ part, ... ]}, at most 40 parts. A part:',
+    '{ "id"?: number            (only when changing an existing object: the id of the part you are keeping)',
+    '  "name": string           (short, e.g. "hat brim"; call a chess piece part after the piece, e.g. "knight base")',
+    '  "shape": one of '+KINDS.map(k=>'"'+k+'"').join(', '),
+    '                           (lathe starts: ball cylinder cone box vase bowl cup egg ring star flower column; the rest are sculpted classics, use them as they are)',
+    '  "outline"?: [[h, r], ...]  (lathe shapes only: the side profile, h from 0 at the base to 1 at the top in rising order, r the radius at that height, 0..0.5; 3 to 12 points; r near 0.01 closes to a point)',
+    '  "section"?: {"type": "round"|"polygon"|"star"|"petal"|"super", "n": 2..16, "k": 0..1, "squash": 0.15..1}',
+    '                           (the cross-section: polygon with n sides (k=1 sharp corners, lower rounds them; a flat side faces +x), star with n points (k = depth), petal with n lobes, super = superellipse; squash flattens it front to back)',
+    '  "bend"?: {"taper": -0.9..0.9, "bulge": -0.9..1.5, "twist": -1..1 (turns, bottom to top), "lean": -1..1}',
+    '  "hollow"?: {"wall": 0.01..0.25, "floor": 0.02..0.9} or false   (an open top, like a cup)',
+    '  "pos": [x, y, z]          (the centre of the part\'s BASE; y is up; the ground is y = 0)',
+    '  "rot": [x, y, z]          (degrees, applied X then Y then Z, turning about the base centre; [90,0,0] lays a part along +z, [0,0,-90] along +x)',
+    '  "scale": [sx, sy, sz]     (a part is 1 tall before scaling, and ~2*r wide; sy is its height)',
+    '  "color": "#rrggbb", "stripes"?: 0..10, "stripeColor"?: "#rrggbb" }',
+    'Build like a sculptor: a few large parts for the masses, then smaller ones for detail. Parts may overlap; rest each part on the one below it so nothing floats. Keep the whole object about 1 to 2 units tall unless told otherwise. Use real proportions and believable colours.',
+    'Example, a snowman: {"name":"snowman","parts":[{"name":"bottom","shape":"ball","pos":[0,0,0],"scale":[0.7,0.7,0.7],"color":"#f4f6fa"},{"name":"middle","shape":"ball","pos":[0,0.6,0],"scale":[0.5,0.5,0.5],"color":"#f4f6fa"},{"name":"head","shape":"ball","pos":[0,1.03,0],"scale":[0.36,0.36,0.36],"color":"#f4f6fa"},{"name":"nose","shape":"cone","pos":[0,1.2,0.16],"rot":[90,0,0],"scale":[0.1,0.2,0.1],"color":"#ff8a2a"},{"name":"left arm","shape":"cylinder","outline":[[0,0.03],[1,0.03]],"pos":[-0.22,0.86,0],"rot":[0,0,58],"scale":[1,0.55,1],"color":"#6b4423"},{"name":"hat","shape":"cylinder","outline":[[0,0.5],[1,0.5]],"pos":[0,1.36,0],"scale":[0.28,0.26,0.28],"color":"#1b1b1f"}]}',
+    'When asked to CHANGE an object you are given its current parts as JSON. Return the whole object again: keep the "id" of every part you keep (give only the fields you change, plus pos/rot/scale), leave out parts to delete, and add new parts without an id.',
+  ].join('\n');
+
+  // The object as Claude sees it when asked to change it: the same fields it writes.
+  const r3=a=>a.map(v=>+(+v).toFixed(3));
+  function describeScene(){ return JSON.stringify({parts:S.parts.map(p=>{ const o={id:p.id,name:p.name,
+      shape:p.core.kind==='preset'?p.core.name:(p.core.kind==='lathe'?'lathe':p.core.kind), pos:r3(p.pos), rot:r3(p.rot), scale:r3(p.scale), color:p.paint.color};
+    if(p.core.kind==='lathe') o.outline=p.outline.map(r3);
+    if(p.section.type!=='round') o.section={type:p.section.type,n:p.section.n,k:+p.section.k.toFixed(2),squash:+p.section.squash.toFixed(2)};
+    if(Object.values(p.bend).some(v=>Math.abs(v)>1e-3)) o.bend=p.bend; if(p.hollow.on) o.hollow={wall:p.hollow.wall,floor:p.hollow.floor};
+    if(p.sculpted||p.painted) o.note='hand-sculpted or painted: changing its shape or outline loses that';
+    return o; })}); }
+
+  // Claude's answer is data from outside: every field is checked and clamped before use.
+  const num=(v,lo,hi,d)=>{ v=+v; return isFinite(v)?Math.min(hi,Math.max(lo,v)):d; };
+  const vec=(a,lo,hi,d)=>Array.isArray(a)&&a.length===3?a.map((v,i)=>num(v,lo,hi,d[i])):d.slice();
+  const hex=(c,d)=>typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c)?c.toLowerCase():d;
+  function opts(q){ const o={};
+    if(typeof q.name==='string') o.name=q.name.slice(0,40);
+    if('pos' in q) o.pos=vec(q.pos,-20,20,[0,0,0]); if('rot' in q) o.rot=vec(q.rot,-360,360,[0,0,0]); if('scale' in q) o.scale=vec(q.scale,0.005,20,[1,1,1]);
+    if(Array.isArray(q.outline)){ const pts=q.outline.filter(x=>Array.isArray(x)&&x.length>=2).map(([h,r])=>[num(h,0,1,0),num(r,0.005,0.5,0.3)]).sort((a,b)=>a[0]-b[0]);
+      if(pts.length>=2){ pts[0][0]=0; pts[pts.length-1][0]=1; o.outline=pts.slice(0,16); } }
+    if(q.section&&typeof q.section==='object'){ const t=['round','polygon','star','petal','super'].includes(q.section.type)?q.section.type:'round';
+      o.section={type:t,n:Math.round(num(q.section.n,2,16,5)),k:num(q.section.k,0,1,0.6),squash:num(q.section.squash,0.15,1,1),shape:null}; }
+    if(q.bend&&typeof q.bend==='object') o.bend={taper:num(q.bend.taper,-0.9,0.9,0),bulge:num(q.bend.bulge,-0.9,1.5,0),twist:num(q.bend.twist,-1,1,0),lean:num(q.bend.lean,-1,1,0)};
+    if(q.hollow===false) o.hollow={on:false,wall:0.06,floor:0.12};
+    else if(q.hollow&&typeof q.hollow==='object') o.hollow={on:true,wall:num(q.hollow.wall,0.01,0.25,0.06),floor:num(q.hollow.floor,0.02,0.9,0.12)};
+    if('color' in q||'stripes' in q) o.paint=paintOf(hex(q.color,'#d9d4c7'),Math.round(num(q.stripes,0,10,0)),hex(q.stripeColor,'#c8402e'));
+    return o; }
+  function makePart(q){ const kind=KINDS.includes(q.shape)?q.shape:'cylinder', o=opts(q);
+    if(!LATHE[kind]) delete o.outline;                       // a classic core keeps its own profile
+    return partFrom(kind,o); }
+  /* Changing a part in place: only what Claude sent is touched, so a hand-sculpted part
+     that is merely moved or recoloured keeps its sculpting. A new outline, section or
+     bend changes the shape, and the sculpt residual is cleared, as reshaping by hand does. */
+  function updatePart(p,q){ const o=opts(q);
+    for(const k of ['name','pos','rot','scale','paint']) if(o[k]) p[k]=o[k];
+    let reshaped=false;
+    if(o.outline&&p.core.kind==='lathe'){ p.outline=o.outline; p._origOutline=JSON.parse(JSON.stringify(o.outline)); reshaped=true; }
+    if(o.section){ p.section=o.section; reshaped=true; } if(o.bend){ p.bend=o.bend; reshaped=true; } if(o.hollow){ p.hollow=o.hollow; }
+    if(reshaped){ p.cascade=null; p.sculpted=false; }
+    if(o.paint) p.painted=false;
+    prepPart(p); rebuild(p); placeMesh(p); }
+
+  function parseReply(data){
+    if(data.stop_reason==='refusal') throw new Error('Claude declined this one — try describing it differently');
+    const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const a=text.indexOf('{'), z=text.lastIndexOf('}');
+    if(a<0||z<a) throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for fewer parts':'no object came back — try rephrasing');
+    let spec; try{ spec=JSON.parse(text.slice(a,z+1)); }catch(e){ throw new Error('the answer was not readable JSON — try again'); }
+    if(!spec||!Array.isArray(spec.parts)||!spec.parts.length) throw new Error('the answer had no parts');
+    spec.parts=spec.parts.filter(q=>q&&typeof q==='object').slice(0,40);
+    return spec; }
+
+  function apply(spec,mode){
+    if(mode==='new') clearAll();
+    let shift=0;
+    if(mode==='add'&&S.parts.length){ const b=boxOf(S.parts); shift=b.max.x+0.6; }
+    if(mode==='edit'){ const keep=new Set();
+      for(const q of spec.parts){ const p=q.id!=null&&S.parts.find(x=>x.id===+q.id); if(p){ updatePart(p,q); keep.add(p.id); } }
+      for(const p of S.parts.slice()) if(!keep.has(p.id)) removePart(p);
+      spec.parts=spec.parts.filter(q=>!(q.id!=null&&keep.has(+q.id))); }
+    const added=[];
+    for(const q of spec.parts){ const p=makePart(q); if(shift){ p.pos[0]+=shift; } addPart(p,false); added.push(p); }
+    S.sel=(added[0]||S.parts[0]||{}).id||null; refreshAll(); frameAll();
+    commit('describe: '+(spec.name||'object')); return added.length; }
+
+  async function build(){
+    if(busy) return; const text=promptEl.value.trim(), mode=modeEl.value;
+    if(!text){ setStatus('describe something first',true); promptEl.focus(); return; }
+    if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
+    if(mode==='edit'&&!S.parts.length){ setStatus('there is nothing to change yet — use "new object"',true); return; }
+    busy=true; goBtn.disabled=true; setStatus('building…');
+    const user=mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+text:'Build: '+text;
+    const body=m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
+    try{
+      let data;
+      try{ data=await apiCall(body(modelEl.value)); }
+      catch(e){ /* a gateway that has not been told about a model yet answers 400/403 naming
+                   it; fall back once to the model draw already uses rather than leave the
+                   button dead */
+        if((e.status===400||e.status===403||e.status===404)&&/model/i.test(e.message)&&modelEl.value!=='claude-sonnet-5'){ setStatus('trying another model…'); data=await apiCall(body('claude-sonnet-5')); }
+        else throw e; }
+      const spec=parseReply(data), n=apply(spec,mode);
+      setStatus((spec.name?spec.name+': ':'')+(mode==='edit'?'changed — '+S.parts.length+' parts':n+' part'+(n===1?'':'s')+' built')+'. Undo takes it back.');
+      if(mode!=='edit') modeEl.value='edit';                 // the natural next step is a refinement
+    }catch(e){ setStatus(e.message,true); }
+    finally{ busy=false; goBtn.disabled=false; }
+  }
+  goBtn.onclick=build;
+  promptEl.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); build(); } });
+  btn.onclick=e=>{ e.stopPropagation(); const open=pop.hidden; $('fileMenu').hidden=true; pop.hidden=!open;
+    if(open){ if(!session){ acct.open=true; setStatus('sign in below to start'); } setTimeout(()=>promptEl.focus(),0); } };
+  addEventListener('click',e=>{ if(!e.target.closest('#aiPop')&&!e.target.closest('#aiBtn')) pop.hidden=true; });
+  syncAccount(); refreshMe();
+  window.__describe={apply,parseReply,describeScene,SYS};    // tests drive it without the network
+})();
 
 /* ══ GO ══ */
 function loop(){ requestAnimationFrame(loop);

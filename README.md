@@ -38,6 +38,15 @@ The screen has five areas:
 
   On the right of the tool strip, the undo history shows a picture of every step.
 
+**describe ✦** (top bar) builds an object from words: type "a rook with a red
+band" or "a little wooden boat" and Claude makes it from parts, which you can
+then shape and sculpt like any others. Switch to **change it** to keep going
+("give it a taller mast", "make the band gold"): Claude sees the current parts
+and edits them, and a hand-sculpted part that is only moved or recoloured
+keeps its sculpting. Undo takes any step back. It runs through the same
+sign-in as draw's AI button (the tangent login gateway holds the key; each
+account has a daily allowance).
+
 **advanced** (top right) shows the engine's own controls: which rung the brush
 writes to, leaf counts, the kernel, aperture and the run.
 
@@ -110,6 +119,8 @@ error, or when an action has no effect.
 - `.stl` export
 - `.3da` save and open, checking it reopens the same, plus an old assemble-mode
   file
+- **describe it**, against a stand-in gateway: building an object, changing
+  one (keeping a sculpted part's sculpting), and failed replies changing nothing
 - every starting shape
 - duplicate, delete, undo and redo
 

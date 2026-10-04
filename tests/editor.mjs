@@ -8,6 +8,7 @@
 //   · every starting shape; move / turn / size; duplicate, delete, undo, redo
 //   · files: .3da save → open, .tvf3d export → import (asserting the shape survives),
 //     the whole object as a chess piece (rebuilt from its parts, as games does),
+//   · describe it: build, change and error replies from a stand-in gateway
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -46,6 +47,15 @@ if (process.env.LIBS_DIR){
   for (const c of ['OrbitControls', 'TransformControls'])
     await page.route(new RegExp(c + '\\.js'), async r => r.fulfill({ contentType: 'text/javascript', body: await lib('examples/js/controls/' + c + '.js') }));
 }
+
+// The describe panel's gateway, stood in for: a test session, an account, and whatever
+// reply the step sets in aiReply. Every request body is kept in aiSent to check.
+let aiReply = { status: 200, body: {} }; const aiSent = [];
+await page.addInitScript(() => { try { localStorage.setItem('tangent.login.v1', 'test-session'); } catch {} });
+await page.route(/login\.tangent\.workers\.dev\/auth\/me/, r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ user: { email: 'tester@example.com' }, quota: { remaining: 9, limit: 10 } }) }));
+await page.route(/login\.tangent\.workers\.dev\/v1\/messages/, r => { aiSent.push(JSON.parse(r.request().postData() || '{}'));
+  r.fulfill({ status: aiReply.status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'x-gateway-quota-remaining': '8', 'x-gateway-quota-limit': '10' }, body: JSON.stringify(aiReply.body) }); });
+const claudeSays = text => ({ status: 200, body: { stop_reason: 'end_turn', content: [{ type: 'text', text }] } });
 
 let current = 'page load';
 const failures = [];
@@ -229,6 +239,68 @@ try {
     if (Math.abs(fill - 1) > 0.03) throw new Error('the piece neither fills its height nor its footprint (' + fill.toFixed(3) + ')');
     const ratio = (W / H) / (sw / sh * 1.1);
     if (Math.abs(ratio - 1) > 0.04) throw new Error('the proportions changed by ' + ((ratio - 1) * 100).toFixed(1) + '%');
+  });
+  await step('describe it: build a new object', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    aiReply = claudeSays('Here it is:\n' + JSON.stringify({ name: 'boat', parts: [
+      { name: 'hull', shape: 'bowl', outline: [[0, 0.2], [1, 0.5]], section: { type: 'super', n: 4, k: 0.3, squash: 0.45 }, hollow: { wall: 0.03, floor: 0.1 }, pos: [0, 0, 0], scale: [1.4, 0.35, 1.4], color: '#8a5a33' },
+      { name: 'mast', shape: 'cylinder', outline: [[0, 0.02], [1, 0.02]], pos: [0, 0.2, 0], scale: [1, 1.1, 1], color: '#6b4423' },
+      { name: 'sail', shape: 'cone', section: { type: 'polygon', n: 3, k: 1, squash: 0.08 }, pos: [0.15, 0.4, 0], scale: [0.6, 0.8, 0.6], color: '#c8402e', stripes: 3, stripeColor: '#ffffff' },
+      { name: 'flag', shape: 'nonsense', pos: [0, 1.3, 0], scale: [0.1, 0.1, 99], color: 'red' } ] }) + '\nEnjoy!');
+    await page.click('#aiBtn');
+    if (await ev(() => document.getElementById('aiPop').hidden)) throw new Error('the panel did not open');
+    if (!/tester/.test(await page.textContent('#aiSignIn'))) throw new Error('the account did not show: ' + await page.textContent('#aiSignIn'));
+    await ev(() => { document.getElementById('aiMode').value = 'new'; });
+    await page.fill('#aiPrompt', 'a little wooden boat with a red sail');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /built/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
+    const got = await ev(() => __studio.S.parts.map(p => ({ name: p.name, kind: p.core.kind, color: p.paint.color, bands: p.paint.bands, hollow: p.hollow.on, sec: p.section.type, scale: p.scale, pos: p.pos })));
+    if (got.length !== 4) throw new Error(got.length + ' parts, expected 4');
+    const [hull, mast, sail, flag] = got;
+    if (hull.name !== 'hull' || !hull.hollow || hull.sec !== 'super' || hull.color !== '#8a5a33') throw new Error('the hull came out wrong: ' + JSON.stringify(hull));
+    if (sail.bands !== 3 || sail.sec !== 'polygon') throw new Error('the sail lost its stripes or section');
+    if (flag.color !== '#d9d4c7' || flag.scale[2] !== 20) throw new Error('bad values were not cleaned up: ' + JSON.stringify(flag));
+    const sent = aiSent[aiSent.length - 1];
+    if (!sent.model || !/PARTS/.test(sent.system) || !/wooden boat/.test(sent.messages[0].content)) throw new Error('the request was not what the panel should send');
+    if (await ev(() => document.getElementById('aiMode').value) !== 'edit') throw new Error('did not move on to "change it"');
+    await ev(k => __studio.loadScene(k), keep);
+  });
+  await step('describe it: change the object', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    await ev(() => __studio.loadExample('snowman'));
+    const ids = await ev(() => __studio.S.parts.map(p => p.id));
+    const sculpted = await ev(() => { const p = __studio.S.parts[0]; p.sculpted = true; return p.id; });   // stands in for a hand-sculpted part
+    // keep the bottom (recoloured) and the head (moved), drop everything else, add a scarf
+    aiReply = claudeSays(JSON.stringify({ name: 'snowman', parts: [
+      { id: ids[0], color: '#eef2f7', pos: [0, 0, 0], rot: [0, 0, 0], scale: [0.7, 0.7, 0.7] },
+      { id: ids[2], pos: [0.1, 1.1, 0], rot: [0, 0, 0], scale: [0.36, 0.36, 0.36] },
+      { name: 'scarf', shape: 'ring', pos: [0, 0.95, 0], scale: [0.4, 0.08, 0.4], color: '#c8402e' } ] }));
+    await page.fill('#aiPrompt', 'give him a red scarf and nothing else');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /changed/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
+    const sent = aiSent[aiSent.length - 1].messages[0].content;
+    if (!sent.includes('"id":' + ids[0]) || !sent.includes('current object')) throw new Error('the current object was not sent');
+    const got = await ev(() => __studio.S.parts.map(p => ({ id: p.id, name: p.name, color: p.paint.color, pos: p.pos, sculpted: p.sculpted })));
+    if (got.length !== 3) throw new Error(got.length + ' parts, expected 3: ' + got.map(p => p.name).join(','));
+    if (got[0].id !== ids[0] || got[0].color !== '#eef2f7' || !got[0].sculpted) throw new Error('the bottom was not recoloured in place, keeping its sculpting');
+    if (got[1].id !== ids[2] || got[1].pos[0] !== 0.1) throw new Error('the head did not move');
+    if (got[2].name !== 'scarf') throw new Error('no scarf');
+    await page.click('#undo');
+    if (await parts() !== ids.length) throw new Error('undo did not bring the snowman back');
+    await ev(k => __studio.loadScene(k), keep);
+  });
+  await step('describe it: errors are reported, nothing changes', async () => {
+    const n = await parts();
+    if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');   // undo, a click outside, closed it
+    aiReply = claudeSays('Sorry, I can only describe it in words.');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => document.getElementById('aiStatus').classList.contains('err'), null, { timeout: 5000 });
+    aiReply = { status: 401, body: { error: { type: 'authentication_error', message: 'bad session' } } };
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /signed out/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
+    if (await parts() !== n) throw new Error('a failed request changed the object');
+    if (!/^sign in$/.test((await page.textContent('#aiSignIn')).trim())) throw new Error('a 401 did not sign out');
+    await page.keyboard.press('Escape'); await page.mouse.click(700, 400);
   });
   await step('.stl export', async () => {
     const d = await download(() => ev(() => __studio.fileAction('stl')));
