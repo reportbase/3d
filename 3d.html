@@ -71,6 +71,31 @@
   .footer .ft-select{background:var(--bg2);color:var(--fg);border:1px solid var(--grid);border-radius:4px;font-family:'Courier New',monospace;font-size:12px;padding:3px 6px;cursor:pointer}
   .hint{position:absolute;bottom:42px;left:12px;color:var(--fg-muted);font-size:11px;pointer-events:none;background:rgba(8,8,10,.6);padding:4px 8px;border-radius:3px}
   .hint b{color:var(--fg)}
+
+  /* ── assembly: the mode switch (top left) and the parts panel under it ── */
+  .modebar{position:fixed;top:13px;left:12px;z-index:20;display:flex;gap:4px;align-items:center}
+  .modebar button{background:var(--bg2);color:var(--fg-muted);border:1px solid var(--grid);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+  .modebar button:hover{border-color:var(--accent);color:var(--fg)}
+  .modebar button.active{background:var(--accent);color:#14141a;border-color:var(--accent)}
+  .modebar button[hidden]{display:none}
+  .asm-panel{position:fixed;top:56px;left:12px;z-index:20;width:262px;max-width:calc(100vw - 24px);max-height:calc(100vh - 130px);overflow-y:auto;
+    background:rgba(20,20,26,.94);border:1px solid var(--grid);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+  .asm-panel[hidden]{display:none}
+  .asm-panel .menu-title{margin-bottom:0}
+  .asm-panel button,.asm-panel input,.asm-panel select{background:var(--bg3);color:var(--fg);border:1px solid var(--grid);border-radius:3px;padding:5px 8px;font-size:12px;font-family:inherit;cursor:pointer}
+  .asm-panel button:hover{border-color:var(--accent)}
+  .asm-panel button:disabled{opacity:.4;cursor:default}
+  .asm-panel .row{display:flex;gap:6px;align-items:center}
+  .asm-panel .row button{flex:1}
+  .asm-panel .row label{color:var(--fg-muted);font-size:11px;width:48px;flex:none}
+  .asm-panel input[type=range]{flex:1;min-width:60px;padding:0;accent-color:var(--accent)}
+  .asm-panel .val{color:var(--accent);font-size:11px;min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+  .asm-list{display:flex;flex-direction:column;gap:3px;max-height:150px;overflow-y:auto}
+  .asm-list button{text-align:left;display:flex;align-items:center;gap:8px}
+  .asm-list button.sel{border-color:var(--accent);color:var(--accent)}
+  .asm-list .sw{width:10px;height:10px;border-radius:2px;flex:none;border:1px solid #0006}
+  .asm-note{font-size:11px;color:var(--fg-muted);line-height:1.4}
+  .asm-sub{display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--grid);padding-top:8px}
 </style>
 </head>
 <body>
@@ -127,6 +152,7 @@
         <option value="supershape">★ supershape (universe)</option>
         <option value="cylinder">cylinder</option>
         <option value="sphere">sphere</option>
+        <option value="ball">ball (round)</option>
         <option value="egg">egg</option>
         <option value="cone">cone</option>
         <option value="diamond">diamond</option>
@@ -325,6 +351,47 @@
 <div id="atomHud" style="position:fixed;left:12px;bottom:10px;z-index:6;background:rgba(8,8,10,.75);border:1px solid #26262c;border-radius:6px;padding:5px 10px;font-family:'Courier New',monospace;font-size:12px;color:#c8c8d0;pointer-events:none;line-height:1.5">
   <span id="hudNum">read —</span><span id="hudRun" style="color:#8a8a92"></span><br>
   <span id="hudLeaf" style="color:#6e6e7a">alt-click the surface to hold a leaf's registers</span>
+</div>
+
+<!-- ── ASSEMBLY ─────────────────────────────────────────────────────────────
+     One shape here is one surface round one vertical axis, r(θ,h): a lathe. That makes a
+     vase easy and a table impossible, since nothing can sit off the axis. The assembly is
+     the level above: each PART is a finished shape (a preset, or whatever you sculpted),
+     placed with its own position, rotation and size, and they are seen, saved and
+     exported as one object. Sculpting is unchanged; the assembly has its own scene. -->
+<div class="modebar">
+  <button id="modeSculpt" class="active" title="shape one part: the lathe editor">sculpt</button>
+  <button id="modeAssemble" title="put parts together into one object">assemble</button>
+  <button id="asmBack" hidden title="put the shape you are sculpting back into the assembly, in place of the part you opened">&#8617; update part</button>
+</div>
+<div class="asm-panel" id="asmPanel" hidden>
+  <div class="menu-title">assembly</div>
+  <div class="asm-note">Each part is one shape. Drag a part to slide it along the floor, alt-drag to lift it, shift-drag or drag empty space to look around.</div>
+  <div class="row"><button id="asmExTable" title="replace the assembly with an example table">example: table</button><button id="asmExSnowman" title="replace the assembly with an example snowman">example: snowman</button></div>
+  <div class="row"><select id="asmPreset" title="a preset to add as a new part"></select><button id="asmAddPreset" style="flex:none">+ add</button></div>
+  <div class="row"><button id="asmAdd" title="add the shape currently in the sculpt editor as a new part">+ sculpted shape</button></div>
+  <div class="asm-list" id="asmList"></div>
+  <div class="asm-sub" id="asmSel">
+    <div class="row"><input type="text" id="asmName" placeholder="part name" style="flex:1;min-width:0;cursor:text"><input type="color" id="asmColor" title="part colour" style="width:40px;padding:1px 2px"></div>
+    <div class="row"><label>x</label><input type="range" id="asmPX" min="-3" max="3" step="0.01" value="0"><span class="val" id="v_asmPX">0</span></div>
+    <div class="row"><label>y</label><input type="range" id="asmPY" min="-1" max="4" step="0.01" value="0"><span class="val" id="v_asmPY">0</span></div>
+    <div class="row"><label>z</label><input type="range" id="asmPZ" min="-3" max="3" step="0.01" value="0"><span class="val" id="v_asmPZ">0</span></div>
+    <div class="row"><label>turn x</label><input type="range" id="asmRX" min="-180" max="180" step="1" value="0"><span class="val" id="v_asmRX">0</span></div>
+    <div class="row"><label>turn y</label><input type="range" id="asmRY" min="-180" max="180" step="1" value="0"><span class="val" id="v_asmRY">0</span></div>
+    <div class="row"><label>turn z</label><input type="range" id="asmRZ" min="-180" max="180" step="1" value="0"><span class="val" id="v_asmRZ">0</span></div>
+    <div class="row"><label>size</label><input type="range" id="asmSize" min="0.05" max="4" step="0.01" value="1"><span class="val" id="v_asmSize">1</span></div>
+    <div class="row"><label>wide</label><input type="range" id="asmSX" min="0.05" max="6" step="0.01" value="1"><span class="val" id="v_asmSX">1</span></div>
+    <div class="row"><label>tall</label><input type="range" id="asmSY" min="0.05" max="6" step="0.01" value="1"><span class="val" id="v_asmSY">1</span></div>
+    <div class="row"><label>deep</label><input type="range" id="asmSZ" min="0.05" max="6" step="0.01" value="1"><span class="val" id="v_asmSZ">1</span></div>
+    <div class="row"><button id="asmFloor" title="lower or raise the part so it rests on the floor">to floor</button><button id="asmDup">duplicate</button><button id="asmDel">delete</button></div>
+    <div class="row"><button id="asmEdit" title="open this part in the sculpt editor; &#8617; update part brings it back">edit in sculpt</button></div>
+  </div>
+  <div class="asm-sub">
+    <div class="row"><button id="asmSave" title="download the assembly as a .3da file">save</button><button id="asmLoad" title="open a saved .3da assembly">open</button><button id="asmSTL" title="the whole assembly as one .stl mesh">export .stl</button></div>
+    <div class="row"><button id="asmClear">clear all</button></div>
+    <input type="file" id="asmFile" accept=".3da,.json" style="display:none">
+    <div class="asm-note" id="asmMsg"></div>
+  </div>
 </div>
 
 <div class="canvas-wrap" id="wrap">
@@ -536,6 +603,7 @@ const PRESETS={
     for(const ea of [2.4,3.9]){const d=wrapA(th-ea); r+=0.04*Math.exp(-(d*d)/(2*0.2*0.2))*Math.exp(-((h-0.95)**2)/(2*0.04*0.04));}
     return Math.max(0.04,r); },
   sphere:(th,h)=>Math.max(0.04, 0.26*Math.sin(PI*h)),
+  ball:(th,h)=>0.26*Math.sqrt(Math.max(0,1-(2*h-1)**2)),        // a round ball (the profile of a circle; sphere above comes to points)
   egg:(th,h)=>Math.max(0.04, 0.26*Math.pow(Math.sin(PI*h*0.92+0.08),1.4)),
   cone:(th,h)=>Math.max(0.04, 0.26*(1-h)+0.04),
   diamond:(th,h)=>Math.max(0.04, 0.30*(1-Math.abs(2*h-1))+0.03),
@@ -995,6 +1063,7 @@ function commitStroke(){                // apply the accumulated stroke to the r
 }
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerdown',e=>{ cv.setPointerCapture(e.pointerId); lx=e.clientX; ly=e.clientY;
+  if(asm.on){ asmPointerDown(e); return; }
   if(e.button===2||e.shiftKey){mode='orbit';return;}
   if(e.altKey && e.button===0){ const f=pickField(e.clientX,e.clientY);
     if(f){ const r=state.selectedRung, {Nt,Nh}=state.cascade[r];
@@ -1010,11 +1079,13 @@ cv.addEventListener('pointerdown',e=>{ cv.setPointerCapture(e.pointerId); lx=e.c
          else { mode='sculpt'; sculptAt(f.theta,f.h); } showPt(f); }
   else mode='orbit'; });
 cv.addEventListener('pointermove',e=>{
+  if(asm.on && asmPointerMove(e)) return;
   if(mode==='orbit'){cP-=(e.clientX-lx)*0.008;cT=Math.max(0.15,Math.min(2.2,cT-(e.clientY-ly)*0.008));lx=e.clientX;ly=e.clientY;}
   else if(mode==='draw'){const f=pickField(e.clientX,e.clientY);if(f){ drawStrokeTo(f.theta,f.h); showPt(f);}}
   else if(mode==='sculpt'){const f=pickField(e.clientX,e.clientY);if(f){ if(!isStamp(brushMode)) sculptAt(f.theta,f.h); showPt(f);}}
+  else if(asm.on){ cv.style.cursor='default'; }
   else {const f=pickField(e.clientX,e.clientY);cv.style.cursor=f?'crosshair':'default';if(f)showPt(f);else if(brushRing)brushRing.visible=false;} });
-cv.addEventListener('pointerup',e=>{ if(mode==='draw') commitStroke(); mode=null; try{cv.releasePointerCapture(e.pointerId);}catch(_){} });
+cv.addEventListener('pointerup',e=>{ if(mode==='draw') commitStroke(); mode=null; asmDrag.part=null; try{cv.releasePointerCapture(e.pointerId);}catch(_){} });
 cv.addEventListener('wheel',e=>{e.preventDefault();cR=Math.max(1.6,Math.min(8,cR+e.deltaY*0.002));},{passive:false});
 
 // ── rung bar (1D editor style: + add, then one button per rung) ──
@@ -1384,19 +1455,21 @@ function exportTVF3D(){ const o=buildChessTVF3D();
 }
 // STL: the exact visible mesh (sheets and/or welded vessel) with all warps baked by toXYZ, as world-space triangles.
 function exportSTL(){
-  const meshes=[]; if(vesselMesh&&vesselMesh.visible)meshes.push(vesselMesh);
-  for(const m of sheetMeshes) if(m&&m.visible&&m.material&&m.material.opacity>0.1) meshes.push(m);
+  const meshes=[];
+  if(asm.on) for(const p of asm.parts) meshes.push(p.mesh);                // assembling: every placed part, in place
+  else { if(vesselMesh&&vesselMesh.visible)meshes.push(vesselMesh);
+    for(const m of sheetMeshes) if(m&&m.mesh&&m.mesh.visible&&m.mesh.material.opacity>0.1) meshes.push(m.mesh); }
   if(!meshes.length){ fileMsg('nothing visible to export'); return; }
   const vA=new THREE.Vector3(),vB=new THREE.Vector3(),vC=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),nr=new THREE.Vector3();
   const f=x=>x.toFixed(5); let s='solid field_rung\n', tris=0;
   for(const m of meshes){ m.updateMatrixWorld(true); const g=m.geometry, pos=g.attributes.position, idx=g.index, mw=m.matrixWorld;
     const tri=(a,b,c)=>{ vA.fromBufferAttribute(pos,a).applyMatrix4(mw); vB.fromBufferAttribute(pos,b).applyMatrix4(mw); vC.fromBufferAttribute(pos,c).applyMatrix4(mw);
       ab.subVectors(vB,vA); ac.subVectors(vC,vA); nr.crossVectors(ab,ac); if(nr.lengthSq()>1e-20)nr.normalize();
-      s+='facet normal '+f(nr.x)+' '+f(nr.y)+' '+f(nr.z)+'\n outer loop\n  vertex '+f(vA.x)+' '+f(vA.y)+' '+f(vA.z)+'\n  vertex '+f(vB.x)+' '+f(vB.y)+' '+f(vB.z)+'\n  vertex '+f(vC.x)+' '+f(vC.y)+' '+f(vC.z)+'\n endloop\nendfacet\n'; tris++; };
+      tris++; s+='facet normal '+f(nr.x)+' '+f(nr.y)+' '+f(nr.z)+'\n outer loop\n  vertex '+f(vA.x)+' '+f(vA.y)+' '+f(vA.z)+'\n  vertex '+f(vB.x)+' '+f(vB.y)+' '+f(vB.z)+'\n  vertex '+f(vC.x)+' '+f(vC.y)+' '+f(vC.z)+'\n endloop\nendfacet\n'; tris++; };
     if(idx){ const ia=idx.array; for(let i=0;i<ia.length;i+=3)tri(ia[i],ia[i+1],ia[i+2]); }
     else { for(let i=0;i<pos.count;i+=3)tri(i,i+1,i+2); } }
   s+='endsolid field_rung\n';
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([s],{type:'model/stl'})); a.download='shape.stl'; a.click(); URL.revokeObjectURL(a.href);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([s],{type:'model/stl'})); a.download=asm.on?'assembly.stl':'shape.stl'; a.click(); URL.revokeObjectURL(a.href);
   fileMsg('exported STL ('+tris+' triangles)'); exToast('exported STL ('+tris+' triangles)');
 }
 $('bExport').addEventListener('click',exportTVF3D);
@@ -1558,15 +1631,253 @@ window.addEventListener('keydown',e=>{
 });
 
 
+// ════════════════════════════════════════════════════════════════════
+// ASSEMBLY — many shapes, placed, as one object.
+// A part is a finished shape baked to a mesh, plus where it sits: position, a rotation
+// (degrees about x, y, z) and a size (uniform × per-axis stretch). The assembly lives in
+// its own scene, so the sculpt editor's meshes, rings and leaf markers never mix with it,
+// and switching modes is only a question of which scene the loop draws.
+// Each part keeps its SOURCE too ({preset} or {tvf3d}), so "edit in sculpt" can open it
+// in the lathe editor and "update part" can bring the result back.
+// ════════════════════════════════════════════════════════════════════
+const asmScene=new THREE.Scene();
+asmScene.add(new THREE.AmbientLight(0xffffff,0.6));
+{ const d1=new THREE.DirectionalLight(0xffffff,0.85); d1.position.set(0.6,1,0.4); asmScene.add(d1);
+  const d2=new THREE.DirectionalLight(0x88aaff,0.3); d2.position.set(-0.5,0.3,-0.6); asmScene.add(d2);
+  const fl=new THREE.Mesh(new THREE.CircleGeometry(2.6,64),new THREE.MeshBasicMaterial({color:0x141a22,transparent:true,opacity:0.6,side:THREE.DoubleSide}));
+  fl.rotation.x=-PI/2; fl.position.y=-0.005; asmScene.add(fl); }
+const asm={ on:false, parts:[], sel:-1, nextId:1, editing:null, target:new THREE.Vector3(0,0.5,0) };
+
+/* A revolved mesh straight from a radius function r(θ,h) (and optional colour functions),
+   with the two ends closed by fans to the axis so a cylinder is a solid, not a tube. The
+   shape's own frame is the sculpt editor's: axis up, base at y=0, height HSCALE. */
+function asmGeomFromField(rf, cf){
+  const NT=MT, NH=MH, pos=[], col=[], idx=[];
+  for(let i=0;i<NH;i++){ const h=i/(NH-1);
+    for(let j=0;j<NT;j++){ const th=j/NT*TAU, r=Math.max(0,rf(th,h));
+      pos.push(r*Math.cos(th), h*HSCALE, r*Math.sin(th));
+      const c=cf?cf(th,h):[1,1,1]; col.push(...c.map(x=>Math.max(0,Math.min(1,x)))); } }
+  for(let i=0;i<NH-1;i++)for(let j=0;j<NT;j++){ const a=i*NT+j,b=i*NT+(j+1)%NT,c=(i+1)*NT+j,d=(i+1)*NT+(j+1)%NT; idx.push(a,c,b,b,c,d); }
+  const bot=pos.length/3; pos.push(0,0,0); col.push(...col.slice(0,3));
+  const top=bot+1; pos.push(0,HSCALE,0); col.push(...col.slice((NH-1)*NT*3,(NH-1)*NT*3+3));
+  for(let j=0;j<NT;j++){ const jn=(j+1)%NT; idx.push(bot,jn,j); idx.push(top,(NH-1)*NT+j,(NH-1)*NT+jn); }
+  return asmMakeGeom(pos,col,idx);
+}
+function asmMakeGeom(pos,col,idx){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+/* What the sculpt editor is showing right now, as one mesh: the welded vessel if it is on,
+   otherwise every visible sheet — the same set the editor's own .stl export writes. */
+function asmGeomFromSculpt(){
+  const ms=[]; if(vesselMesh&&vesselMesh.visible) ms.push(vesselMesh);
+  else for(const sm of sheetMeshes) if(sm&&sm.mesh.visible&&sm.mesh.material.opacity>0.1) ms.push(sm.mesh);
+  if(!ms.length) return null;
+  const pos=[], col=[], idx=[];
+  for(const m of ms){ const g=m.geometry, base=pos.length/3, P=g.attributes.position, C=g.attributes.color;
+    for(let k=0;k<P.count;k++){ pos.push(P.getX(k),P.getY(k),P.getZ(k)); if(C) col.push(C.getX(k),C.getY(k),C.getZ(k)); else col.push(1,1,1); }
+    const I=g.index.array; for(let k=0;k<I.length;k++) idx.push(base+I[k]);
+    if(m!==vesselMesh) asmCapRings(pos,col,idx,base); }                  // a sheet is open at both ends; the vessel is already closed
+  return asmMakeGeom(pos,col,idx);
+}
+/* Close a sheet's bottom and top rings (rows 0 and MH-1 of its MT×MH grid) with fans to
+   their own centres, so a sculpted shape arrives as a solid rather than a tube. */
+function asmCapRings(pos,col,idx,base){
+  for(const [row,flip] of [[0,true],[MH-1,false]]){
+    let cx=0,cy=0,cz=0; for(let j=0;j<MT;j++){ const o=(base+row*MT+j)*3; cx+=pos[o]; cy+=pos[o+1]; cz+=pos[o+2]; }
+    const c=pos.length/3; pos.push(cx/MT,cy/MT,cz/MT); const o0=(base+row*MT)*3; col.push(col[o0],col[o0+1],col[o0+2]);
+    for(let j=0;j<MT;j++){ const a=base+row*MT+j, b=base+row*MT+(j+1)%MT; if(flip) idx.push(c,b,a); else idx.push(c,a,b); } }
+}
+function asmPresetGeom(name){ return asmGeomFromField(PRESETS[name]||PRESETS.cylinder); }
+function asmPresetLabel(name){ const o=document.querySelector('#selPreset option[value="'+name+'"]'); return o?o.textContent.replace(/^[^a-z0-9]+/i,'').replace(/\s*\(.*\)$/,''):name; }
+
+function asmAddPart(o){
+  const p=Object.assign({ id:asm.nextId++, name:'part', color:null, pos:[0,0,0], rot:[0,0,0], size:1, stretch:[1,1,1], src:null }, o);
+  const mat=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:0.6,metalness:0.05,side:THREE.DoubleSide});
+  p.mesh=new THREE.Mesh(p.geom,mat); p.mesh.userData.part=p; asmScene.add(p.mesh);
+  asm.parts.push(p); asmApply(p); return p;
+}
+function asmApply(p){
+  const m=p.mesh; m.position.set(...p.pos);
+  m.rotation.set(p.rot[0]*PI/180,p.rot[1]*PI/180,p.rot[2]*PI/180,'XYZ');
+  m.scale.set(p.size*p.stretch[0],p.size*p.stretch[1],p.size*p.stretch[2]);
+  m.material.vertexColors=!p.color; m.material.color.set(p.color||0xffffff);
+  m.material.emissive.set(asm.parts[asm.sel]===p?0x3a2a08:0x000000); m.material.needsUpdate=true;
+}
+function asmRemove(p){ asmScene.remove(p.mesh); p.geom.dispose(); p.mesh.material.dispose(); asm.parts.splice(asm.parts.indexOf(p),1); }
+function asmClearAll(){ while(asm.parts.length) asmRemove(asm.parts[0]); asm.sel=-1; }
+function asmMsg(s){ const el=$('asmMsg'); if(el){ el.textContent=s; if(s) setTimeout(()=>{ if(el.textContent===s) el.textContent=''; },3000); } }
+
+/* ── the panel ── */
+const ASM_SLIDERS=[['asmPX','pos',0],['asmPY','pos',1],['asmPZ','pos',2],['asmRX','rot',0],['asmRY','rot',1],['asmRZ','rot',2],
+                   ['asmSize','size',-1],['asmSX','stretch',0],['asmSY','stretch',1],['asmSZ','stretch',2]];
+const asmFmt=(id,v)=>id.startsWith('asmR')?Math.round(v)+'°':(+v).toFixed(2);
+function asmSelect(i){ asm.sel=i; for(const p of asm.parts) asmApply(p); asmRefreshPanel(); }
+function asmRefreshPanel(){
+  const list=$('asmList'); list.innerHTML='';
+  asm.parts.forEach((p,i)=>{ const b=document.createElement('button'); b.className=i===asm.sel?'sel':'';
+    const sw=document.createElement('span'); sw.className='sw'; sw.style.background=p.color||'linear-gradient(135deg,#d4a052,#5a9fd4)';
+    b.append(sw,document.createTextNode(p.name)); b.addEventListener('click',()=>asmSelect(i)); list.appendChild(b); });
+  if(!asm.parts.length){ const n=document.createElement('div'); n.className='asm-note'; n.textContent='No parts yet: try an example, or add a preset.'; list.appendChild(n); }
+  const p=asm.parts[asm.sel]; $('asmSel').style.display=p?'':'none'; if(!p) return;
+  $('asmName').value=p.name; $('asmColor').value=p.color||'#ffffff';
+  for(const [id,key,k] of ASM_SLIDERS){ const v=k<0?p[key]:p[key][k]; $(id).value=v; $('v_'+id).textContent=asmFmt(id,v); }
+}
+for(const [id,key,k] of ASM_SLIDERS) $(id).addEventListener('input',e=>{ const p=asm.parts[asm.sel]; if(!p) return;
+  const v=+e.target.value; if(k<0) p[key]=v; else p[key][k]=v; $('v_'+id).textContent=asmFmt(id,v); asmApply(p); });
+$('asmName').addEventListener('input',e=>{ const p=asm.parts[asm.sel]; if(!p) return; p.name=e.target.value||'part';
+  const b=$('asmList').children[asm.sel]; if(b) b.lastChild.textContent=p.name; });
+$('asmColor').addEventListener('input',e=>{ const p=asm.parts[asm.sel]; if(!p) return; p.color=e.target.value; asmApply(p);
+  const b=$('asmList').children[asm.sel]; if(b) b.firstChild.style.background=p.color; });
+
+/* Rest the part on the floor: the lowest point of its placed mesh goes to y = 0. */
+function asmToFloor(p){ p.mesh.updateMatrixWorld(true); const b=new THREE.Box3().setFromObject(p.mesh); p.pos[1]-=b.min.y; asmApply(p); }
+/* Frame the camera on the whole assembly. */
+function asmFrame(){
+  const b=new THREE.Box3(); for(const p of asm.parts){ p.mesh.updateMatrixWorld(true); b.expandByObject(p.mesh); }
+  if(b.isEmpty()){ asm.target.set(0,0.5,0); cR=3.4; return; }
+  const c=b.getCenter(new THREE.Vector3()), r=b.getSize(new THREE.Vector3()).length()/2;
+  asm.target.copy(c); cR=Math.max(1.6,Math.min(8,r*2.6));
+}
+
+/* ── the two examples. All parts are presets, so every one can be opened in sculpt. ──
+   ball preset: radius 0.26 across, HSCALE (1.1) tall, so a round ball of radius R is a
+   stretch of (R/0.26, 2R/1.1, R/0.26). cylinder preset: radius 0.22, 1.1 tall. */
+const asmBall=R=>[R/0.26, 2*R/HSCALE, R/0.26];             // for the ball preset
+const asmRod=(R,L)=>[R/0.22, L/HSCALE, R/0.22];
+function asmPresetPart(preset,o){ return asmAddPart(Object.assign({ geom:asmPresetGeom(preset), src:{preset}, name:asmPresetLabel(preset) },o)); }
+function asmExampleTable(){
+  asmClearAll();
+  const wood='#9a6b3f', legH=0.78, topT=0.06;
+  asmPresetPart('cylinder',{ name:'table top', color:wood, pos:[0,legH,0], stretch:[0.9/0.22,topT/HSCALE,0.55/0.22] });
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz],i)=>
+    asmPresetPart('cylinder',{ name:'leg '+(i+1), color:'#7a5230', pos:[sx*0.62,0,sz*0.34], stretch:asmRod(0.035,legH) }));
+  asmPresetPart('vase',{ name:'vase', color:'#5a9fd4', pos:[0.1,legH+topT,0], size:0.42 });
+  asmPresetPart('ball',{ name:'apple', color:'#c8402e', pos:[-0.42,legH+topT,0.12], stretch:asmBall(0.07) });
+  asmSelect(0); asmFrame(); asmMsg('example table: 7 parts');
+}
+function asmExampleSnowman(){
+  asmClearAll();
+  const snow='#eef2f7', coal='#1b1b1f';
+  const balls=[['bottom',0.45,0],['middle',0.33,0.78],['head',0.23,1.36]];
+  for(const [n,R,y] of balls) asmPresetPart('ball',{ name:n, color:snow, pos:[0,y,0], stretch:asmBall(R) });
+  const hc=1.36+0.23;                                                 // head centre
+  asmPresetPart('cone',{ name:'nose', color:'#ff8a2a', pos:[0,hc-0.02,0.19], rot:[90,0,0], stretch:[0.16,0.2/HSCALE,0.16] });
+  for(const sx of [-1,1]) asmPresetPart('ball',{ name:sx<0?'left eye':'right eye', color:coal, pos:[sx*0.08,hc+0.04,0.19], stretch:asmBall(0.028) });
+  [1.0,1.13,1.26].forEach((y,i)=>asmPresetPart('ball',{ name:'button '+(i+1), color:coal, pos:[0,y-0.03,Math.sqrt(0.33*0.33-(y-1.11)**2)-0.01], stretch:asmBall(0.03) }));
+  for(const sx of [-1,1]) asmPresetPart('cylinder',{ name:sx<0?'left arm':'right arm', color:'#6b4423', pos:[sx*0.27,1.18,0], rot:[0,0,-sx*58], stretch:asmRod(0.018,0.62) });
+  asmPresetPart('cylinder',{ name:'hat brim', color:coal, pos:[0,hc+0.17,0], stretch:asmRod(0.25,0.03) });
+  asmPresetPart('cylinder',{ name:'hat', color:coal, pos:[0,hc+0.19,0], stretch:asmRod(0.16,0.24) });
+  asmSelect(0); asmFrame(); asmMsg('example snowman: '+asm.parts.length+' parts');
+}
+
+/* ── adding, copying, removing, editing ── */
+function asmAddSculpted(){
+  const g=asmGeomFromSculpt(); if(!g){ asmMsg('nothing visible in sculpt to add'); return; }
+  let src=null; try{ src={tvf3d:buildChessTVF3D().txt}; }catch(_){}
+  const p=asmAddPart({ geom:g, src, name:'sculpted '+asm.nextId, pos:[0,0,0] });
+  asmToFloor(p); asmSelect(asm.parts.indexOf(p)); asmMsg('added the sculpted shape');
+}
+function asmDuplicate(){ const p=asm.parts[asm.sel]; if(!p) return;
+  const q=asmAddPart({ geom:p.geom.clone(), src:p.src, name:p.name+' copy', color:p.color, pos:[p.pos[0]+0.3,p.pos[1],p.pos[2]], rot:p.rot.slice(), size:p.size, stretch:p.stretch.slice() });
+  asmSelect(asm.parts.indexOf(q)); }
+function asmDelete(){ const p=asm.parts[asm.sel]; if(!p) return; asmRemove(p); asmSelect(Math.min(asm.sel,asm.parts.length-1)); }
+function asmEditPart(){ const p=asm.parts[asm.sel]; if(!p) return;
+  if(p.src&&p.src.preset){ $('selPreset').value=p.src.preset; loadPreset(p.src.preset); }
+  else if(p.src&&p.src.tvf3d){ try{ loadTVF3D(p.src.tvf3d); }catch(e){ asmMsg('could not open: '+e.message); return; } }
+  else { asmMsg('this part has no source to open'); return; }
+  asm.editing=p.id; setAsmMode(false); }
+function asmUpdateFromSculpt(){ const p=asm.parts.find(q=>q.id===asm.editing); asm.editing=null;
+  if(!p){ setAsmMode(true); return; }
+  const g=asmGeomFromSculpt(); if(!g){ setAsmMode(true); asmMsg('nothing visible in sculpt'); return; }
+  p.geom.dispose(); p.geom=g; p.mesh.geometry=g;
+  try{ p.src={tvf3d:buildChessTVF3D().txt}; }catch(_){}
+  setAsmMode(true); asmSelect(asm.parts.indexOf(p)); asmMsg('updated '+p.name); }
+
+/* ── saving: the placed parts with their baked meshes (so they reopen exactly), plus each
+   part's source so it can still be opened in sculpt. A plain JSON file, extension .3da. ── */
+function asmSerialize(){
+  const r4=x=>Math.round(x*1e4)/1e4, r3=x=>Math.round(x*1e3)/1e3;
+  return JSON.stringify({ format:'3d-assembly', version:1, parts:asm.parts.map(p=>({
+    name:p.name, color:p.color, pos:p.pos, rot:p.rot, size:p.size, stretch:p.stretch, src:p.src,
+    mesh: asmRegenerates(p) ? undefined :
+      { position:Array.from(p.geom.attributes.position.array,r4), color:Array.from(p.geom.attributes.color.array,r3), index:Array.from(p.geom.index.array) } })) });
+}
+/* A plain preset part is rebuilt exactly from its preset, so its mesh is not written. The
+   supershape is the exception: it reads the live supershape sliders. */
+function asmRegenerates(p){ return !!(p.src && p.src.preset && PRESETS[p.src.preset] && p.src.preset!=='supershape'); }
+function asmDeserialize(text){
+  const d=JSON.parse(text); if(d.format!=='3d-assembly') throw new Error('not a 3d assembly file');
+  asmClearAll();
+  for(const q of d.parts){ const g=q.mesh ? asmMakeGeom(q.mesh.position,q.mesh.color,q.mesh.index) : asmPresetGeom(q.src.preset);
+    asmAddPart({ geom:g, name:q.name, color:q.color, pos:q.pos, rot:q.rot, size:q.size, stretch:q.stretch, src:q.src }); }
+  asmSelect(asm.parts.length?0:-1); asmFrame();
+}
+function asmDownload(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+/* ── the mode switch ── */
+function setAsmMode(on){
+  asm.on=!!on; $('asmPanel').hidden=!asm.on;
+  $('modeSculpt').classList.toggle('active',!asm.on); $('modeAssemble').classList.toggle('active',asm.on);
+  const ed=asm.parts.find(q=>q.id===asm.editing); $('asmBack').hidden=asm.on||!ed;
+  if(ed) $('asmBack').textContent='↩ update '+ed.name;
+  if(!asm.on&&!ed) asm.editing=null;
+  if(asm.on){ closeMenu(); asmRefreshPanel(); if(!asm._framed){ asm._framed=true; asmFrame(); } }
+  else { cR=Math.max(1.6,Math.min(8,cR)); }
+}
+$('modeSculpt').addEventListener('click',()=>setAsmMode(false));
+$('modeAssemble').addEventListener('click',()=>{ asm.editing=null; setAsmMode(true); });
+$('asmBack').addEventListener('click',asmUpdateFromSculpt);
+$('asmExTable').addEventListener('click',asmExampleTable);
+$('asmExSnowman').addEventListener('click',asmExampleSnowman);
+{ const sel=$('asmPreset'); for(const o of document.querySelectorAll('#selPreset option')) if(PRESETS[o.value]&&o.value!=='corner_test'){ const c=o.cloneNode(true); c.selected=false; sel.appendChild(c); } sel.value='ball'; }
+$('asmAddPreset').addEventListener('click',()=>{ const n=$('asmPreset').value; const p=asmPresetPart(n,{}); asmSelect(asm.parts.indexOf(p)); });
+$('asmAdd').addEventListener('click',asmAddSculpted);
+$('asmDup').addEventListener('click',asmDuplicate);
+$('asmDel').addEventListener('click',asmDelete);
+$('asmFloor').addEventListener('click',()=>{ const p=asm.parts[asm.sel]; if(p){ asmToFloor(p); asmRefreshPanel(); } });
+$('asmEdit').addEventListener('click',asmEditPart);
+$('asmClear').addEventListener('click',()=>{ asmClearAll(); asmRefreshPanel(); });
+$('asmSave').addEventListener('click',()=>{ if(!asm.parts.length){ asmMsg('nothing to save'); return; } asmDownload('assembly.3da',asmSerialize(),'application/json'); asmMsg('saved '+asm.parts.length+' parts'); });
+$('asmLoad').addEventListener('click',()=>$('asmFile').click());
+$('asmFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+  rd.onload=()=>{ try{ asmDeserialize(rd.result); asmMsg('opened '+asm.parts.length+' parts'); }catch(err){ asmMsg('open failed: '+err.message); } }; rd.readAsText(f); e.target.value=''; });
+$('asmSTL').addEventListener('click',exportSTL);
+
+/* ── pointer, in assemble mode: drag a part along the floor (alt: up and down), else orbit ── */
+const asmDrag={ part:null, plane:new THREE.Plane(), offset:new THREE.Vector3(), hit:new THREE.Vector3() };
+function asmRay(e){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ndc,cam); }
+function asmPointerDown(e){
+  if(e.button===2||e.shiftKey){ mode='orbit'; return; }
+  asmRay(e); const hits=ray.intersectObjects(asm.parts.map(p=>p.mesh),false);
+  if(!hits.length){ mode='orbit'; return; }
+  const p=hits[0].object.userData.part; asmSelect(asm.parts.indexOf(p));
+  const n=e.altKey ? new THREE.Vector3(cam.position.x-p.mesh.position.x,0,cam.position.z-p.mesh.position.z).normalize() : new THREE.Vector3(0,1,0);
+  asmDrag.plane.setFromNormalAndCoplanarPoint(n,hits[0].point);
+  asmDrag.offset.copy(hits[0].point).sub(p.mesh.position); asmDrag.part=p; asmDrag.vertical=e.altKey; mode='asmMove';
+}
+function asmPointerMove(e){
+  if(mode!=='asmMove'||!asmDrag.part) return false;
+  asmRay(e); if(!ray.ray.intersectPlane(asmDrag.plane,asmDrag.hit)) return true;
+  const p=asmDrag.part, q=asmDrag.hit.sub(asmDrag.offset);
+  if(asmDrag.vertical) p.pos[1]=q.y; else { p.pos[0]=q.x; p.pos[2]=q.z; }
+  asmApply(p); asmRefreshPanel(); return true;
+}
+
 let _leafCamKey='';
+const _sculptTarget=new THREE.Vector3(0,0.5,0);
 function loop(){requestAnimationFrame(loop);
   cam.position.set(cR*Math.sin(cT)*Math.cos(cP),cR*Math.cos(cT)+0.5,cR*Math.sin(cT)*Math.sin(cP));
-  cam.up.set(0,1,0); cam.lookAt(0,0.5,0);
+  const tgt = asm.on ? asm.target : _sculptTarget;
+  cam.position.x+=tgt.x; cam.position.y+=tgt.y-0.5; cam.position.z+=tgt.z;
+  cam.up.set(0,1,0); cam.lookAt(tgt);
   if(state.flyin){ const dk=(Math.round(flyinDepth()/0.05)*0.05).toFixed(2);   // rebuild only when the resolved depth crosses a 0.05-octave step
     if(dk!==_meshFlyKey){ _meshFlyKey=dk; updateMesh(); } }
   if(showLeaves){ const key=cT.toFixed(2)+','+cP.toFixed(2)+','+cR.toFixed(2);   // recull only when the view changed
     if(key!==_leafCamKey){ _leafCamKey=key; updateLeaves(); } }
-  renderer.render(scene,cam);}
+  renderer.render(asm.on?asmScene:scene,cam);}
 resize(); initCascade(); buildSheetMeshes();
 loadPreset('knight'); selectRung(state.rungs-1); rebuildRungBar(); rebuildSheetBar(); drawCurve(); loop();
 </script>
