@@ -8,7 +8,7 @@
 //   · every starting shape; move / turn / size; duplicate, delete, undo, redo
 //   · files: .3da save → open, .tvf3d export → import (asserting the shape survives),
 //     the whole object as a chess piece (rebuilt from its parts, as games does),
-//   · describe it: build, change and error replies from a stand-in gateway
+//   · describe it: build, change, look & fix (pictures sent) and error replies, from a stand-in gateway
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -289,12 +289,39 @@ try {
     if (await parts() !== ids.length) throw new Error('undo did not bring the snowman back');
     await ev(k => __studio.loadScene(k), keep);
   });
+  await step('describe it: look & fix sends pictures and applies the fix', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    await ev(() => __studio.loadExample('snowman'));
+    if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');
+    const head = await ev(() => __studio.S.parts.find(p => p.name === 'head').id);
+    aiReply = claudeSays(JSON.stringify({ name: 'snowman', notes: 'The head was sunk into the body; raised it.',
+      parts: (await ev(() => __studio.S.parts.map(p => ({ id: p.id, pos: p.pos, rot: p.rot, scale: p.scale })))).map(q => q.id === head ? { ...q, pos: [q.pos[0], q.pos[1] + 0.05, q.pos[2]] } : q) }));
+    const y0 = await ev(id => __studio.S.parts.find(p => p.id === id).pos[1], head);
+    await page.fill('#aiPrompt', '');
+    await page.click('#aiFix');
+    await page.waitForFunction(() => /fixed/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    const sent = aiSent[aiSent.length - 1].messages[0].content;
+    if (!Array.isArray(sent) || sent[1].type !== 'image' || sent[1].source.media_type !== 'image/png') throw new Error('no picture was sent');
+    if (sent[1].source.data.length < 20000) throw new Error('the picture is suspiciously small: ' + sent[1].source.data.length + ' bytes of base64');
+    if (!/What was asked for: .*scarf/.test(sent[0].text) || !sent[0].text.includes('"id":' + head)) throw new Error('the request or the current object was not sent');
+    const y1 = await ev(id => __studio.S.parts.find(p => p.id === id).pos[1], head);
+    if (!(Math.abs(y1 - y0 - 0.05) < 1e-6)) throw new Error('the fix was not applied: head y ' + y0 + ' → ' + y1);
+    if (!/sunk/.test(await page.textContent('#aiStatus'))) throw new Error('the notes were not shown');
+    if (await ev(() => document.getElementById('aiCopy').disabled)) throw new Error('copy reply stayed disabled');
+    // the picture really shows the object: decode it and check it is not one flat colour
+    const varied = await ev(b64 => new Promise(ok => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const g = c.getContext('2d'); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, c.width, c.height).data; const seen = new Set();
+      for (let i = 0; i < d.length; i += 4 * 97) seen.add((d[i] >> 4) + ',' + (d[i + 1] >> 4) + ',' + (d[i + 2] >> 4)); ok({ w: im.width, h: im.height, colours: seen.size }); }; im.src = 'data:image/png;base64,' + b64; }), sent[1].source.data);
+    if (varied.w !== 1152 || varied.h !== 384 || varied.colours < 20) throw new Error('the picture does not look like three views of the object: ' + JSON.stringify(varied));
+    await ev(k => __studio.loadScene(k), keep);
+  });
   await step('describe it: errors are reported, nothing changes', async () => {
     const n = await parts();
     if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');   // undo, a click outside, closed it
+    await page.fill('#aiPrompt', 'a teapot');
     aiReply = claudeSays('Sorry, I can only describe it in words.');
     await page.click('#aiGo');
-    await page.waitForFunction(() => document.getElementById('aiStatus').classList.contains('err'), null, { timeout: 5000 });
+    await page.waitForFunction(() => /no object came back/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
     aiReply = { status: 401, body: { error: { type: 'authentication_error', message: 'bad session' } } };
     await page.click('#aiGo');
     await page.waitForFunction(() => /signed out/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });

@@ -43,7 +43,10 @@ band" or "a little wooden boat" and Claude makes it from parts, which you can
 then shape and sculpt like any others. Switch to **change it** to keep going
 ("give it a taller mast", "make the band gold"): Claude sees the current parts
 and edits them, and a hand-sculpted part that is only moved or recoloured
-keeps its sculpting. Undo takes any step back. It runs through the same
+keeps its sculpting. **look & fix** shows Claude pictures of the object from three
+sides next to what you asked for, and it corrects what's wrong: a part floating,
+a head pointing the wrong way. Type a note first to steer it. **copy reply**
+copies Claude's last answer, for reporting a bad result. Undo takes any step back. It runs through the same
 sign-in as draw's AI button (the tangent login gateway holds the key; each
 account has a daily allowance).
 
@@ -120,7 +123,8 @@ error, or when an action has no effect.
 - `.3da` save and open, checking it reopens the same, plus an old assemble-mode
   file
 - **describe it**, against a stand-in gateway: building an object, changing
-  one (keeping a sculpted part's sculpting), and failed replies changing nothing
+  one (keeping a sculpted part's sculpting), look & fix (checking the picture
+  sent really shows the object), and failed replies changing nothing
 - every starting shape
 - duplicate, delete, undo and redo
 
