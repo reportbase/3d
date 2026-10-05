@@ -16,7 +16,8 @@
 //     terrain (heights, copies on the ground, a raised lake, elevation), walking and flying,
 //     prefabs (laid out whole per copy, turned, nested, yards kept clear), span, rows along a
 //     path, stretch; the prefab library (placed by clicking, turned, renamed on a clash, every one built);
-//     parts given by size, the roof shape, doors and windows set flush into a face
+//     parts given by size, the roof shape, doors and windows set flush into a face;
+//     building from a picture (shrunk, sent first, sent again with look & fix, three at most, a scene)
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -762,6 +763,53 @@ try {
       { name: 'door', shape: 'box', size: [0.9, 2, 0.1], on: 'walls', face: 'right', at: [0, 0], color: '#5a3a22' }] }], place: [{ type: 'hut', at: [0, 0] }] }, 'scene'));
     const door = await ev(() => __scene.data().types[0].parts[1]);
     if (Math.abs(door.pos[0] - 2.02) > 0.005 || Math.abs(door.pos[2]) > 1e-6 || Math.abs(door.rot[1] - 90) > 1e-6) throw new Error('the hut door: ' + JSON.stringify([door.pos, door.rot]));
+    await page.click('#vObject'); await ev(() => __scene.set(null));
+    await ev(k => __studio.loadScene(k), keep);
+  });
+  await step('describe it: built from a picture', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    const png = (w, h, col) => ev(([w, h, col]) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+      g.fillStyle = col; g.fillRect(0, 0, w, h); g.fillStyle = '#204080'; g.fillRect(w / 4, h / 4, w / 2, h / 2); return c.toDataURL('image/png').split(',')[1]; }, [w, h, col]);
+    const file = async (name, w, h, col) => ({ name, mimeType: 'image/png', buffer: Buffer.from(await png(w, h, col), 'base64') });
+    if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');
+    await ev(() => { document.getElementById('aiMode').value = 'new'; });
+    await page.setInputFiles('#aiPicFile', [await file('chair.png', 2400, 1200, '#c08040')]);
+    await page.waitForFunction(() => document.querySelectorAll('#aiPics img').length === 1, null, { timeout: 5000 });
+    aiReply = claudeSays(JSON.stringify({ name: 'chair', notes: 'Took the seat and legs from the photo.', parts: [{ name: 'seat', shape: 'box', size: [0.5, 0.06, 0.5], pos: [0, 0.45, 0], color: '#c08040' }] }));
+    await page.fill('#aiPrompt', '');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /seat and legs/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    let c = aiSent[aiSent.length - 1].messages[0].content;
+    if (!Array.isArray(c) || c[0].type !== 'image' || c[0].source.media_type !== 'image/jpeg' || c[c.length - 1].type !== 'text') throw new Error('the picture was not sent first');
+    const dims = await ev(d => new Promise(ok => { const i = new Image(); i.onload = () => ok([i.naturalWidth, i.naturalHeight]); i.src = 'data:image/jpeg;base64,' + d; }), c[0].source.data);
+    if (dims[0] !== 1568 || dims[1] !== 784) throw new Error('the picture was sent at ' + dims.join(' × ') + ', not shrunk to 1568 across');
+    if (!/Build: the object in the picture/.test(c[1].text) || !/Build the object it shows/.test(c[1].text)) throw new Error('the request text: ' + c[1].text);
+    if (await ev(() => __studio.S.parts.map(p => p.name).join(',')) !== 'seat') throw new Error('the reply was not built');
+    // look & fix compares with the picture as well as the renders
+    aiReply = claudeSays(JSON.stringify({ notes: 'Closer to the photo now.', parts: [{ id: await ev(() => __studio.S.parts[0].id), name: 'seat', color: '#a06030' }] }));
+    await page.click('#aiFix');
+    await page.waitForFunction(() => /Closer to the photo/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    c = aiSent[aiSent.length - 1].messages[0].content;
+    const imgs = c.filter(b => b.type === 'image').map(b => b.source.media_type).join(',');
+    if (imgs !== 'image/jpeg,image/png' || !c.some(b => b.type === 'text' && /reference/.test(b.text))) throw new Error('look & fix sent ' + imgs);
+    // three at most; × takes one off
+    await page.setInputFiles('#aiPicFile', [await file('a.png', 300, 200, '#808080'), await file('b.png', 200, 300, '#808080'), await file('c.png', 100, 100, '#808080')]);
+    await page.waitForFunction(() => /three pictures at most/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
+    if (await ev(() => document.querySelectorAll('#aiPics img').length) !== 3) throw new Error('more than three pictures were taken');
+    await page.click('#aiPics button[data-i="0"]');
+    if (await ev(() => document.querySelectorAll('#aiPics img').length) !== 2 || await ev(() => document.getElementById('aiPop').hidden)) throw new Error('× did not take one off, or closed the panel');
+    // a scene from the pictures: the guidance on reading maps and photos goes with it
+    await page.click('#vScene'); if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');
+    await ev(() => { window.__describeModes(); document.getElementById('aiMode').value = 'scene'; });
+    aiReply = claudeSays(JSON.stringify({ name: 'from a map', notes: 'A lake in the middle, as on the map.', ground: { color: '#6b8a4e', size: 120 }, areas: [{ name: 'lake', water: true, center: [0, 0], radius: 20 }],
+      types: [{ name: 'hut', parts: [{ name: 'walls', shape: 'box', size: [4, 3, 3], pos: [0, 0, 0], color: '#e8dcc4' }] }], place: [{ type: 'hut', ring: { center: [0, 0], radius: 30 }, count: 6 }] }));
+    await page.fill('#aiPrompt', 'a village round the lake');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /as on the map/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    c = aiSent[aiSent.length - 1].messages[0].content;
+    if (c.filter(b => b.type === 'image').length !== 2 || !/Build a SCENE: a village round the lake/.test(c[2].text) || !/MAP, PLAN/.test(c[2].text)) throw new Error('the scene request: ' + JSON.stringify(c.map(b => b.type === 'text' ? b.text.slice(0, 80) : b.type)));
+    await ev(() => { document.querySelectorAll('#aiPics button').forEach(() => document.querySelector('#aiPics button').click()); });
+    if (await ev(() => document.querySelectorAll('#aiPics img').length)) throw new Error('pictures left attached');
     await page.click('#vObject'); await ev(() => __scene.set(null));
     await ev(k => __studio.loadScene(k), keep);
   });

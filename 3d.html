@@ -93,6 +93,10 @@
   .aipop .aistatus.err{color:#e8735c}
   .aipop details summary{cursor:pointer;color:var(--dim);font-size:12px}
   .aipop details[open]{display:flex;flex-direction:column;gap:6px}
+  .aipics{display:flex;gap:6px;flex-wrap:wrap}
+  .aipics .pic{position:relative;display:block}
+  .aipics img{height:56px;max-width:110px;object-fit:cover;border-radius:4px;border:1px solid var(--line2);display:block}
+  .aipics button{position:absolute;top:-6px;right:-6px;width:18px;height:18px;padding:0;border-radius:9px;font-size:12px;line-height:16px}
   .aipop .note{font-size:11px;color:var(--faint);line-height:1.4}
   /* ── panels ── */
   .panel{background:var(--bg2);overflow-y:auto;display:flex;flex-direction:column}
@@ -212,6 +216,9 @@
     <div class="menuwrap"><button id="aiBtn" title="describe an object in words and Claude builds it from parts">describe &#10022;</button>
       <div class="dropdown aipop" id="aiPop" hidden>
         <textarea id="aiPrompt" placeholder="describe an object… e.g. a rook with a crenellated top, or a little wooden boat with a red sail" spellcheck="false"></textarea>
+        <div class="aipics" id="aiPics" hidden></div>
+        <div class="row"><button id="aiPic" title="add a picture for Claude to build from: a photo, a painting, a map or a sketch (up to three; you can also paste or drop one here)">+ picture</button><span class="note" style="flex:1">a photo, map or sketch to build from</span></div>
+        <input type="file" id="aiPicFile" accept="image/*" multiple hidden>
         <div class="row">
           <select id="aiMode" title="new: start over from the description. add: put it beside what is there. change: Claude sees the object you have and edits it (move, recolour, add or remove parts), keeping your sculpting on parts it leaves alone">
             <option value="new">new object</option><option value="add">add to it</option><option value="edit">change it</option><option value="set">chess set</option>
@@ -4518,6 +4525,7 @@ window.__scene=SCN;
     busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus('looking…');
     const content=[
       {type:'text',text:'What was asked for: '+(ask||'(not known: judge it as a well-made object)')+(note&&note!==ask?'\nThe user adds: '+note:'')+'\n\nThe object now, as JSON:\n'+describeScene()},
+      ...(pics.length?[...picBlocks(),{type:'text',text:(pics.length>1?'Those pictures are':'That picture is')+' the user\'s reference: what it should be like.'}]:[]),
       {type:'image',source:{type:'base64',media_type:'image/png',data:viewsPng()}},
       {type:'text',text:'These are renders of it from the front, the side and above. Compare them with what was asked for. Say in "notes" what is wrong (floating or buried parts, proportions, parts pointing the wrong way, missing features), then return the corrected whole object as a change.'}];
     try{
@@ -4534,6 +4542,7 @@ window.__scene=SCN;
     busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus('looking at the scene…');
     const content=[
       {type:'text',text:'What was asked for: '+(ask||'(not known: judge it as a believable place)')+(note&&note!==ask?'\nThe user adds: '+note:'')+'\n\nThe scene now:\n'+describeSceneAI()},
+      ...(pics.length?[...picBlocks(),{type:'text',text:(pics.length>1?'Those pictures are':'That picture is')+' the user\'s reference: what it should be like.'}]:[]),
       {type:'image',source:{type:'base64',media_type:'image/png',data:SCN.viewsPng()}},
       {type:'text',text:'These are renders of it from above and from two sides. Compare them with what was asked for. Say in "notes" what is wrong (ground flat where it should rise, things floating or buried, wrong scale between types, empty or crowded places, boats on land or houses in water, objects on roads, missing ground like a sea or a road, a type that does not read as what it is), then return the corrected scene as a change.'}];
     try{
@@ -4551,30 +4560,61 @@ window.__scene=SCN;
       if((e.status===400||e.status===403||e.status===404)&&/model/i.test(e.message)&&modelEl.value!=='claude-sonnet-5'){ setStatus('trying another model…'); return await apiCall(body('claude-sonnet-5')); }
       throw e; } }
 
+  /* PICTURES (Oct 5: "if I upload picture, could Claude create a scene with it?"). Up to
+     three pictures go with a request: attached with the button, pasted into the box or
+     dropped on the panel. Each is shrunk to at most 1568 pixels on its longest side (the
+     size Claude reads best; larger is only slower) and sent as a JPEG, first in the
+     message, with a note on how to read it: a map, plan or sketch gives a scene its
+     layout, a photo or painting its character. They stay attached until taken off with ×,
+     so "change it" and look & fix can compare against them too. */
+  const pics=[], picsEl=$('aiPics'), MAXPICS=3;
+  function drawPics(){ picsEl.innerHTML=pics.map((p,i)=>'<span class="pic"><img src="data:image/jpeg;base64,'+p.data+'" alt=""><button data-i="'+i+'" title="take this picture off">×</button></span>').join('');
+    picsEl.hidden=!pics.length; }
+  async function addPic(file){ if(!file||!/^image\//.test(file.type)) return;
+    if(pics.length>=MAXPICS){ setStatus('three pictures at most — take one off first',true); return; }
+    try{ const url=URL.createObjectURL(file), img=new Image(); img.src=url; await img.decode(); URL.revokeObjectURL(url);
+      const k=Math.min(1,1568/Math.max(img.naturalWidth,img.naturalHeight)), c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(img.naturalWidth*k)); c.height=Math.max(1,Math.round(img.naturalHeight*k));
+      const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);   // white under a transparent PNG, as JPEG has no alpha
+      pics.push({name:file.name||'picture',data:c.toDataURL('image/jpeg',0.86).split(',')[1],w:c.width,h:c.height}); drawPics(); setStatus(''); }
+    catch(e){ setStatus('that picture could not be read',true); } }
+  $('aiPic').onclick=()=>$('aiPicFile').click();
+  $('aiPicFile').onchange=async e=>{ for(const f of e.target.files) await addPic(f); e.target.value=''; };
+  picsEl.addEventListener('click',e=>{ const b=e.target.closest('button[data-i]'); if(b){ e.stopPropagation(); pics.splice(+b.dataset.i,1); drawPics(); } });
+  promptEl.addEventListener('paste',async e=>{ const fs=[...(e.clipboardData||{}).items||[]].filter(it=>it.kind==='file').map(it=>it.getAsFile()).filter(f=>f&&/^image\//.test(f.type));
+    if(fs.length){ e.preventDefault(); for(const f of fs) await addPic(f); } });
+  pop.addEventListener('dragover',e=>{ if([...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  pop.addEventListener('drop',async e=>{ const fs=[...e.dataTransfer.files].filter(f=>/^image\//.test(f.type)); if(!fs.length) return; e.preventDefault(); e.stopPropagation(); for(const f of fs) await addPic(f); });
+  const picBlocks=()=>pics.map(p=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:p.data}}));
+  const picNote=scene=>!pics.length?'':'\n\n'+(pics.length>1?'The pictures above are':'The picture above is')+' what the user means. '+(scene
+    ?'Read each for what it is. A MAP, PLAN, AERIAL VIEW OR SKETCH gives the LAYOUT: put the water, shore, roads, fields, woods and buildings where they are in it, the top of the picture to -z (north), and work out its scale from what is in it (a house is about 8 m across, a road 5 m wide). A PHOTO OR PAINTING FROM THE GROUND gives the CHARACTER: the kinds of buildings, their walls, roofs and colours, the trees, how the land rises, how dense it is; lay it out as the picture suggests, the view\'s left to right along x. Build what is there, simplified into types and rules; leave out what is not. Say in "notes" what you took from the picture and what you had to guess.'
+    :'Build the object it shows: match its proportions, its parts and their colours, the front of it facing +z. Say in "notes" what you simplified.');
+  // The user turn: pictures first (Claude reads them before the words about them), then the text.
+  const withPics=(text,scene)=>pics.length?[...picBlocks(),{type:'text',text:text+picNote(scene)}]:text;
   async function build(){
     if(busy) return; const text=promptEl.value.trim(), mode=modeEl.value;
-    if(!text){ setStatus('describe something first',true); promptEl.focus(); return; }
+    if(!text&&!pics.length){ setStatus('describe something first, or add a picture',true); promptEl.focus(); return; }
     if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
     if(mode==='edit'&&!S.parts.length){ setStatus('there is nothing to change yet — use "new object"',true); return; }
     if(mode==='scene-edit'&&!SCN.data()){ setStatus('there is no scene yet — use "new scene"',true); return; }
     busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus(mode.startsWith('scene')?'building the scene… (a big one can take a minute)':'building…');
     if(mode.startsWith('scene')){
-      const user=mode==='scene-edit'?'Here is the current scene:\n'+describeSceneAI()+'\n\nChange it: '+text:'Build a SCENE: '+text;
+      const ask=text||'the place in the picture', user=withPics(mode==='scene-edit'?'Here is the current scene:\n'+describeSceneAI()+'\n\nChange it: '+ask:'Build a SCENE: '+ask,true);
       try{ const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content:user}]}));
         const spec=parseJSON(data), d=applyScene(spec,mode);
-        lastAsk=mode==='scene-edit'&&lastAsk?lastAsk+'; then: '+text:text;
+        lastAsk=mode==='scene-edit'&&lastAsk?lastAsk+'; then: '+ask:ask;
         const b=SCN.built();
         setStatus((spec.notes?spec.notes+'\n':'')+d.name+': '+b.inst.length.toLocaleString()+' objects of '+b.types.length+' types'+(b.short?' ('+b.short+' did not fit)':'')+'. Undo takes it back; "look & fix" lets Claude check it; edit a type on the left to reshape all its copies.');
         modeEl.value='scene-edit'; }
       catch(e){ setStatus(e.message,true); }
       finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!canFix(); }
       return; }
-    const user=mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+text:mode==='set'?'Build a CHESS SET, all six pieces: '+text:'Build: '+text;
+    const ask=text||'the object in the picture', user=withPics(mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+ask:mode==='set'?'Build a CHESS SET, all six pieces: '+ask:'Build: '+ask,false);
     const body=m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
     try{
       const data=await callWithFallback(body);
       const spec=parseReply(data), n=apply(spec,mode);
-      if(mode==='set') lastAsk='a chess set, all six pieces in a row: '+text; else if(mode!=='edit') lastAsk=text; else if(lastAsk) lastAsk+='; then: '+text; else lastAsk=text;
+      if(mode==='set') lastAsk='a chess set, all six pieces in a row: '+ask; else if(mode!=='edit') lastAsk=ask; else if(lastAsk) lastAsk+='; then: '+ask; else lastAsk=ask;
       const pieces=mode==='set'?CHESS.filter(w=>S.parts.some(p=>pieceOf(p)===w)).length:0;
       setStatus((spec.notes?spec.notes+'\n':'')+(spec.name?spec.name+': ':'')+(mode==='edit'?'changed — '+S.parts.length+' parts':n+' part'+(n===1?'':'s')+' built')
         +(mode==='set'?' in '+pieces+' pieces. file → export a chess set writes the six files.':'')+' Undo takes it back. "look & fix" lets Claude check it.');

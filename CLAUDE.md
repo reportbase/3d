@@ -56,6 +56,10 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   "look & fix" sends `viewsPng()` (front, side and three-quarter renders in one
   PNG) with the request and the current parts. Tune `SYS` from real results the
   owner sends (the first knight came out as a candlestick).
+  Pictures the owner attaches (`pics`, up to three, shrunk to 1568 px JPEGs) go
+  first in the user turn (`withPics`), with `picNote` saying how to read them: for
+  a scene a map or sketch gives the layout (top of the picture is -z) and a photo
+  the character. look & fix sends them again as the reference.
 - **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, terrain, areas, types, place}`:
   `terrain` is a list of height features (`hill`, `ridge`, `slope`, `noise`) summed
   by `terrainOf`; under water areas the land is pushed below the water's `level`.
