@@ -4265,7 +4265,8 @@ window.__scene=SCN;
     '  "pos": [x, y, z]          (the centre of the part\'s BASE; y is up; the ground is y = 0)',
     '  "rot": [x, y, z]          (degrees, applied X then Y then Z, turning about the base centre; [90,0,0] lays a part along +z, [0,0,-90] along +x)',
     '  "scale": [sx, sy, sz]     (a part is 1 tall before scaling, and ~2*r wide; sy is its height)',
-    '  "size"?: [w, h, d]        (instead of scale: the part\'s real width, height and depth in metres, measured before rot. Easiest for boxes: a wall is {"shape": "box", "size": [8, 3, 0.3]}, a door a box [1, 2.1, 0.1] on the front face)',
+    '  "size"?: [w, h, d]        (instead of scale: the part\'s real width, height and depth in metres, measured before rot. Easiest for boxes: a wall is {"shape": "box", "size": [8, 3, 0.3]})',
+    '  "on"?: "name of an earlier part", "face"?: "front"|"back"|"left"|"right"|"top", "at"?: [across, up]   (instead of pos and rot, for anything set INTO OR ONTO A FACE: doors, windows, shutters, signs, a clock face, a chimney on a flat roof. The studio turns the part to face out of that face and sets it flush, slightly proud. "across" is metres from the middle of the face, to the right as seen from outside; "up" is the height of the part\'s bottom above the base of the part it is on (leave it out to centre it). Give the part "size": [width, height, depth], the depth small (0.1). On "top", "at" is [x, z] across the top. ALWAYS use this for doors and windows; never work out their pos yourself.)',
     '  "shape": "roof" is also allowed: a gable roof, a triangular prism. Give "size": [length along the ridge, height, width], "pos" = the centre of its underside (on top of the walls), and "rot": [0, degrees, 0] to turn the ridge (it runs along x at 0).',
     '  "color": "#rrggbb", "stripes"?: 0..10, "stripeColor"?: "#rrggbb" }',
     'The FRONT of the object faces +z. Things that point sideways or forward are TURNED parts: every part is round about its own axis, so a muzzle, a nose, an arm, a branch, a spout, a tail or a boat\'s length is a part laid over with rot. A head that looks forward and a little down is an egg or ball, longer than wide, at rot [100,0,0]; ears are small cones; a crest or mane is a row of 4 to 8 small flattened parts (section squash 0.3) lying ALONG the back of the neck, overlapping, angled up and back and pressed into it, never sticking straight out like spikes; a curved neck is two or three overlapping cylinders, each tilted a little more than the one below (or use bend lean, which curves the top toward +x before rot turns it).',
@@ -4289,7 +4290,7 @@ window.__scene=SCN;
     '"areas" are the flat ground of the place, drawn in order on top of the ground: the sea, a lake, a river, a beach, roads and paths, fields, a market square. ANYTHING FLAT AND LARGE IS AN AREA, NEVER A TYPE (a type scales the same in every direction, so it cannot be a sea or a long road). An area: {"name": string, "color": "#rrggbb", and one shape: "rect": [x0, z0, x1, z1] | "center": [x, z], "radius": r | "polygon": [[x, z], ...] | "path": [[x, z], ...], "width": metres; plus "water": true for sea, lakes, rivers and ponds, or "blocks": true for roads, paths and squares}. Scatters and grids never put land things in water or on blocked areas; a rule aimed at a water area keeps its copies in the water. A coast is a large water area covering part of the ground, with a beach area along its edge.',
     '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0, the hull mostly above it (about a third below), so the boat reads from above and from the side.',
     'A type may instead be a PREFAB: {"name": string, "group": [ rule, ... ]}, a little layout of other types written in its own coordinates (centre 0, 0, front +z), using the same rules as below. It is placed by any rule like a single object; every copy re-rolls its scatters, so no two are alike, and its footprint is kept clear of later scatters. BUILD PLACES FROM PREFABS: a cottage with its garden, fence and shed; a farmstead with house, barn, hay and hens; a market stall with its crates; a pier with boats tied along it; a campsite. Then place the prefabs with rows, rings and scatters. Prefabs may contain prefabs, two deep.',
-    'Buildings: walls are boxes with "size", roofs are "roof" parts, doors and windows thin boxes set into a face. Build a few house types that differ (one and two storeys, different roof colours) rather than one repeated everywhere.',
+    'Buildings: walls are boxes with "size", roofs are "roof" parts, doors and windows thin boxes with "on": the walls part, a "face" and "at" (e.g. {"name": "window 2", "shape": "box", "size": [1, 1.2, 0.1], "on": "walls", "face": "left", "at": [-1.5, 1], "color": "#3a4a5a"}), on every side that shows, not only the front. Build a few house types that differ (one and two storeys, different roof colours) rather than one repeated everywhere.',
     '"place" puts copies of the types in the world. The code does the repetition; NEVER list objects one by one where a rule can do it. Rules, applied in order:',
     '  {"type": name, "at": [x, z], "rot"?: degrees}   one copy: a landmark, a well, a statue, a road segment',
     '  {"type": name, "row": {"from": [x, z], "to": [x, z]} or {"path": [[x, z], ...]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   houses down a street, lamps along a winding road, fence posts',
@@ -4309,7 +4310,7 @@ window.__scene=SCN;
   // A scene reply, checked: types become parts through the same clamping as any object.
   function sceneTypes(list){ return (Array.isArray(list)?list:[]).filter(t=>t&&typeof t.name==='string'&&((Array.isArray(t.parts)&&t.parts.length)||(Array.isArray(t.group)&&t.group.length))).slice(0,40)
     .map(t=>Array.isArray(t.group)?{name:t.name.slice(0,40),group:t.group.filter(r=>r&&typeof r==='object'&&typeof r.type==='string').slice(0,40)}
-      :{name:t.name.slice(0,40),parts:t.parts.filter(q=>q&&typeof q==='object').slice(0,16).map(q=>partData(makePart(q)))}); }
+      :{name:t.name.slice(0,40),parts:attach(t.parts.filter(q=>q&&typeof q==='object').slice(0,16)).map(q=>partData(makePart(q)))}); }
   function applyScene(spec,mode){
     const old=mode==='scene-edit'?SCN.data():null, fresh=sceneTypes(spec.types), names=new Set(fresh.map(t=>t.name.toLowerCase()));
     const place=(Array.isArray(spec.place)?spec.place:old?old.place:[]).filter(r=>r&&typeof r==='object'&&typeof r.type==='string').slice(0,200);
@@ -4377,6 +4378,46 @@ window.__scene=SCN;
     // laid over (z -90°): the height axis runs along the ridge (+x before the turn) and the flat side faces down
     return partFrom('cylinder',Object.assign(o,{name:o.name||'roof',outline,section,scale:[sx,L,sz_],rot:[0,yawDeg,-90],
       pos:[pos[0]-L/2*Math.cos(yaw),pos[1]+bb.max.x*sx,pos[2]+L/2*Math.sin(yaw)]})); }
+  /* ON A FACE (Oct 5: "the windows are not flush with the buildings"). Claude placed doors
+     and windows by working out each one's pos from the wall's size, and turning the ones on
+     the side walls itself; a few centimetres off, or a side window left unturned, and it
+     floats in front of the wall, sinks into it, or sticks out as a fin. So a part can name
+     the part it goes on instead: {"on": "walls", "face": "left", "at": [across, up]}. The
+     studio finds that face, turns the part to face out of it (its depth, its own z, along
+     the face's outward normal), and sets it with most of its depth inside the wall and a
+     little proud, so it reads from outside and never floats. "at" is metres across the face
+     from its middle (to the right, seen from outside) and the height of the part's bottom
+     above the host's base; without "up" it is centred on the face. "top" sets a part on
+     the host's top, "at" then being x and z across it. The host is an earlier part of the
+     same reply, or (when changing an object) a part already in the studio; a host that is
+     itself tipped over (rot x or z) is not a box with faces, so the part keeps its own pos. */
+  const FACES={front:0,right:90,back:180,left:-90};
+  function boxOfSpec(q){ if(!q||q.shape==='roof') return null;
+    const kind=KINDS.includes(q.shape)?q.shape:'cylinder', o=opts(q); if(!LATHE[kind]) delete o.outline;
+    const bb=unitSize(kind,o.outline,o.section), sz=sizeOf(q.size);
+    const sc=sz?[sz[0]/Math.max(1e-3,bb.max.x-bb.min.x),sz[1]/Math.max(1e-3,bb.max.y-bb.min.y),sz[2]/Math.max(1e-3,bb.max.z-bb.min.z)]:(o.scale||[1,1,1]);
+    return {lo:[bb.min.x*sc[0],bb.min.y*sc[1],bb.min.z*sc[2]],hi:[bb.max.x*sc[0],bb.max.y*sc[1],bb.max.z*sc[2]],pos:o.pos||[0,0,0],rot:o.rot||[0,0,0]}; }
+  function boxOfPart(p){ const g=p.mesh&&p.mesh.geometry; if(!g) return null; if(!g.boundingBox) g.computeBoundingBox(); const b=g.boundingBox, s=p.scale;
+    return {lo:[b.min.x*s[0],b.min.y*s[1],b.min.z*s[2]],hi:[b.max.x*s[0],b.max.y*s[1],b.max.z*s[2]],pos:p.pos.slice(),rot:p.rot.slice()}; }
+  function onFace(q,h){
+    if(Math.abs(h.rot[0])>0.5||Math.abs(h.rot[2])>0.5) return q;
+    const me=boxOfSpec(Object.assign({},q,{pos:[0,0,0],rot:[0,0,0]})); if(!me) return q;
+    const ph=me.hi[1]-me.lo[1], d=me.hi[2]-me.lo[2], face=String(q.face||'front').toLowerCase(), at=Array.isArray(q.at)?q.at:[];
+    const H=h.hi[1]-h.lo[1], cx=(h.lo[0]+h.hi[0])/2, cz=(h.lo[2]+h.hi[2])/2, hy=h.rot[1]*PI/180;
+    let lx, lz, y, yaw;
+    if(face==='top'){ lx=cx+num(at[0],-50,50,0); lz=cz+num(at[1],-50,50,0); y=h.pos[1]+h.hi[1]-Math.min(0.02,ph*0.1); yaw=h.rot[1]+(Array.isArray(q.rot)?num(q.rot[1],-360,360,0):0); }
+    else { const fy=(FACES[face]??0)*PI/180, nx=Math.sin(fy), nz=Math.cos(fy), ux=Math.cos(fy), uz=-Math.sin(fy);
+      const half=Math.abs(nx)*(h.hi[0]-h.lo[0])/2+Math.abs(nz)*(h.hi[2]-h.lo[2])/2, out=half+d*0.2, a=num(at[0],-50,50,0);   // the back 30% of its depth inside the face, the front 70% out
+      lx=cx+nx*out+ux*a; lz=cz+nz*out+uz*a;
+      y=h.pos[1]+h.lo[1]+(at[1]==null?(H-ph)/2:num(at[1],-50,50,0)); yaw=h.rot[1]+(FACES[face]??0); }
+    const c=Math.cos(hy), s=Math.sin(hy), r=Object.assign({},q,{pos:[h.pos[0]+lx*c+lz*s,y,h.pos[2]-lx*s+lz*c],rot:[0,yaw,0]});
+    delete r.on; delete r.face; delete r.at; return r; }
+  function attach(list,existing){ const made=new Map();
+    return list.map(q=>{ if(!q||typeof q!=='object') return q; let r=q;
+      if(typeof q.on==='string'){ const k=q.on.toLowerCase(), ex=existing&&existing.find(p=>p.name.toLowerCase()===k);
+        const h=made.has(k)?boxOfSpec(made.get(k)):ex?boxOfPart(ex):null; if(h) r=onFace(q,h); }
+      if(typeof r.name==='string'&&!made.has(r.name.toLowerCase())) made.set(r.name.toLowerCase(),r);
+      return r; }); }
   function makePart(q){ if(q&&q.shape==='roof') return makeRoof(q);
     const kind=KINDS.includes(q.shape)?q.shape:'cylinder', o=opts(q);
     if(!LATHE[kind]) delete o.outline;                       // a classic core keeps its own profile
@@ -4419,6 +4460,7 @@ window.__scene=SCN;
       const pos=Array.isArray(q.pos)&&q.pos.length===3?q.pos.slice():[0,0,0]; pos[0]=(+pos[0]||0)+at(w); q.pos=pos; }
     return parts; }
   function apply(spec,mode){
+    spec.parts=attach(spec.parts,mode==='edit'?S.parts:null);   // windows and doors set flush into the face they name
     if(mode==='set'){ layoutSet(spec.parts); mode='new'; }
     if(mode==='new') clearAll();
     let shift=0;

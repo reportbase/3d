@@ -15,7 +15,7 @@
 //     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix,
 //     terrain (heights, copies on the ground, a raised lake, elevation), walking and flying,
 //     prefabs (laid out whole per copy, turned, nested, yards kept clear), span, rows along a
-//     path, stretch; parts given by size, and the roof shape
+//     path, stretch; parts given by size, the roof shape, doors and windows set flush into a face
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -685,6 +685,39 @@ try {
     is('porch roof', [-6, 2, -1.5], [-4, 3, 1.5]);                 // turned 90°: the ridge runs along z
     if (got.roof.ridge.some(([x, z]) => Math.abs(z) > 0.05) || Math.max(...got.roof.ridge.map(q => q[0])) - Math.min(...got.roof.ridge.map(q => q[0])) < 6) throw new Error('the roof ridge does not run along its length');
     if (got['porch roof'].ridge.some(([x]) => Math.abs(x + 5) > 0.05)) throw new Error('the turned roof ridge is not along z');
+    await ev(k => __studio.loadScene(k), keep);
+  });
+  await step('describe it: doors and windows set flush into a face', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    const win = (name, face, at, size = [1, 1.2, 0.1]) => ({ name, shape: 'box', size, on: 'walls', face, at, color: '#3a4a5a' });
+    await ev(ps => __describe.apply({ name: 'house', parts: ps }, 'new'), [
+      { name: 'walls', shape: 'box', size: [6, 3, 4], pos: [2, 0, -1], rot: [0, 30, 0], color: '#e8dcc4' },
+      { name: 'door', shape: 'box', size: [1, 2.1, 0.12], on: 'walls', face: 'front', at: [0, 0], color: '#5a3a22' },
+      win('front window', 'front', [1.8, 1]), win('back window', 'back', [-1, 1]), win('left window', 'left', [1, 1.2]), win('right window', 'right', [0]),
+      { name: 'chimney', shape: 'box', size: [0.6, 1.5, 0.6], on: 'walls', face: 'top', at: [2, 1], color: '#7a6a5a' }]);
+    // every part's corners, in the walls' own frame (centred, unturned)
+    const got = await ev(() => { const t = 30 * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+      return Object.fromEntries(__studio.S.parts.map(p => { p.mesh.updateMatrixWorld(true); const P = p.mesh.geometry.attributes.position, v = new THREE.Vector3(), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+        for (let i = 0; i < P.count; i++){ v.fromBufferAttribute(P, i).applyMatrix4(p.mesh.matrixWorld); const dx = v.x - 2, dz = v.z + 1, q = [dx * c - dz * s, v.y, dx * s + dz * c];
+          for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); } }
+        return [p.name, { lo, hi, rot: p.rot }]; })); });
+    const is = (n, lo, hi, e = 0.03) => { const b = got[n]; if (!b) throw new Error('no ' + n);
+      for (let k = 0; k < 3; k++) if (Math.abs(b.lo[k] - lo[k]) > e || Math.abs(b.hi[k] - hi[k]) > e) throw new Error(n + ' spans ' + JSON.stringify([b.lo, b.hi].map(a => a.map(x => +x.toFixed(3)))) + ', not ' + JSON.stringify([lo, hi])); };
+    is('walls', [-3, 0, -2], [3, 3, 2]);
+    is('door', [-0.5, 0, 2 - 0.036], [0.5, 2.1, 2 + 0.084]);              // on the front, its back 30% inside the wall
+    is('front window', [1.3, 1, 1.97], [2.3, 2.2, 2.07]);                  // across = to the right seen from outside: +x on the front
+    is('back window', [0.5, 1, -2.07], [1.5, 2.2, -1.97]);                 // on the back, seen from behind, the right is -x
+    is('left window', [-3.07, 1.2, 0.5], [-2.97, 2.4, 1.5]);               // on the left, the right is +z
+    is('right window', [2.97, 0.9, -0.5], [3.07, 2.1, 0.5]);               // no height given: centred on the face
+    is('chimney', [1.7, 2.98, 0.7], [2.3, 4.48, 1.3]);                     // on top, at x 2, z 1
+    if (Math.abs(got['left window'].rot[1] - (30 - 90)) > 1e-6) throw new Error('the left window was not turned to face out: ' + got['left window'].rot);
+    // the same in a scene type: the part's pos is worked out before the type is built
+    await ev(() => __describe.applyScene({ name: 't', seed: 1, ground: { color: '#6b8a4e', size: 60 }, types: [{ name: 'hut', parts: [
+      { name: 'walls', shape: 'box', size: [4, 2.5, 3], pos: [0, 0, 0], color: '#e8dcc4' },
+      { name: 'door', shape: 'box', size: [0.9, 2, 0.1], on: 'walls', face: 'right', at: [0, 0], color: '#5a3a22' }] }], place: [{ type: 'hut', at: [0, 0] }] }, 'scene'));
+    const door = await ev(() => __scene.data().types[0].parts[1]);
+    if (Math.abs(door.pos[0] - 2.02) > 0.005 || Math.abs(door.pos[2]) > 1e-6 || Math.abs(door.rot[1] - 90) > 1e-6) throw new Error('the hut door: ' + JSON.stringify([door.pos, door.rot]));
+    await page.click('#vObject'); await ev(() => __scene.set(null));
     await ev(k => __studio.loadScene(k), keep);
   });
   await step('describe it: errors are reported, nothing changes', async () => {
