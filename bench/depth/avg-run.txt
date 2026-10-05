@@ -1,0 +1,72 @@
+## Checks of the code
+  T-a, cos(37u), point: worst 9.1e-14 ok
+  T-a, cos(37u), box: worst 7.1e-13 ok
+  T-a, cos(37u), tri: worst 5.7e-13 ok
+  T-a, cos(255u), point: worst 5.9e-13 ok
+  T-a, cos(255u), box: worst 1.8e-12 ok
+  T-a, cos(255u), tri: worst 7.0e-13 ok
+  T-F, cos(37u), point: worst 6.4e-14 ok
+  T-F, cos(37u), box: worst 6.9e-13 ok
+  T-F, cos(37u), tri: worst 5.7e-13 ok
+  T-F, cos(255u), point: worst 6.9e-13 ok
+  T-F, cos(255u), box: worst 1.8e-12 ok
+  T-F, cos(255u), tri: worst 7.0e-13 ok
+  a rock 0.05 wide averaged over a cell 25 wide: relative difference from the closed form 0 ok
+
+## The top alone on the burst reading: absolute error per octave
+  T-a point: -7:0.029 -6:0.086 -5:0.935 -4:0.013 -3:1.4e-3 -2:1.2e-3 -1:1.9e-3 0:2.8e-3 1:6.3e-3 2:0.042 3:0.274 4:0.289 5:0.114 6:0.101 7:0.075 8:0.052; median without the burst 0.036
+  T-a box: -7:0.125 -6:0.027 -5:0.706 -4:0.027 -3:7.3e-4 -2:1.5e-3 -1:1.9e-3 0:2.8e-3 1:6.1e-3 2:0.036 3:0.253 4:0.268 5:0.111 6:0.094 7:0.065 8:0.056; median without the burst 0.032
+  T-a tri: -7:0.108 -6:0.039 -5:0.705 -4:0.023 -3:9.8e-4 -2:1.3e-3 -1:1.9e-3 0:2.8e-3 1:6.1e-3 2:0.036 3:0.236 4:0.261 5:0.112 6:0.093 7:0.068 8:0.063; median without the burst 0.037
+  T-F point: -7:6.1e-3 -6:0.093 -5:0.949 -4:0.074 -3:7.0e-3 -2:7.5e-3 -1:8.6e-3 0:0.011 1:0.017 2:0.061 3:0.987 4:0.060 5:0.016 6:9.6e-3 7:6.9e-3 8:5.4e-3; median without the burst 0.010
+  T-F box: -7:6.3e-3 -6:0.078 -5:0.843 -4:0.041 -3:7.5e-3 -2:8.1e-3 -1:9.2e-3 0:0.012 1:0.018 2:0.107 3:0.730 4:0.086 5:0.016 6:9.7e-3 7:7.0e-3 8:5.5e-3; median without the burst 0.011
+  T-F tri: -7:5.7e-3 -6:0.062 -5:0.782 -4:0.031 -3:7.2e-3 -2:7.9e-3 -1:8.9e-3 0:0.012 1:0.018 2:0.094 3:0.695 4:0.089 5:0.016 6:9.5e-3 7:6.8e-3 8:5.4e-3; median without the burst 0.011
+
+## The burst reading under the rule (budget 1,024, stop below 1e-9)
+  T-a P·rel: entries octave -5 (0.855); octave 4 (0.296); octave 3 (0.253); octave 8 (0.233); octave -6 (0.153); octave 7 (0.134); octave -7 (0.131); octave 6 (0.122); octave 5 (0.117); octave 2 (0.075); octave 1 (0.028); octave 1, its ρ-octave -6 (5.643); leaves used 1024
+    depth -7:1 -6:1 -5:1 -4:0 -3:0 -2:0 -1:0 0:0 1:2 2:1 3:1 4:1 5:1 6:1 7:1 8:1; burst first no; non-burst deeper: 1
+    final relative error -7:2.3e-15 -6:1.5e-15 -5:1.9e-14 -4:0.013 -3:1.4e-3 -2:1.4e-3 -1:3.4e-3 0:0.013 1:0.030 2:3.4e-4 3:2.7e-14 4:1.6e-14 5:1.2e-14 6:1.3e-14 7:1.8e-14 8:6.3e-14; mean 3.9e-3
+  T-a P·abs: entries octave -5 (1.247); octave 4 (0.385); octave 3 (0.366); octave 5 (0.152); octave 6 (0.135); octave -6 (0.114); octave 7 (0.100); octave 8 (0.069); octave 2 (0.056); octave -7 (0.039); octave -4 (0.018); octave 1 (8.4e-3); leaves used 1024
+    depth -7:1 -6:1 -5:1 -4:1 -3:0 -2:0 -1:0 0:0 1:1 2:1 3:1 4:1 5:1 6:1 7:1 8:1; burst first no; non-burst deeper: none
+    final relative error -7:2.3e-15 -6:1.5e-15 -5:1.9e-14 -4:1.0e-15 -3:1.4e-3 -2:1.4e-3 -1:3.4e-3 0:0.013 1:0.030 2:3.4e-4 3:2.7e-14 4:1.6e-14 5:1.2e-14 6:1.3e-14 7:1.8e-14 8:6.3e-14; mean 3.1e-3
+  T-a A·abs: entries octave -5 (0.941); octave 4 (0.357); octave 3 (0.337); octave -7 (0.167); octave 5 (0.148); octave 6 (0.126); octave 7 (0.086); octave 8 (0.074); octave 2 (0.048); octave -6 (0.036); octave -4 (0.036); octave 1 (8.1e-3); leaves used 1024
+    depth -7:1 -6:1 -5:1 -4:1 -3:0 -2:0 -1:0 0:0 1:1 2:1 3:1 4:1 5:1 6:1 7:1 8:1; burst first no; non-burst deeper: none
+    final relative error -7:2.9e-15 -6:1.2e-15 -5:1.9e-14 -4:1.1e-15 -3:7.5e-4 -2:1.8e-3 -1:3.4e-3 0:0.012 1:0.029 2:3.3e-4 3:2.6e-14 4:1.5e-14 5:1.1e-14 6:1.3e-14 7:1.7e-14 8:7.2e-14; mean 3.0e-3
+  T-a T·abs: entries octave -5 (0.940); octave 4 (0.348); octave 3 (0.315); octave 5 (0.149); octave -7 (0.144); octave 6 (0.124); octave 7 (0.091); octave 8 (0.085); octave -6 (0.052); octave 2 (0.048); octave -4 (0.031); octave 1 (8.1e-3); leaves used 1024
+    depth -7:1 -6:1 -5:1 -4:1 -3:0 -2:0 -1:0 0:0 1:1 2:1 3:1 4:1 5:1 6:1 7:1 8:1; burst first no; non-burst deeper: none
+    final relative error -7:2.0e-15 -6:1.1e-15 -5:1.9e-14 -4:1.1e-15 -3:1.0e-3 -2:1.6e-3 -1:3.4e-3 0:0.012 1:0.029 2:3.3e-4 3:2.5e-14 4:1.5e-14 5:1.1e-14 6:1.3e-14 7:1.7e-14 8:7.4e-14; mean 3.0e-3
+  T-F P·rel: entries octave 3 (0.909); octave -5 (0.868); octave -6 (0.167); octave 2 (0.109); octave 1 (0.076); octave -4 (0.076); octave 4 (0.062); octave 0 (0.050); octave -7 (0.027); octave -7, its ρ-octave -6 (26.096); octave -7, its ρ-octave -5 (14.852); octave -7, its ρ-octave -4 (1.145); leaves used 1024
+    depth -7:2 -6:1 -5:1 -4:1 -3:0 -2:0 -1:0 0:1 1:1 2:1 3:1 4:1 5:0 6:0 7:0 8:0; burst first yes; non-burst deeper: -7
+    final relative error -7:9.0e-3 -6:5.2e-15 -5:2.1e-14 -4:3.1e-15 -3:7.2e-3 -2:9.1e-3 -1:0.015 0:1.9e-14 1:1.7e-14 2:7.8e-15 3:1.7e-14 4:5.7e-15 5:0.016 6:0.012 7:0.012 8:0.024; mean 6.6e-3
+  T-F P·abs: entries octave 3 (1.316); octave -5 (1.266); octave -6 (0.125); octave -4 (0.099); octave 2 (0.081); octave 4 (0.080); octave 1 (0.023); octave 5 (0.021); octave 0 (0.015); octave 6 (0.013); octave -1 (0.011); octave -2 (0.010); leaves used 1024
+    depth -7:0 -6:1 -5:1 -4:1 -3:0 -2:1 -1:1 0:1 1:1 2:1 3:1 4:1 5:1 6:1 7:0 8:0; burst first yes; non-burst deeper: none
+    final relative error -7:0.027 -6:5.2e-15 -5:2.1e-14 -4:3.1e-15 -3:7.2e-3 -2:5.0e-15 -1:7.0e-15 0:1.9e-14 1:1.7e-14 2:7.8e-15 3:1.7e-14 4:5.7e-15 5:5.6e-15 6:7.2e-15 7:0.012 8:0.024; mean 4.4e-3
+  T-F A·abs: entries octave -5 (1.124); octave 3 (0.973); octave 2 (0.143); octave 4 (0.114); octave -6 (0.104); octave -4 (0.055); octave 1 (0.024); octave 5 (0.021); octave 0 (0.016); octave 6 (0.013); octave -1 (0.012); octave -2 (0.011); leaves used 1024
+    depth -7:0 -6:1 -5:1 -4:1 -3:0 -2:1 -1:1 0:1 1:1 2:1 3:1 4:1 5:1 6:1 7:0 8:0; burst first yes; non-burst deeper: none
+    final relative error -7:0.028 -6:3.9e-15 -5:2.0e-14 -4:2.2e-15 -3:7.7e-3 -2:3.9e-15 -1:5.4e-15 0:1.3e-14 1:1.2e-14 2:6.2e-15 3:1.1e-14 4:4.1e-15 5:3.9e-15 6:4.8e-15 7:0.012 8:0.025; mean 4.6e-3
+  T-F T·abs: entries octave -5 (1.042); octave 3 (0.927); octave 2 (0.125); octave 4 (0.119); octave -6 (0.083); octave -4 (0.042); octave 1 (0.024); octave 5 (0.021); octave 0 (0.015); octave 6 (0.013); octave -1 (0.012); octave -2 (0.011); leaves used 1024
+    depth -7:0 -6:1 -5:1 -4:1 -3:0 -2:1 -1:1 0:1 1:1 2:1 3:1 4:1 5:1 6:1 7:0 8:0; burst first yes; non-burst deeper: none
+    final relative error -7:0.026 -6:3.2e-15 -5:1.9e-14 -4:1.8e-15 -3:7.4e-3 -2:3.0e-15 -1:4.0e-15 0:9.7e-15 1:9.7e-15 2:5.2e-15 3:1.0e-14 4:3.5e-15 5:3.0e-15 6:3.8e-15 7:0.012 8:0.024; mean 4.3e-3
+
+## The smooth reading, T-F top alone
+  point: worst relative error 3.5e-14
+  box: worst relative error 6.5e-13
+  tri: worst relative error 4.8e-13
+
+## Rocks (reported, not predicted)
+  T-a P·rel: 12 entries, leaves used 1024; -7:0.010 -6:2.9e-3 -5:1.2e-3 -4:4.1e-4 -3:2.0e-4 -2:1.5e-4 -1:1.6e-4 0:2.2e-4 1:6.0e-4 2:0.054 3:0.092 4:4.3e-4 5:3.2e-4 6:1.4e-3 7:4.4e-3 8:1.9e-3; mean 0.011
+  T-a P·abs: 12 entries, leaves used 1024; -7:0.010 -6:2.9e-3 -5:1.2e-3 -4:4.1e-4 -3:2.0e-4 -2:1.5e-4 -1:1.6e-4 0:2.2e-4 1:6.0e-4 2:2.5e-5 3:1.6e-4 4:4.7e-4 5:1.5e-3 6:2.1e-3 7:3.4e-3 8:1.9e-3; mean 1.6e-3
+  T-a A·abs: 12 entries, leaves used 1024; -7:0.015 -6:4.0e-3 -5:1.7e-3 -4:4.5e-4 -3:1.3e-4 -2:4.1e-5 -1:2.1e-5 0:2.7e-5 1:1.8e-4 2:1.3e-5 3:1.6e-4 4:4.7e-4 5:1.5e-3 6:2.1e-3 7:8.8e-3 8:9.5e-3; mean 2.8e-3
+  T-a T·abs: 12 entries, leaves used 1024; -7:0.014 -6:4.8e-3 -5:2.2e-3 -4:5.8e-4 -3:1.7e-4 -2:6.4e-5 -1:4.0e-5 0:4.9e-5 1:2.1e-4 2:1.2e-5 3:1.6e-4 4:4.7e-4 5:1.5e-3 6:2.1e-3 7:7.7e-3 8:7.9e-3; mean 2.6e-3
+  T-F P·rel: 12 entries, leaves used 1024; -7:3.0e-3 -6:3.4e-3 -5:3.9e-3 -4:4.5e-3 -3:5.3e-3 -2:6.7e-3 -1:7.8e-3 0:0.035 1:0.089 2:0.169 3:1.6e-4 4:0.088 5:1.4e-3 6:1.4e-3 7:4.4e-3 8:4.7e-3; mean 0.027
+  T-F P·abs: 12 entries, leaves used 1024; -7:3.0e-3 -6:3.4e-3 -5:3.9e-3 -4:4.5e-3 -3:5.3e-3 -2:6.7e-3 -1:7.8e-3 0:3.0e-15 1:3.1e-8 2:8.2e-6 3:1.6e-4 4:4.7e-4 5:1.5e-3 6:2.1e-3 7:6.2e-3 8:4.7e-3; mean 3.1e-3
+  T-F A·abs: 12 entries, leaves used 1024; -7:2.3e-3 -6:2.5e-3 -5:2.9e-3 -4:3.4e-3 -3:4.0e-3 -2:5.1e-3 -1:5.8e-3 0:3.1e-15 1:3.1e-8 2:8.2e-6 3:1.6e-4 4:4.7e-4 5:1.5e-3 6:2.1e-3 7:7.8e-3 8:2.8e-3; mean 2.6e-3
+  T-F T·abs: 12 entries, leaves used 1024; -7:2.5e-3 -6:2.7e-3 -5:3.2e-3 -4:3.7e-3 -3:4.3e-3 -2:5.4e-3 -1:6.0e-3 0:3.2e-15 1:3.1e-8 2:8.2e-6 3:1.6e-4 4:4.7e-4 5:1.5e-3 6:2.1e-3 7:6.1e-3 8:3.7e-3; mean 2.6e-3
+
+## Verdicts
+  A1 (T-a): KA1 FIRES (burst first no; deeper none)
+  A2 (T-a): spill point 0.036 / box 0.032 = 1.120 (at least 3 predicted): KA2 FIRES; triangle (reported) 0.953
+  A3 (T-a): P2 fails; mean 3.0e-3 against DEP-P's 3.9e-3, 1.307× (at least 3 predicted): KA3 FIRES
+  A1 (T-F): holds (burst first yes; deeper none)
+  A2 (T-F): spill point 0.010 / box 0.011 = 0.957 (at least 3 predicted): KA2 FIRES; triangle (reported) 0.983
+  A3 (T-F): P2 holds; mean 4.6e-3 against DEP-P's 6.6e-3, 1.441× (at least 3 predicted): KA3 FIRES
+  A4: A·abs's T-F top on the smooth reading, worst 6.5e-13 (below 1e-12 predicted): holds
