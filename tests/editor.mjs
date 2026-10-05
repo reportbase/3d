@@ -15,7 +15,8 @@
 //     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix,
 //     terrain (heights, copies on the ground, a raised lake, elevation), walking and flying,
 //     prefabs (laid out whole per copy, turned, nested, yards kept clear), span, rows along a
-//     path, stretch; parts given by size, the roof shape, doors and windows set flush into a face
+//     path, stretch; the prefab library (placed by clicking, turned, renamed on a clash, every one built);
+//     parts given by size, the roof shape, doors and windows set flush into a face
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -657,6 +658,50 @@ try {
     const kept = await ev(() => __scene.data().types.map(t => t.name).sort().join(','));
     if (kept !== 'cottage,flower,homestead,wall') throw new Error('a change kept ' + kept);
     if ((await ev(() => __scene.built().inst.length)) !== 7) throw new Error('one homestead should be 7 copies');
+  });
+  await step('scene: the prefab library, placed by hand', async () => {
+    await ev(() => __scene.set(null));
+    if (!/place a prefab/.test(await page.textContent('#scStats'))) throw new Error('the empty scene does not point to the prefabs');
+    const names = await ev(() => [...document.querySelectorAll('#scLib button')].map(b => b.dataset.lib).join(','));
+    if (names !== 'homestead,terrace,farmstead,churchyard,market,windmill,well,grove,campsite') throw new Error('library: ' + names);
+    await page.click('#scLib button[data-lib="homestead"]');
+    if (!await ev(() => __scene.data() && __scene.data().place.length === 0)) throw new Error('picking a prefab with no scene did not start one');
+    if (!/place a homestead/.test(await page.textContent('#placeHint')) || await ev(() => document.getElementById('placeHint').hidden)) throw new Error('no placing hint');
+    await ev(() => __scene.cameraTo([0, 60, 80], [0, 0, 0]));
+    const [cx, cy] = await viewCentre();
+    await page.mouse.click(cx, cy);
+    let d = await ev(() => __scene.data());
+    if (d.place.length !== 1 || d.place[0].type !== 'homestead') throw new Error('a click did not place a homestead: ' + JSON.stringify(d.place));
+    const r0 = d.place[0]; if (Math.hypot(r0.at[0], r0.at[1]) > 1 || r0.rot !== 0) throw new Error('placed at ' + r0.at + ' turned ' + r0.rot + ', not at the middle facing the camera');
+    if (d.types.map(t => t.name).sort().join(',') !== 'bush,cottage,garden wall,homestead,vegetables') throw new Error('types: ' + d.types.map(t => t.name));
+    const cot = await ev(() => __scene.built().inst.filter(o => __scene.built().types[o.t].name === 'cottage').map(o => [o.x, o.z]));
+    if (cot.length !== 1 || Math.hypot(cot[0][0] - r0.at[0], cot[0][1] - r0.at[1]) > 1e-6) throw new Error('no cottage where it was placed');
+    // R turns the next one; a drag (orbiting) places nothing; a second one reuses the types
+    await page.keyboard.press('r');
+    await page.mouse.click(cx + 200, cy);
+    await page.mouse.move(cx - 200, cy + 100); await page.mouse.down(); await page.mouse.move(cx - 150, cy + 60, { steps: 4 }); await page.mouse.up();
+    d = await ev(() => __scene.data());
+    if (d.place.length !== 2 || d.types.length !== 5) throw new Error(d.place.length + ' rules, ' + d.types.length + ' types after a second click and a drag');
+    const face = Math.round(Math.atan2(0 - d.place[1].at[0], 80 - d.place[1].at[1]) * 180 / Math.PI / 15) * 15;
+    if (d.place[1].rot !== face + 45) throw new Error('R did not turn it: ' + d.place[1].rot + ', facing ' + face);
+    // Esc stops; undo takes the last one away
+    await page.keyboard.press('Escape');
+    if (await ev(() => __library.placing()) || !await ev(() => document.getElementById('placeHint').hidden)) throw new Error('Esc did not stop placing');
+    await page.mouse.click(cx - 200, cy); if (await ev(() => __scene.data().place.length) !== 2) throw new Error('a click placed something after Esc');
+    await page.click('#undo'); if (await ev(() => __scene.data().place.length) !== 1) throw new Error('undo did not remove the last one');
+    // a different type of the same name is kept; the library's comes in renamed
+    await ev(() => __describe.applyScene({ name: 'mine', seed: 1, ground: { color: '#6b8a4e', size: 300 }, types: [{ name: 'oak', parts: [{ name: 'blob', shape: 'ball', pos: [0, 0, 0], scale: [3, 3, 3], color: '#ff0000' }] }], place: [{ type: 'oak', at: [100, 100] }] }, 'scene'));
+    // every prefab in the library builds, side by side
+    const all = await ev(() => __library.names), spots = all.map((n, i) => [-100 + (i % 3) * 60, -60 + Math.floor(i / 3) * 60]);
+    for (const [i, n] of all.entries()) await ev(([n, at]) => __library.add(n, at, 0), [n, spots[i]]);
+    d = await ev(() => __scene.data());
+    const tn = d.types.map(t => t.name);
+    if (!tn.includes('oak') || !tn.includes('oak 2') || d.types.find(t => t.name === 'oak').parts.length !== 1) throw new Error('the scene\'s own oak was not kept apart: ' + tn);
+    const farm = d.types.find(t => t.name === 'farmstead'); if (!farm.group.some(r => r.type === 'oak 2')) throw new Error('the farmstead does not use the library oak');
+    const counts = await ev(() => { const b = __scene.built(); return Object.fromEntries(b.types.map(T => [T.name, T.count])); });
+    for (const n of all) if (!(counts[n] >= 1)) throw new Error(n + ' was not built: ' + JSON.stringify(counts));
+    if (counts.stall !== 6 || counts['town house'] !== 5 || counts.tent !== 5 || counts.church !== 1 || counts['oak 2'] < 6 || counts.oak !== 1) throw new Error('counts: ' + JSON.stringify(counts));
+    if (await ev(() => __scene.built().short) > 2) throw new Error(await ev(() => __scene.built().short) + ' scattered copies did not fit');
   });
   await step('scene: back to the object view', async () => {
     await page.click('#vObject');

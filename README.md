@@ -85,6 +85,13 @@ metres, **roof** is a gable roof sitting on its eaves, and doors and windows
 name the wall they go **on**, its face and where on it; the studio sets them
 flush into that face, turned the right way.
 
+The scene panel also has a **prefab library** for building by hand: a
+homestead, a terrace of town houses, a farmstead, a churchyard, a market, a
+windmill, a well, a grove and a campsite. Pick one and click the ground; each
+click places one facing you (R turns the next one, Esc stops). With no scene
+yet, picking one starts an empty place. Placed prefabs are ordinary types and
+rules, so describe ✦ can carry on from them ("add a road between the farms").
+
 **advanced** (top right) shows the engine's own controls: which rung the brush
 writes to, leaf counts, the kernel, aperture and the run.
 
@@ -173,6 +180,9 @@ error, or when an action has no effect.
   the ridge along its length
 - doors, windows and a chimney set on a turned wall's front, back, sides and top
   sit flush, slightly proud, where `at` puts them
+- the prefab library: a click places one where it lands, facing the camera, R
+  turns it, a drag places nothing, Esc stops, undo; a scene's own type of the
+  same name is kept and the library's comes in renamed; every prefab builds
 - every starting shape
 - duplicate, delete, undo and redo
 

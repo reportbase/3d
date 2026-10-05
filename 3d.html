@@ -79,6 +79,8 @@
   .rules div b{color:var(--fg);font-weight:600}
   .typeback{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--accent);color:#141418;border-color:var(--accent);font-weight:600;z-index:5}
   .typeback[hidden]{display:none}
+  .libgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .libgrid button{padding:5px 2px;font-size:11px}
   .navhint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#000a;color:#e8e4da;padding:6px 12px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:5}
   .navhint[hidden]{display:none}
   .aipop{width:340px;padding:10px;gap:8px}
@@ -243,11 +245,13 @@
   <aside class="panel parts">
     <div class="sec scene-only" id="sceneSec">
       <div class="h">scene <b id="scName"></b></div>
-      <div class="note" id="scStats">No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast".</div>
+      <div class="note" id="scStats">No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast", or place a prefab from below.</div>
       <div class="h">object types</div>
       <div class="plist" id="scTypes"></div>
       <div class="row"><button id="scShuffle" title="place everything again with a new random seed: same rules, different arrangement">shuffle</button><button id="scFrame" title="frame the whole scene">frame</button></div>
       <div class="note">Every copy of a type shares one shape, drawn finer up close and coarser far away. Edit a type to reshape all its copies at once.</div>
+      <div class="h">prefabs <span class="note">pick one, then click the ground</span></div>
+      <div class="libgrid" id="scLib"></div>
     </div>
     <div class="sec obj-only">
       <div class="h">parts <span id="pcount"></span></div>
@@ -285,6 +289,7 @@
     <div class="toast" id="toast"></div>
     <div class="hint obj-only" id="hint"></div>
     <button class="typeback" id="typeBack" hidden></button>
+    <div class="navhint" id="placeHint" hidden></div>
     <div class="navhint" id="navHint" hidden>W A S D or arrows to move · drag to look · Shift to run · Space / Q up and down when flying · Esc to stop</div>
   </main>
 
@@ -4059,7 +4064,7 @@ const SCN=(function(){
     const tf=data&&Array.isArray(data.terrain)?data.terrain:[], tw=k=>tf.filter(f=>f&&f[k]!=null).length;
     const tline=tf.length?'<div>terrain: '+['hill','ridge','slope','noise'].filter(k=>tw(k)).map(k=>tw(k)+' '+k+(tw(k)>1&&k!=='noise'?'s':'')).join(', ')+'</div>':'';
     $('scRules').innerHTML=data?tline+(data.areas||[]).map(a=>'<div>area <b>'+escapeHtml(a.name||'?')+'</b>'+(a.water?' (water)':a.blocks?' (kept clear)':'')+'</div>').join('')+data.place.map(r=>'<div>'+ruleText(r)+'</div>').join(''):'<div class="note">The rules that place the copies show here.</div>';
-    $('scStats').textContent=built?statsText():'No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast".'; }
+    $('scStats').textContent=built?statsText():'No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast", or place a prefab from below.'; }
   $('scTypes').addEventListener('click',e=>{ const b=e.target.closest('button[data-i]'); if(b) editType(+b.dataset.i); });
 
   /* ── public ── */
@@ -4163,8 +4168,15 @@ const SCN=(function(){
   renderer.domElement.addEventListener('pointerup',()=>{ look=null; });
   $('navOrbit').onclick=()=>setNav('orbit'); $('navWalk').onclick=()=>setNav('walk'); $('navFly').onclick=()=>setNav('fly');
   // Put the camera somewhere and redraw at once (used by the tests; handy from the console).
+  /* Where on the ground a click lands, as [x, z], or null off the ground: the terrain and
+     water when there are any, else the flat ground plane, within the ground's circle. */
+  function pick(cx,cy){ const r=renderer.domElement.getBoundingClientRect(); ndc.set(((cx-r.left)/r.width)*2-1,-((cy-r.top)/r.height)*2+1);
+    cam.updateMatrixWorld(); ray.setFromCamera(ndc,cam); let pt=null;   // the camera as it is now, not as last drawn
+    if(built&&built.ground){ const h=ray.intersectObject(built.ground,true)[0]; if(h) pt=h.point; }
+    if(!pt){ const t=-ray.ray.origin.y/ray.ray.direction.y; if(t>0) pt=ray.ray.at(t,V(0,0,0)); }
+    if(!pt||!data||Math.hypot(pt.x,pt.z)>data.ground.size/2) return null; return [pt.x,pt.z]; }
   function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
-  return {setView,set,restore,update,frame,viewsPng,cameraTo,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
 })();
 window.__scene=SCN;
 
@@ -4583,6 +4595,128 @@ window.__scene=SCN;
     if(open){ window.__describeModes(); if(!session){ acct.open=true; setStatus('sign in below to start'); } setTimeout(()=>promptEl.focus(),0); } };
   addEventListener('click',e=>{ if(!e.target.closest('#aiPop')&&!e.target.closest('#aiBtn')) pop.hidden=true; });
   syncAccount(); refreshMe();
+  /* ── PREFAB LIBRARY (Oct 5: "add prefabs", a built-in library) ──
+     Ready-made places to drop into a scene by hand, without asking Claude: pick one in the
+     scene panel, then click the ground; each click places one, facing the camera (R turns
+     the next one a further 45°, Esc stops). They are written exactly as Claude writes
+     types (size, roof, on, span, prefabs of prefabs) and go through the same sceneTypes,
+     so once placed they are ordinary types: edit them, shuffle them, have Claude change
+     the scene around them. A type the scene already has under the same name but a
+     different shape is not overwritten; the library's comes in as "cottage 2". */
+  const box=(name,size,color,more)=>Object.assign({name,shape:'box',size,pos:[0,0,0],color},more||{});
+  const on=(name,host,face,at,size,color)=>({name,shape:'box',size,on:host,face,at,color});
+  const win=(n,host,face,at,size)=>on('window '+n,host,face,at,size||[0.9,1.1,0.1],'#34434f');
+  const LIB_TYPES=[
+    { name: 'cottage', parts: [box('walls',[7,3,5],'#e8dcc4'), { name: 'roof', shape: 'roof', size: [7.8,2.4,6], pos: [0,3,0], color: '#8c3b2e' },
+      on('door','walls','front',[0,0],[1.1,2.1,0.12],'#5a3a22'), win(1,'walls','front',[-2.2,1]), win(2,'walls','front',[2.2,1]),
+      win(3,'walls','left',[0,1]), win(4,'walls','right',[0,1]), win(5,'walls','back',[-1.6,1]), win(6,'walls','back',[1.6,1]),
+      box('chimney',[0.7,2,0.7],'#7a6a5a',{pos:[2,4.2,0.8]})] },
+    { name: 'town house', parts: [box('walls',[8,5.6,6],'#d9c9a8'), { name: 'roof', shape: 'roof', size: [8.8,3,7], pos: [0,5.6,0], color: '#5b4a42' },
+      on('door','walls','front',[0,0],[1.2,2.3,0.12],'#3f2a1c'), win(1,'walls','front',[-2.6,1]), win(2,'walls','front',[2.6,1]),
+      win(3,'walls','front',[-2.6,3.6]), win(4,'walls','front',[0,3.6]), win(5,'walls','front',[2.6,3.6]),
+      win(6,'walls','back',[-2,3.6]), win(7,'walls','back',[2,3.6]), win(8,'walls','left',[0,3.6]), win(9,'walls','right',[0,3.6])] },
+    { name: 'barn', parts: [box('walls',[10,5,7],'#8a3324'), { name: 'roof', shape: 'roof', size: [10.8,3.5,8], pos: [0,5,0], color: '#4a4038' },
+      on('doors','walls','front',[0,0],[3,3.6,0.15],'#5a3a22'), on('loft','walls','front',[0,4],[1.2,0.9,0.1],'#3a2a1c')] },
+    { name: 'church', parts: [box('nave',[14,7,8],'#cfc6b4'), { name: 'roof', shape: 'roof', size: [14.8,4,9], pos: [0,7,0], color: '#5b5550' },
+      box('tower',[4.5,15,4.5],'#c4baa6',{pos:[-9,0,0]}), { name: 'spire', shape: 'cone', section: { type: 'polygon', n: 4, k: 1 }, size: [5,8,5], pos: [-9,15,0], color: '#4f5a5e' },
+      on('door','tower','front',[0,0],[1.6,3,0.15],'#4a3220'), on('belfry','tower','front',[0,11],[1.2,1.8,0.1],'#2a2a2a'),
+      win(1,'nave','front',[-3,2.5],[1,3,0.1]), win(2,'nave','front',[1,2.5],[1,3,0.1]), win(3,'nave','front',[5,2.5],[1,3,0.1]),
+      win(4,'nave','back',[-5,2.5],[1,3,0.1]), win(5,'nave','back',[-1,2.5],[1,3,0.1]), win(6,'nave','back',[3,2.5],[1,3,0.1]),
+      win(7,'nave','right',[0,2],[2,4,0.1])] },
+    { name: 'windmill', parts: [{ name: 'tower', shape: 'cylinder', outline: [[0,0.5],[1,0.36]], size: [4,9,4], pos: [0,0,0], color: '#e8e0d0' },
+      { name: 'cap', shape: 'cone', size: [3.6,2.6,3.6], pos: [0,9,0], color: '#5b4a42' }, { name: 'hub', shape: 'ball', size: [0.7,0.7,0.7], pos: [0,9.6,1.8], color: '#3a2a1c' },
+      ...[45,135,225,315].map((a,i)=>box('sail '+(i+1),[0.8,6,0.1],'#efe9dc',{pos:[0,10,2],rot:[0,0,a]})),
+      on('door','tower','front',[0,0],[1,2,0.12],'#5a3a22')] },
+    { name: 'well', parts: [{ name: 'wall', shape: 'cylinder', size: [1.8,0.9,1.8], pos: [0,0,0], color: '#8a8580' },
+      box('post 1',[0.14,2.2,0.14],'#6a4a32',{pos:[-0.8,0,0]}), box('post 2',[0.14,2.2,0.14],'#6a4a32',{pos:[0.8,0,0]}),
+      { name: 'roof', shape: 'roof', size: [2.2,0.8,1.6], pos: [0,2.2,0], color: '#6a4a32' }] },
+    { name: 'stall', parts: [box('counter',[3,1,1.4],'#8a6a4a'), ...[[-1.4,-0.6],[1.4,-0.6],[-1.4,0.6],[1.4,0.6]].map(([x,z],i)=>box('post '+(i+1),[0.12,2.5,0.12],'#6a4a32',{pos:[x,0,z]})),
+      { name: 'canopy', shape: 'roof', size: [3.4,0.8,2], pos: [0,2.5,0], color: '#c8402e' }, box('goods',[2.4,0.3,0.9],'#d8a040',{pos:[0,1,0]})] },
+    { name: 'crate', parts: [box('crate',[0.7,0.5,0.5],'#a07a4a')] },
+    { name: 'garden wall', parts: [box('stones',[1,1.1,0.45],'#9a948a')] },
+    { name: 'hedge', parts: [box('hedge',[1,1.4,0.9],'#3f6b34')] },
+    { name: 'fence post', parts: [box('post',[0.18,1.2,0.18],'#7a5a3a')] },
+    { name: 'vegetables', parts: [{ name: 'leaves', shape: 'ball', size: [0.5,0.4,0.5], pos: [0,0,0], color: '#7fae4a' }] },
+    { name: 'bush', parts: [{ name: 'bush', shape: 'ball', size: [1.4,1.1,1.4], pos: [0,0,0], color: '#3e6b35' }] },
+    { name: 'haystack', parts: [{ name: 'stack', shape: 'cylinder', size: [2.2,1.6,2.2], pos: [0,0,0], color: '#d8b85a' }, { name: 'top', shape: 'cone', size: [2.3,1.2,2.3], pos: [0,1.6,0], color: '#cfae50' }] },
+    { name: 'gravestone', parts: [box('stone',[0.6,0.9,0.15],'#8f8a84')] },
+    { name: 'oak', parts: [{ name: 'trunk', shape: 'cylinder', size: [0.6,2.5,0.6], pos: [0,0,0], color: '#5b3d26' }, { name: 'crown', shape: 'ball', size: [5,4.5,5], pos: [0,2,0], color: '#4f7d39' }] },
+    { name: 'pine', parts: [{ name: 'trunk', shape: 'cylinder', size: [0.5,1.5,0.5], pos: [0,0,0], color: '#5b3d26' }, { name: 'crown', shape: 'cone', size: [3.5,8,3.5], pos: [0,1,0], color: '#2f5d3a' }] },
+    { name: 'birch', parts: [{ name: 'trunk', shape: 'cylinder', size: [0.3,4,0.3], pos: [0,0,0], color: '#e8e4da' }, { name: 'crown', shape: 'egg', size: [2.5,4,2.5], pos: [0,3,0], color: '#7aa84a' }] },
+    { name: 'tent', parts: [{ name: 'tent', shape: 'cone', section: { type: 'polygon', n: 4, k: 1 }, size: [3,2.4,3], pos: [0,0,0], color: '#c8b48a' }] },
+    { name: 'campfire', parts: [{ name: 'log 1', shape: 'cylinder', size: [0.2,1.2,0.2], pos: [0.6,0.1,0], rot: [0,0,90], color: '#4a3020' },
+      { name: 'log 2', shape: 'cylinder', size: [0.2,1.2,0.2], pos: [0,0.1,-0.6], rot: [0,90,90], color: '#4a3020' },
+      { name: 'flames', shape: 'cone', size: [0.5,0.9,0.5], pos: [0,0.1,0], color: '#e8742a' }, { name: 'core', shape: 'cone', size: [0.3,0.6,0.3], pos: [0,0.1,0], color: '#f5c542' }] },
+    { name: 'log seat', parts: [{ name: 'log', shape: 'cylinder', size: [0.4,2,0.4], pos: [1,0.2,0], rot: [0,0,90], color: '#6a4a32' }] },
+    // the places themselves, in their own coordinates, the front facing +z
+    { name: 'homestead', group: [
+      { type: 'cottage', at: [0,0] },
+      { type: 'garden wall', span: { path: [[-6,3],[-6,-11],[6,-11],[6,3]] } },
+      { type: 'vegetables', grid: { rect: [-4.5,-9.5,4.5,-5] }, every: 1.1, scale: [0.8,1.2] },
+      { type: 'bush', scatter: { rect: [-5.5,-10.5,5.5,-4] }, count: 3, scale: [0.7,1.2] }] },
+    { name: 'terrace', group: [{ type: 'town house', row: { from: [-13.5,0], to: [13.5,0] }, count: 4, rot: 0, tint: 0.15 }] },
+    { name: 'farmstead', group: [
+      { type: 'town house', at: [-8,4] }, { type: 'barn', at: [9,-2], rot: -90 },
+      { type: 'haystack', scatter: { rect: [-2,-18,16,-10] }, count: 4, scale: [0.8,1.2] },
+      { type: 'fence post', row: { path: [[-18,-8],[-18,-22],[18,-22],[18,-8]] }, every: 2.5 },
+      { type: 'oak', at: [-16,10], scale: [0.9,1.2] }] },
+    { name: 'churchyard', group: [
+      { type: 'church', at: [0,0] },
+      { type: 'hedge', span: { path: [[-15,8],[-15,-14],[15,-14],[15,8]] } },
+      { type: 'gravestone', grid: { rect: [3,-12,13,-6] }, every: [2,2], jitter: 0.2, tint: 0.15 },
+      { type: 'pine', scatter: { rect: [-13,-12.5,13,-6] }, count: 4, scale: [0.5,0.7] }] },
+    { name: 'market', group: [
+      { type: 'stall', row: { from: [-8,5], to: [8,5] }, count: 3, rot: 180, tint: 0.2 },
+      { type: 'stall', row: { from: [-8,-5], to: [8,-5] }, count: 3, rot: 0, tint: 0.2 },
+      { type: 'well', at: [0,0] },
+      { type: 'crate', scatter: { rect: [-11,-9,11,9] }, count: 10, scale: [0.8,1.3] }] },
+    { name: 'grove', group: [
+      { type: 'oak', scatter: { center: [0,0], radius: 12 }, count: 7, scale: [0.8,1.2] },
+      { type: 'birch', scatter: { center: [0,0], radius: 12 }, count: 6, scale: [0.8,1.2] },
+      { type: 'bush', scatter: { center: [0,0], radius: 13 }, count: 8, scale: [0.6,1.3] }] },
+    { name: 'campsite', group: [
+      { type: 'campfire', at: [0,0] },
+      { type: 'log seat', ring: { center: [0,0], radius: 2.2 }, count: 3 },   // facing out, the log (its x) runs round the fire
+      { type: 'tent', ring: { center: [0,0], radius: 7 }, count: 5, rot: 'in', tint: 0.2 }] }];
+  const LIBRARY=['homestead','terrace','farmstead','churchyard','market','windmill','well','grove','campsite'];
+  const libBy=new Map(LIB_TYPES.map(t=>[t.name,t])), libMade=new Map();
+  // Each library type made once: the same object every time, so placing a second
+  // homestead finds its cottage already in the scene instead of adding "cottage 2".
+  const libType=n=>{ if(!libMade.has(n)) libMade.set(n,sceneTypes([libBy.get(n)])[0]); return libMade.get(n); };
+  const EMPTY=()=>({name:'my place',seed:1,ground:{color:'#6b8a4e',size:200},terrain:[],areas:[],types:[],place:[]});
+  function libAdd(name,at,rot){ if(!libBy.has(name)) return null;
+    let d=SCN.data()||EMPTY();
+    const need=[], walk=n=>{ if(need.includes(n)||!libBy.has(n)) return; need.push(n); for(const r of libBy.get(n).group||[]) walk(r.type); }; walk(name);
+    /* Children first, so a prefab's rules already name what its children came in as. A type
+       is reused when the scene has the same thing under its name or a renamed copy of it
+       ("oak", "oak 2", ...); otherwise it comes in under the first free name. */
+    const names=new Set(d.types.map(t=>t.name.toLowerCase())), ren=new Map(), add=[], nm=n=>ren.get(n)||n, body=t=>JSON.stringify(Object.assign({},t,{name:''}));
+    for(const n of need.slice().reverse()){ const base=libType(n), t=base.group?Object.assign({},base,{group:base.group.map(r=>Object.assign({},r,{type:nm(r.type)}))}):base;
+      const same=d.types.concat(add).find(h=>(h.name===n||new RegExp('^'+n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+' \\d+$').test(h.name))&&body(h)===body(t));
+      if(same){ ren.set(n,same.name); continue; }
+      let k=1, name=n; while(names.has(name.toLowerCase())) name=n+' '+(++k);
+      names.add(name.toLowerCase()); if(name!==n) ren.set(n,name); add.push(name===n&&t===base?t:Object.assign({},t,{name})); }
+    const types=d.types.concat(add);
+    const rule={type:nm(name),at:[+at[0].toFixed(1),+at[1].toFixed(1)],rot:Math.round(rot)};
+    SCN.set(Object.assign({},d,{types,place:d.place.concat([rule])}),'scene: add '+name); return rule; }
+  // Placing by hand: a click (not a drag) on the ground places the picked prefab there.
+  let placing=null, turn=0, down=null;
+  const libEl=$('scLib'), hint=$('placeHint');
+  libEl.innerHTML=LIBRARY.map(n=>'<button data-lib="'+n+'" title="click, then click the ground to place a '+n+'">'+n+'</button>').join('');
+  function setPlacing(n){ placing=n; turn=0;
+    libEl.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.lib===n));
+    hint.hidden=!n; if(n) hint.textContent='click the ground to place a '+n+' · R turns it · Esc stops';
+    if(n&&!SCN.data()){ SCN.set(EMPTY(),'scene: new'); SCN.cameraTo([70,55,90],[0,0,0]); } }
+  libEl.addEventListener('click',e=>{ const b=e.target.closest('button[data-lib]'); if(b) setPlacing(placing===b.dataset.lib?null:b.dataset.lib); });
+  renderer.domElement.addEventListener('pointerdown',e=>{ down=placing&&e.button===0?{x:e.clientX,y:e.clientY}:null; });
+  renderer.domElement.addEventListener('pointerup',e=>{ if(!placing||!down||!sceneOn) return; const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y); down=null; if(moved>5) return;
+    const at=SCN.pick(e.clientX,e.clientY); if(!at) return;
+    const face=Math.atan2(cam.position.x-at[0],cam.position.z-at[1])*180/PI;   // the front (+z) toward the camera
+    libAdd(placing,at,Math.round(face/15)*15+turn); });
+  addEventListener('keydown',e=>{ if(!placing) return; const t=e.target; if(t.tagName==='TEXTAREA'||t.tagName==='INPUT'||t.tagName==='SELECT') return;
+    if(e.key==='Escape') setPlacing(null); else if(e.key.toLowerCase()==='r'&&!e.ctrlKey&&!e.metaKey) turn=(turn+45)%360; });
+  $('vObject').addEventListener('click',()=>setPlacing(null));
+  window.__library={add:libAdd,names:LIBRARY,types:LIB_TYPES,placing:()=>placing};
   window.__describe={apply,parseReply,describeScene,SYS,SCENE_SYS,viewsPng,applyScene,describeSceneAI};    // tests drive it without the network
 })();
 
