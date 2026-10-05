@@ -78,15 +78,22 @@ const L64 = lamAlone(S64), L256 = lamAlone(S256);
 const XK = [0.991455371120812639, 0.949107912342758525, 0.864864423359769073, 0.741531185599394440, 0.586087235467691130, 0.405845151377397167, 0.207784955007898468, 0];
 const WK = [0.022935322010529225, 0.063092092629978553, 0.104790010322250184, 0.140653259715525919, 0.169004726639267903, 0.190350578064785410, 0.204432940075298892, 0.209482141084727828];
 const WG = [0, 0.129484966168869693, 0, 0.279705391489276668, 0, 0.381830050505118945, 0, 0.417959183673469388];
-function gk(g, a, b){ const c = (a + b) / 2, h = (b - a) / 2; let K = 0, G = 0;
-  for (let i = 0; i < 8; i++){ if (i === 7){ const v = g(c); K += WK[7] * v; G += WG[7] * v; continue; }
-    const v = g(c - h * XK[i]) + g(c + h * XK[i]); K += WK[i] * v; G += WG[i] * v; }
-  return [K * h, Math.abs(K - G) * h]; }
-function adapt(g, a, b, tol, d = 0){ const [K, e] = gk(g, a, b); if (e <= tol || d > 40) return K; const c = (a + b) / 2; return adapt(g, a, c, tol / 2, d + 1) + adapt(g, c, b, tol / 2, d + 1); }
+function gk(g, a, b){ const c = (a + b) / 2, h = (b - a) / 2; let K = 0, G = 0, big = 0;
+  for (let i = 0; i < 8; i++){ if (i === 7){ const v = g(c); K += WK[7] * v; G += WG[7] * v; big = Math.max(big, Math.abs(v)); continue; }
+    const v1 = g(c - h * XK[i]), v2 = g(c + h * XK[i]), v = v1 + v2; K += WK[i] * v; G += WG[i] * v; big = Math.max(big, Math.abs(v1), Math.abs(v2)); }
+  return [K * h, Math.abs(K - G) * h, big]; }
+// stops at the tolerance, or once the error estimate is at roundoff: 1e-13 of the piece's width times the reading's
+// size over the whole window, from meanOver (G). Roundoff in evaluating cos(255u) is absolute, so near a zero of the
+// reading a floor relative to the values seen there can't be met.
+function adapt(g, a, b, tol, G, d = 0){ const [K, e] = gk(g, a, b);
+  if (e <= tol || e <= 1e-13 * (b - a) * G || d > 40) return K; const c = (a + b) / 2; return adapt(g, a, c, tol / 2, G, d + 1) + adapt(g, c, b, tol / 2, G, d + 1); }
 // mean of g over [a, b], from 64 pieces, each to 1e-15 of its share
-function meanOver(g, a, b, w = null){ const P = 64, s = (b - a) / P; let t = 0;
-  for (let i = 0; i < P; i++){ const lo = a + i * s, hi = lo + s; t += adapt(w ? (u => g(u) * w(u)) : g, lo, hi, 1e-15 * s); }
-  return t / (b - a); }
+// (with a weight w of total area `area`, the weighted mean: a triangle of peak 1 two cells wide has area one cell)
+// The roundoff floor's size G is the integrand's largest value at 257 points even over the whole window.
+function meanOver(g, a, b, w = null, area = b - a){ const P = 64, s = (b - a) / P, f = w ? (u => g(u) * w(u)) : g; let t = 0, G = 0;
+  for (let i = 0; i <= 256; i++) G = Math.max(G, Math.abs(f(a + (b - a) * i / 256)));
+  for (let i = 0; i < P; i++){ const lo = a + i * s, hi = lo + s; t += adapt(f, lo, hi, 1e-15 * s, G); }
+  return t / area; }
 
 /* ── tops: where the sweep's angle u lands on the line, and how a leaf takes its value ── */
 const TOPS = {
@@ -98,7 +105,7 @@ function topNode(T, take, fn){ const S = S256, n = S.n, du = PI / n, g = u => fn
   let vals, sig;
   if (take === 'point'){ vals = S.t.map(r => fn(T === 'T-a' ? r : 2 ** (16 * MF.f(r) - 8))); sig = () => 1; }
   else if (take === 'box'){ vals = S.u.map(uj => meanOver(g, uj - du / 2, uj + du / 2)); sig = m => m ? Math.sin(m * du / 2) / (m * du / 2) : 1; }
-  else { vals = S.u.map(uj => meanOver(g, uj - du, uj + du, u => 1 - Math.abs(u - uj) / du)); sig = m => m ? (Math.sin(m * du / 2) / (m * du / 2)) ** 2 : 1; }
+  else { vals = S.u.map(uj => meanOver(g, uj - du, uj + du, u => 1 - Math.abs(u - uj) / du, du)); sig = m => m ? (Math.sin(m * du / 2) / (m * du / 2)) ** 2 : 1; }
   const co = S.coef(vals).map((a, m) => a / sig(m));
   return { level: 0, S, toU: TOPS[T].toU, co, fixed: true }; }
 function build(fn, nodes){   // the top holds fn itself (fixed); each later node holds the residual of those before it

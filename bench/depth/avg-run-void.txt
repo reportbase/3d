@@ -1,0 +1,5 @@
+## Checks of the code
+  T-a, cos(37u), point: worst 9.1e-14 ok
+  T-a, cos(37u), box: worst 7.1e-13 ok
+  T-a, cos(37u), tri: worst 0.500 !! FAILS
+  T-a, cos(255u), point: worst 5.9e-13 ok
