@@ -65,7 +65,12 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   the character. look & fix sends them again as the reference.
 - **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, terrain, areas, types, place}`:
   `terrain` is a list of height features (`hill`, `ridge`, `slope`, `noise`) summed
-  by `terrainOf`; under water areas the land is pushed below the water's `level`.
+  by `terrainOf`. A sea or lake keeps its `level`, with a shelving floor and the land
+  sloping down to it over 8 m; a stream (water given as a `path`) follows the land,
+  its surface the ground along its centre line less 0.5 m, in a trough with banks
+  (`surfOf`, drawn as a ribbon). Nothing may cut a vertical cliff (Oct 5: the stream
+  stood up as a wall). The ground grows to hold every area and copy (`built.size`),
+  and land areas' colours are blended at their edges on terrain (five samples).
   With terrain the ground is one vertex-coloured grid (`terrainMesh`), water flat
   sheets on it; copies stand on the ground (`baseY`, lowest point under the
   footprint) or float at a water level; `elevation` filters scatters and grids.
@@ -77,7 +82,8 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   `exclude`. Anything flat and large must be an area: types scale uniformly.
   `types` are named lists of `partData`, `place` the placement rules
   (`at`, `row`, `ring`, `grid`, `scatter`, plus `scale`, `turn`, `jitter`, `exclude`,
-  `tint`, `y`). `place()` applies them in order with a seeded generator, so a
+  `tint`, `y`). A row may name a road area (`row.path: "high street"`) with `side` and
+  `offset`: copies beside the road facing it, skipped where they would overlap. `place()` applies them in order with a seeded generator, so a
   scene always comes out the same. Each type is built at the `LODS` resolutions
   (around-counts multiples of 8, so boxes stay square) and drawn as one
   InstancedMesh per level; `update()` gives each copy the level for its distance

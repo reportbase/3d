@@ -13,7 +13,9 @@
 //   · scenes: a village from the stand-in gateway (rule counts, rows, rings, spacing, exclusions,
 //     a lake and a lane as areas: boats only on water, nothing scattered into either),
 //     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix,
-//     terrain (heights, copies on the ground, a raised lake, elevation), walking and flying,
+//     terrain (heights, copies on the ground, a raised lake, elevation), a harbour village (tests/harbour.json:
+//     a stream on the slope, shores and banks without cliffs, the ground grown to fit, blended area edges,
+//     houses along both sides of a street facing it), walking and flying,
 //     prefabs (laid out whole per copy, turned, nested, yards kept clear), span, rows along a
 //     path, stretch; the prefab library (placed by clicking, turned, renamed on a clash, every one built);
 //     parts given by size, the roof shape, doors and windows set flush into a face;
@@ -580,6 +582,38 @@ try {
     if (!(c3 > c2.y + 2)) throw new Error('Space did not rise when flying: ' + c2.y + ' → ' + c3);
     await page.keyboard.press('Escape');
     if (await ev(() => !!__scene.nav || !__studio.orbit().enabled)) throw new Error('Esc did not return to orbiting');
+  });
+  await step('scene: streams follow the land, shores slope, streets face their road', async () => {
+    const H = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./harbour.json', import.meta.url), 'utf8'));
+    await ev(h => __describe.applyScene(h, 'scene'), H);
+    // the stream runs downhill on the land, in a shallow bed, never in a canyon
+    const up = await ev(() => [__scene.waterAt(88, -80), __scene.heightAt(88, -80)]), down = await ev(() => __scene.waterAt(86, 20));
+    if (!(up[0] > 8) || !(up[0] > down + 5) || !(up[1] < up[0] && up[1] > up[0] - 1.5)) throw new Error('the stream does not follow the land: surface ' + up[0] + ' over ground ' + up[1] + ', downstream ' + down);
+    const across = (x0, x1, z) => ev(([x0, x1, z]) => { const h = []; for (let x = x0; x <= x1; x += 0.5) h.push(__scene.heightAt(x, z)); return h; }, [x0, x1, z]);
+    const steepest = h => Math.max(...h.slice(1).map((v, i) => Math.abs(v - h[i])));
+    const bank = await across(70, 100, -50); if (steepest(bank) > 0.9) throw new Error('the stream bank drops ' + steepest(bank).toFixed(2) + ' m in half a metre');
+    const shore = await ev(() => { const h = []; for (let z = 20; z <= 50; z += 0.5) h.push(__scene.heightAt(-30, z)); return h; });
+    if (steepest(shore) > 0.9) throw new Error('the shore drops ' + steepest(shore).toFixed(2) + ' m in half a metre');
+    // the ground holds every area, the fields beyond the stream included
+    const size = await ev(() => __scene.built().size);
+    if (!(size >= 2 * Math.hypot(160, 160))) throw new Error('the ground is ' + size + ' m across, too small for the areas');
+    // the areas' edges are blended on the terrain, not stepped
+    const mixed = await ev(() => { const c = __scene.built().ground.children[0].geometry.attributes.color.array, a = new THREE.Color('#6f9a4e'), b = new THREE.Color('#cfc4a8'); let n = 0;
+      for (let i = 0; i < c.length; i += 3){ const t = (c[i] - a.r) / (b.r - a.r), u = (c[i + 1] - a.g) / (b.g - a.g); if (t > 0.15 && t < 0.85 && Math.abs(t - u) < 0.05) n++; } return n; });
+    if (mixed < 50) throw new Error('only ' + mixed + ' blended vertices along the roads');
+    // houses along the street: both sides, just off its edge, fronts to the road, none overlapping
+    const homes = (await inst()).filter(o => o.rule === 0), mats = await ev(() => __scene.built().inst.filter(o => o.rule === 0).map(o => [o.m.elements[8], o.m.elements[10]]));
+    const road = H.areas.find(a => a.name === 'high street').path;
+    const near = (x, z) => { let best = [1e9]; for (let i = 0; i < road.length - 1; i++){ const [ax, az] = road[i], [bx, bz] = road[i + 1], dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz; let t = ((x - ax) * dx + (z - az) * dz) / L; t = Math.max(0, Math.min(1, t));
+      const px = ax + t * dx, pz = az + t * dz, d = Math.hypot(x - px, z - pz); if (d < best[0]) best = [d, px, pz, (x - ax) * dz - (z - az) * dx]; } return best; };
+    let left = 0, right = 0;
+    homes.forEach((o, i) => { const [d, px, pz, side] = near(o.x, o.z), [fx, fz] = mats[i], facing = (fx * (px - o.x) + fz * (pz - o.z)) / Math.hypot(fx, fz) / Math.max(1e-6, d);
+      if (d < 4 || d > 9) throw new Error('a house stands ' + d.toFixed(1) + ' m from the street');
+      if (facing < 0.7) throw new Error('a house does not face the street (' + facing.toFixed(2) + ')');
+      if (side < 0) left++; else right++; });
+    if (homes.length < 14 || left < 5 || right < 5) throw new Error(homes.length + ' houses, ' + left + ' on one side and ' + right + ' on the other');
+    for (let i = 0; i < homes.length; i++) for (let j = i + 1; j < homes.length; j++) if (Math.hypot(homes[i].x - homes[j].x, homes[i].z - homes[j].z) < 3) throw new Error('two houses overlap on a bend');
+    if (!/on both sides of <b>high street<\/b>|on both sides of high street/.test(await page.textContent('#scRules'))) throw new Error('rules panel: ' + await page.textContent('#scRules'));
   });
   await step('scene: prefabs, span, rows along a path, stretch', async () => {
     const box = (name, size, color, pos = [0, 0, 0]) => ({ name, shape: 'box', size, pos, color });

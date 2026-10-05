@@ -3813,6 +3813,22 @@ const SCN=(function(){
     if(a.polygon){ let inside=false; const P=a.polygon; for(let i=0,j=P.length-1;i<P.length;j=i++){ const [xi,zi]=P[i],[xj,zj]=P[j]; if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi) inside=!inside; } return inside; }
     if(a.path){ for(let i=0;i<a.path.length-1;i++) if(segDist(x,z,a.path[i],a.path[i+1])<=a.width/2) return true; }
     return false; }
+  // How far inside an area a point is, from its nearest edge (for a lake's shelving floor).
+  function inside(x,z,a){
+    if(a.rect) return Math.max(0,Math.min(x-a.rect[0],a.rect[2]-x,z-a.rect[1],a.rect[3]-z));
+    if(a.center) return Math.max(0,a.radius-Math.hypot(x-a.center[0],z-a.center[1]));
+    const P=a.polygon||a.path; if(!P) return 0; let m=1e9;
+    for(let i=0;i<P.length-1;i++) m=Math.min(m,segDist(x,z,P[i],P[i+1]));
+    if(a.polygon) return Math.min(m,segDist(x,z,P[P.length-1],P[0]));
+    return Math.max(0,a.width/2-m); }
+  // How far outside an area a point is: 0 inside. For the banks water carves into the land.
+  function outside(x,z,a){ if(inArea(x,z,a)) return 0;
+    if(a.rect) return Math.hypot(Math.max(a.rect[0]-x,0,x-a.rect[2]),Math.max(a.rect[1]-z,0,z-a.rect[3]));
+    if(a.center) return Math.hypot(x-a.center[0],z-a.center[1])-a.radius;
+    const P=a.polygon||a.path; if(!P) return 1e9; let m=1e9;
+    for(let i=0;i<P.length-1;i++) m=Math.min(m,segDist(x,z,P[i],P[i+1]));
+    if(a.polygon) m=Math.min(m,segDist(x,z,P[P.length-1],P[0]));
+    return Math.max(0,m-(a.path?a.width/2:0)); }
   function sampleArea(a,R){
     if(a.rect) return [a.rect[0]+R()*(a.rect[2]-a.rect[0]),a.rect[1]+R()*(a.rect[3]-a.rect[1])];
     if(a.center){ const r=a.radius*Math.sqrt(R()), t=R()*TAU; return [a.center[0]+r*Math.cos(t),a.center[1]+r*Math.sin(t)]; }
@@ -3838,11 +3854,32 @@ const SCN=(function(){
       if(f.noise!=null){ const amp=num(f.noise,0,200,2), sc=num(f.scale,5,5000,60), R=rngOf((d.seed||1)*31+7), p=[R(),R(),R(),R(),R(),R()].map(v=>v*TAU);
         return (x,z)=>amp*(0.55*Math.sin(x/sc+p[0])*Math.cos(z/sc*1.13+p[1])+0.3*Math.sin((x*0.71+z*0.7)/sc*2.3+p[2])+0.15*Math.cos((x*1.7-z*0.9)/sc*4.1+p[3])); }
       return null; }).filter(Boolean);
-    const waters=[...namedAreas(d).values()].filter(a=>a.water);
-    const waterAt=(x,z)=>{ for(const w of waters) if(inArea(x,z,w)) return num(w.level,-500,1000,0); return null; };
     const raw=(x,z)=>{ let h=0; for(const f of fs) h+=f(x,z); return h; };
-    const ground=(x,z)=>{ let h=raw(x,z); for(const w of waters) if(inArea(x,z,w)) h=Math.min(h,num(w.level,-500,1000,0)-1.5); return h; };
-    return {any:fs.length>0,ground,waterAt}; }
+    /* WATER IN THE LAND (Oct 5, the first scene from pictures: the stream stood up as a blue
+       wall between grey cliffs). Water used to lie at one level and cut the land straight
+       down to it, so a stream crossing rising ground became a canyon with vertical sides.
+       Now a sea or lake keeps its level but the land slopes down to it over a few metres
+       (a shore, not a cliff), and a stream or river (water given as a path) follows the
+       land: its surface is the ground along its centre line, a little lower, so it runs
+       downhill to the sea in a shallow bed with sloping banks. */
+    const waters=[...namedAreas(d).values()].filter(a=>a.water).map(a=>{ const lv=num(a.level,-500,1000,0), stream=!!a.path&&fs.length>0;
+      const surf=stream?(x,z)=>{ let best=1e9, px=x, pz=z; const P=a.path;
+          for(let i=0;i<P.length-1;i++){ const [ax,az]=P[i],[bx,bz]=P[i+1], dx=bx-ax, dz=bz-az, L=dx*dx+dz*dz; let t=L?((x-ax)*dx+(z-az)*dz)/L:0; t=Math.max(0,Math.min(1,t));
+            const qx=ax+t*dx, qz=az+t*dz, e=Math.hypot(x-qx,z-qz); if(e<best){ best=e; px=qx; pz=qz; } }
+          return Math.max(a.level!=null?lv:-1e9,raw(px,pz)-0.5); }:()=>lv;
+      return {a,surf,bank:a.path?Math.max(7,a.width*1.5):8,depth:stream?1:1.5}; });
+    const waterAt=(x,z)=>{ for(const w of waters) if(inArea(x,z,w.a)) return w.surf(x,z); return null; };
+    const ground=(x,z)=>{ const r=raw(x,z); let h=r;
+      for(const w of waters){ const b=w.a.box, B=w.bank; if(x<b[0]-B||x>b[2]+B||z<b[1]-B||z>b[3]+B) continue;
+        const dd=outside(x,z,w.a); if(dd>=B) continue; const sf=w.surf(x,z);
+        if(dd===0){ if(!w.a.path){ const t=smooth(inside(x,z,w.a)/6); h=Math.min(h,sf-w.depth+(w.depth+0.2)*(1-t)); continue; }   // the floor shelves down over six metres from the shore
+          // a stream's bed is a trough, deepest in the middle and meeting the bank at the edge
+          let dc=1e9; const P=w.a.path; for(let i=0;i<P.length-1;i++) dc=Math.min(dc,segDist(x,z,P[i],P[i+1]));
+          const t=Math.min(1,dc/(w.a.width/2)); h=Math.min(h,sf-w.depth*(1-t*t)+0.2*t*t); continue; }
+        const m=Math.min(r,sf+0.2); h=Math.min(h,m+(r-m)*smooth(dd/B)); }   // just above the water at its edge, rising to the land
+      return h; };
+    const surfOf=name=>{ const w=waters.find(q=>q.a.name===name); return w?w.surf:()=>0; };
+    return {any:fs.length>0,ground,waterAt,surfOf}; }
   // The scene's named areas, ready to test against.
   const namedAreas=d=>new Map((Array.isArray(d.areas)?d.areas:[]).map(a=>{ const sh=shapeOf(a); return sh&&typeof a.name==='string'?[a.name.toLowerCase(),Object.assign(sh,{name:a.name,water:!!a.water,blocks:!!a.blocks,color:a.color,level:a.level})]:null; }).filter(Boolean));
 
@@ -3888,6 +3925,7 @@ const SCN=(function(){
         const cr=(types[c].group?(depth<2?groupR(c,depth+1):1):types[c].r)*scaleOf(rule)[1], far=p=>{ const q=xz(p); return Math.hypot(q[0],q[1]); };
         if(rule.at) r=Math.max(r,far(rule.at)+cr);
         if(rule.row&&rule.row.from) r=Math.max(r,far(rule.row.from)+cr,far(rule.row.to)+cr);
+        if(rule.row&&Array.isArray(rule.row.path)&&rule.row.side) for(const p of rule.row.path) r=Math.max(r,far(p)+cr*2+num(rule.row.offset,0,500,5));
         for(const P of [rule.row&&rule.row.path,rule.span&&rule.span.path]) if(Array.isArray(P)) for(const p of P) r=Math.max(r,far(p)+cr);
         if(rule.span&&rule.span.from) r=Math.max(r,far(rule.span.from)+cr,far(rule.span.to)+cr);
         if(rule.ring) r=Math.max(r,far(rule.ring.center)+num(rule.ring.radius,0.1,5000,5)+cr);
@@ -3928,9 +3966,26 @@ const SCN=(function(){
         const cnt=Math.min(MAX_RULE,Math.max(1,every?Math.floor(L/every)+1:n)), pts=[];
         for(let i=0;i<cnt;i++){ const at=cnt===1?L/2:L*i/(cnt-1), sg=segs.find(q=>at<=q[2]+q[3]+1e-9)||segs[segs.length-1], u=sg[3]?(at-sg[2])/sg[3]:0;
           pts.push([sg[0][0]+(sg[1][0]-sg[0][0])*u,sg[0][1]+(sg[1][1]-sg[0][1])*u,sg[1][0]-sg[0][0],sg[1][1]-sg[0][1]]); } return pts; };
-      if(rule.row&&typeof rule.row==='object'){ const P=Array.isArray(rule.row.path)&&rule.row.path.length>=2?rule.row.path.slice(0,200).map(q=>xz(q)):[xz(rule.row.from),xz(rule.row.to)];
+      /* ROWS, and STREETS (Oct 5, the first village from pictures: the houses stood apart in
+         rows facing the camera, where the pictures had cottages shoulder to shoulder facing
+         the lane). A row may follow a road named in areas ("path": "high street"), in the
+         world's coordinates, and with "side" ("left", "right" or "both", as you walk from the
+         road's first point to its last) its copies stand beside it, "offset" metres from its
+         middle (by default just off its edge), fronts facing the road; a copy that would
+         overlap one already there, on the inside of a bend, is left out. */
+      if(rule.row&&typeof rule.row==='object'){ const rname=typeof rule.row.path==='string'?rule.row.path:typeof rule.row.area==='string'?rule.row.area:null, road=rname?named.get(rname.toLowerCase()):null;
+        if(rname&&!(road&&road.path)) return;
+        const F=road?{x:0,z:0,yaw:0,s:1}:f;
+        const P=road?road.path:Array.isArray(rule.row.path)&&rule.row.path.length>=2?rule.row.path.slice(0,200).map(q=>xz(q)):[xz(rule.row.from),xz(rule.row.to)];
+        const sides=rule.row.side==='both'?[1,-1]:rule.row.side==='left'?[1]:rule.row.side==='right'?[-1]:null;
         for(const [lx,lz,dx,dz] of along(P,Math.round(num(rule.count,1,MAX_RULE,5)),rule.every?num(rule.every,0.1,1000,5):0)){
-          const head=dirW(f,dx,dz), dir=rule.rot==='across'?head+PI/2:head, [x,z]=toW(f,lx,lz); put(t,x+J(),z+J(),yawOf(dir)+turn,size(),y,tint,st,depth); } return; }
+          if(!sides){ const head=dirW(F,dx,dz), dir=rule.rot==='across'?head+PI/2:head, [x,z]=toW(F,lx,lz); put(t,x+J(),z+J(),yawOf(dir)+turn,size(),y,tint,st,depth); continue; }
+          const L=Math.hypot(dx,dz)||1, nx=dz/L, nz=-dx/L;   // the left hand, walking along the road (x east, z south)
+          for(const sd of sides){ const s=size(), off=rule.row.offset!=null?num(rule.row.offset,0,500,5):(road?road.width/2:0)+R_(t)*s/f.s+0.8;
+            const [x,z]=toW(F,lx+sd*nx*off,lz+sd*nz*off), yaw=Math.atan2(-sd*nx,-sd*nz)+F.yaw;
+            if(!free(x,z,R_(t)*s*0.7)) continue;
+            put(t,x,z,(fixed??yaw)+turn,s,y,tint,st,depth); } }
+        return; }
       /* SPAN: one copy per stretch of line, laid along it and stretched to reach end to end.
          A wall, a fence run, a hedge, a bridge, a pier: built once at any length (its length
          along its own x), placed from here to there. */
@@ -3971,16 +4026,22 @@ const SCN=(function(){
      vertex by vertex so a road follows the hill it crosses; steep ground shades toward rock.
      Water stays a flat sheet at its level. The grid is about a metre and a half per cell, a
      few hundred across at most. */
-  function terrainMesh(d,TR){
-    const S=d.ground.size, N=Math.max(96,Math.min(320,Math.round(S/1.5))), step=S/N, half=S/2;
+  function terrainMesh(d,TR,S){
+    const N=Math.max(96,Math.min(320,Math.round(S/1.5))), step=S/N, half=S/2;
     const land=[...namedAreas(d).values()].filter(a=>!a.water);
-    const base=new THREE.Color(d.ground.color), rock=new THREE.Color('#8a8580'), tmp=new THREE.Color();
+    const base=new THREE.Color(d.ground.color), rock=new THREE.Color('#8a8580'), tmp=new THREE.Color(), acol=new THREE.Color();
     const pos=new Float32Array((N+1)*(N+1)*3), col=new Float32Array((N+1)*(N+1)*3), idx=[];
     for(let j=0;j<=N;j++) for(let i=0;i<=N;i++){ const x=-half+i*step, z=-half+j*step, k=(j*(N+1)+i)*3;
       pos[k]=x; pos[k+1]=TR.ground(x,z); pos[k+2]=z;
-      let c=base; for(const a of land){ if(x<a.box[0]||x>a.box[2]||z<a.box[1]||z>a.box[3]) continue;
-        if(inArea(x,z,a)) c=tmp.set(typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:'#9b8b70'); }   // the last area listed wins, as when they are layered flat
-      col[k]=c.r; col[k+1]=c.g; col[k+2]=c.b; }
+      /* Each area's share of the ground around this point, from five samples, blended over
+         what lies beneath (the last area listed on top, as when they are layered flat): a
+         road's edge fades across one cell instead of stepping from vertex to vertex
+         (Oct 5: the lanes and the beach had saw-tooth edges). */
+      tmp.copy(base); const e=step*0.35;
+      for(const a of land){ if(x<a.box[0]-step||x>a.box[2]+step||z<a.box[1]-step||z>a.box[3]+step) continue;
+        let cov=0; for(const [ox,oz] of [[0,0],[e,e],[-e,e],[e,-e],[-e,-e]]) if(inArea(x+ox,z+oz,a)) cov++;
+        if(cov) tmp.lerp(acol.set(typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:'#9b8b70'),cov/5); }
+      col[k]=tmp.r; col[k+1]=tmp.g; col[k+2]=tmp.b; }
     for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const cx=-half+(i+0.5)*step, cz=-half+(j+0.5)*step; if(Math.hypot(cx,cz)>half) continue;   // a round island of ground, as before
       const a=j*(N+1)+i, b=a+1, c2=a+N+1, e=c2+1; idx.push(a,c2,b,b,c2,e); }
     const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
@@ -3988,12 +4049,20 @@ const SCN=(function(){
     const nr=geo.attributes.normal.array; for(let k=0;k<col.length;k+=3){ const steep=smooth((0.86-nr[k+1])/0.25)*0.65;
       if(steep>0){ col[k]+=(rock.r-col[k])*steep; col[k+1]+=(rock.g-col[k+1])*steep; col[k+2]+=(rock.b-col[k+2])*steep; } }
     return new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95})); }
-  function groundOf(d){
+  function groundOf(d,S){
     const TR=terrainOf(d);
     const g=new THREE.Group(), flat=(geo,y)=>{ geo.rotateX(-PI/2); geo.translate(0,y,0); return geo; };
-    if(TR.any){ g.add(terrainMesh(d,TR));
+    if(TR.any){ g.add(terrainMesh(d,TR,S));
       [...namedAreas(d).values()].filter(a=>a.water).forEach((a,i)=>{ const lv=num(a.level,-500,1000,0), col=typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:'#3b6e94';
         const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.25,metalness:0.08,polygonOffset:true,polygonOffsetFactor:-(i+1),polygonOffsetUnits:-4*(i+1)});
+        // a stream is a ribbon lying on its own sloping surface, a sample every two metres
+        if(a.path){ const sf=TR.surfOf(a.name), P=a.path, w=a.width/2, v=[], ix=[];
+          for(let k=0;k<P.length-1;k++){ const [x0,z0]=P[k],[x1,z1]=P[k+1], L=Math.hypot(x1-x0,z1-z0); if(!L) continue; const nx=-(z1-z0)/L*w, nz=(x1-x0)/L*w, n=Math.max(1,Math.ceil(L/2));
+            for(let q=0;q<=n;q++){ const x=x0+(x1-x0)*q/n, z=z0+(z1-z0)*q/n, y=sf(x,z)+0.02*i, b=v.length/3; v.push(x+nx,y,z+nz,x-nx,y,z-nz); if(q) ix.push(b-2,b-1,b,b-1,b+1,b); } }
+          const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(v),3)); geo.setIndex(ix); geo.computeVertexNormals();
+          mat.side=THREE.DoubleSide; g.add(new THREE.Mesh(geo,mat));
+          for(const [x,z] of P){ const c=new THREE.CircleGeometry(w,24); c.rotateX(-PI/2); c.translate(x,sf(x,z)+0.02*i,z); g.add(new THREE.Mesh(c,mat)); }   // round bends
+          return; }
         const add=geo=>g.add(new THREE.Mesh(flat(geo,lv+0.02*i),mat)), shape=pts=>{ const sh=new THREE.Shape(); pts.forEach(([x,z],k)=>k?sh.lineTo(x,-z):sh.moveTo(x,-z)); return new THREE.ShapeGeometry(sh); };
         if(a.rect) add(shape([[a.rect[0],a.rect[1]],[a.rect[2],a.rect[1]],[a.rect[2],a.rect[3]],[a.rect[0],a.rect[3]]]));
         else if(a.polygon) add(shape(a.polygon));
@@ -4002,7 +4071,7 @@ const SCN=(function(){
             const nx=-(z1-z0)/L*a.width/2, nz=(x1-x0)/L*a.width/2; add(shape([[x0+nx,z0+nz],[x1+nx,z1+nz],[x1-nx,z1-nz],[x0-nx,z0-nz]])); }
           for(const [x,z] of a.path){ const c=new THREE.CircleGeometry(a.width/2,24); c.translate(x,-z,0); add(c); } } });
       return g; }
-    const gm=new THREE.Mesh(flat(new THREE.CircleGeometry(d.ground.size/2,96),-0.01),new THREE.MeshStandardMaterial({color:d.ground.color,roughness:0.95})); g.add(gm);
+    const gm=new THREE.Mesh(flat(new THREE.CircleGeometry(S/2,96),-0.01),new THREE.MeshStandardMaterial({color:d.ground.color,roughness:0.95})); g.add(gm);
     [...namedAreas(d).values()].forEach((a,i)=>{ const y=0.03*(i+1), col=typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:(a.water?'#3b6e94':'#9b8b70');
       // each layer also pulled toward the camera in depth, so from far off it still wins over the one beneath
       const mat=new THREE.MeshStandardMaterial({color:col,roughness:a.water?0.25:0.95,metalness:a.water?0.08:0,polygonOffset:true,polygonOffsetFactor:-(i+1),polygonOffsetUnits:-4*(i+1)}),
@@ -4034,8 +4103,14 @@ const SCN=(function(){
       for(const L of T.lod){ if(L.mesh&&L.cap>=n&&n>0){ continue; } if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); L.mesh=null; }
         if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
         L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
-    const gm=groundOf(data); group.add(gm);
-    built={types,inst,short,ground:gm,TR:terrainOf(data)}; lastKey=''; drawPanel(); if(sceneOn) sky(true); }
+    /* The ground is a round island; it grows to hold every area and every copy, with a
+       margin (Oct 5: the fields east of the stream, the far corners of a wide map, fell
+       off the edge of a ground sized for the middle of it). */
+    let ext=0; for(const a of namedAreas(data).values()){ const b=a.box; ext=Math.max(ext,Math.hypot(b[0],b[1]),Math.hypot(b[2],b[1]),Math.hypot(b[0],b[3]),Math.hypot(b[2],b[3])); }
+    for(const o of inst) ext=Math.max(ext,Math.hypot(o.x,o.z)+types[o.t].r*o.s);
+    const size=Math.min(4000,Math.max(num(data.ground.size,20,4000,200),2*ext+30));
+    const gm=groundOf(data,size); group.add(gm);
+    built={types,inst,short,ground:gm,TR:terrainOf(data),size}; lastKey=''; drawPanel(); if(sceneOn) sky(true); }
 
   // Each frame: every copy takes the resolution its distance calls for. Skipped while the camera is still.
   const _m=new THREE.Matrix4();
@@ -4055,7 +4130,8 @@ const SCN=(function(){
   /* ── the panels ── */
   function ruleText(r){ const t='<b>'+escapeHtml(r.type||'?')+'</b>';
     if(r.at) return t+' at '+xz(r.at).join(', ');
-    if(r.row) return (r.count||'')+' '+t+(r.row.path?' along a path':' in a row')+(r.every?' every '+r.every+' m':'');
+    if(r.row){ const road=typeof r.row.path==='string'?r.row.path:typeof r.row.area==='string'?r.row.area:null, where=road?'<b>'+escapeHtml(road)+'</b>':r.row.path?'a path':'';
+      return (r.count||'')+' '+t+(r.row.side?(r.row.side==='both'?' on both sides of ':' on the '+escapeHtml(String(r.row.side))+' of ')+(where||'a line'):where?' along '+where:' in a row')+(r.every?' every '+r.every+' m':''); }
     if(r.span) return t+' spanning '+(r.span.path?(r.span.path.length-1)+' stretches':'from '+xz(r.span.from).join(', ')+' to '+xz(r.span.to).join(', '));
     if(r.ring) return (r.count||'')+' '+t+' in a ring, radius '+(r.ring.radius||'?');
     if(r.grid) return t+' in a grid every '+(Array.isArray(r.every)?r.every.join(' × '):r.every)+' m';
@@ -4087,7 +4163,7 @@ const SCN=(function(){
     if(window.__describeModes) window.__describeModes(); }
   /* A scene is a place, so it gets a sky and a little haze in the distance, which also hides
      where the coarsest copies are; the object view keeps its plain dark backdrop. */
-  function sky(on){ if(on&&data){ scene.background=new THREE.Color(0x9fb4c8); const g=data.ground.size; scene.fog=new THREE.Fog(0x9fb4c8,g*0.6,g*2.6); }
+  function sky(on){ if(on&&data){ scene.background=new THREE.Color(0x9fb4c8); const g=built?built.size:data.ground.size; scene.fog=new THREE.Fog(0x9fb4c8,g*0.6,g*2.6); }
     else { scene.background=null; scene.fog=null; } }
   function frame(){ if(!built||!built.inst.length) return; if(nav) setNav('orbit'); let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,ymax=0;
     for(const o of built.inst){ const T=built.types[o.t], r=T.r*o.s; x0=Math.min(x0,o.x-r); x1=Math.max(x1,o.x+r); z0=Math.min(z0,o.z-r); z1=Math.max(z1,o.z+r); ymax=Math.max(ymax,o.y+T.h*o.s); }
@@ -4152,7 +4228,7 @@ const SCN=(function(){
     $('navHint').hidden=!nav; }
   function tick(){
     if(!nav||!sceneOn) return; const now=performance.now(), dt=Math.min(0.1,(now-navLast)/1000); navLast=now;
-    const run=navKeys.has('shift'), fly=nav.mode==='fly', sp=(fly?Math.max(20,data.ground.size/12):5)*(run?3:1)*dt;
+    const run=navKeys.has('shift'), fly=nav.mode==='fly', sp=(fly?Math.max(20,(built?built.size:data.ground.size)/12):5)*(run?3:1)*dt;
     const fx=-Math.sin(nav.yaw), fz=-Math.cos(nav.yaw), rx=Math.cos(nav.yaw), rz=-Math.sin(nav.yaw);
     let mx=0, mz=0, my=0;
     if(navKeys.has('w')||navKeys.has('arrowup')){ mx+=fx; mz+=fz; } if(navKeys.has('s')||navKeys.has('arrowdown')){ mx-=fx; mz-=fz; }
@@ -4181,9 +4257,9 @@ const SCN=(function(){
     cam.updateMatrixWorld(); ray.setFromCamera(ndc,cam); let pt=null;   // the camera as it is now, not as last drawn
     if(built&&built.ground){ const h=ray.intersectObject(built.ground,true)[0]; if(h) pt=h.point; }
     if(!pt){ const t=-ray.ray.origin.y/ray.ray.direction.y; if(t>0) pt=ray.ray.at(t,V(0,0,0)); }
-    if(!pt||!data||Math.hypot(pt.x,pt.z)>data.ground.size/2) return null; return [pt.x,pt.z]; }
+    if(!pt||!data||Math.hypot(pt.x,pt.z)>(built?built.size:data.ground.size)/2) return null; return [pt.x,pt.z]; }
   function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
-  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
 })();
 window.__scene=SCN;
 
@@ -4309,10 +4385,11 @@ window.__scene=SCN;
     '"areas" are the flat ground of the place, drawn in order on top of the ground: the sea, a lake, a river, a beach, roads and paths, fields, a market square. ANYTHING FLAT AND LARGE IS AN AREA, NEVER A TYPE (a type scales the same in every direction, so it cannot be a sea or a long road). An area: {"name": string, "color": "#rrggbb", and one shape: "rect": [x0, z0, x1, z1] | "center": [x, z], "radius": r | "polygon": [[x, z], ...] | "path": [[x, z], ...], "width": metres; plus "water": true for sea, lakes, rivers and ponds, or "blocks": true for roads, paths and squares}. Scatters and grids never put land things in water or on blocked areas; a rule aimed at a water area keeps its copies in the water. A coast is a large water area covering part of the ground, with a beach area along its edge.',
     '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0, the hull mostly above it (about a third below), so the boat reads from above and from the side.',
     'A type may instead be a PREFAB: {"name": string, "group": [ rule, ... ]}, a little layout of other types written in its own coordinates (centre 0, 0, front +z), using the same rules as below. It is placed by any rule like a single object; every copy re-rolls its scatters, so no two are alike, and its footprint is kept clear of later scatters. BUILD PLACES FROM PREFABS: a cottage with its garden, fence and shed; a farmstead with house, barn, hay and hens; a market stall with its crates; a pier with boats tied along it; a campsite. Then place the prefabs with rows, rings and scatters. Prefabs may contain prefabs, two deep.',
-    'Buildings: walls are boxes with "size", roofs are "roof" parts, doors and windows thin boxes with "on": the walls part, a "face" and "at" (e.g. {"name": "window 2", "shape": "box", "size": [1, 1.2, 0.1], "on": "walls", "face": "left", "at": [-1.5, 1], "color": "#3a4a5a"}), on every side that shows, not only the front. Build a few house types that differ (one and two storeys, different roof colours) rather than one repeated everywhere.',
+    'Buildings: walls are boxes with "size", roofs are "roof" parts, doors and windows thin boxes with "on": the walls part, a "face" and "at" (e.g. {"name": "window 2", "shape": "box", "size": [1, 1.2, 0.1], "on": "walls", "face": "left", "at": [-1.5, 1], "color": "#3a4a5a"}), on every side that shows, not only the front. A village or town street is DENSE: houses side by side along it, facing it (a row with "path" naming the road and "side"), gardens and yards behind, not houses dotted about a field; leave space between buildings only where the place really has it. Build a few house types that differ (one and two storeys, different roof colours) rather than one repeated everywhere.',
     '"place" puts copies of the types in the world. The code does the repetition; NEVER list objects one by one where a rule can do it. Rules, applied in order:',
     '  {"type": name, "at": [x, z], "rot"?: degrees}   one copy: a landmark, a well, a statue, a road segment',
-    '  {"type": name, "row": {"from": [x, z], "to": [x, z]} or {"path": [[x, z], ...]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   houses down a street, lamps along a winding road, fence posts',
+    '  {"type": name, "row": {"from": [x, z], "to": [x, z]} or {"path": [[x, z], ...]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   lamps along a winding road, fence posts, a line of trees',
+    '  {"type": name, "row": {"path": "name of a road area", "side": "left"|"right"|"both", "offset"?: metres from the road\'s middle}, "every": metres}   HOUSES ALONG A STREET: they stand beside the named road, just off its edge (or at offset), fronts facing it, following its bends; left and right as you go from the road\'s first point to its last. Give "every" about the house\'s width plus 0 to 2 m for a village street (cottages shoulder to shoulder), more for a lane of detached houses.',
     '  {"type": name, "span": {"from": [x, z], "to": [x, z]} or {"path": [[x, z], ...]}}   one copy per stretch, laid along it and stretched to reach end to end (along the type\'s own x): walls, fence runs, hedges, a bridge, a pier into the water. Build the type at any length along x, e.g. a wall box size [4, 2, 0.4].',
     '  {"type": name, "ring": {"center": [x, z], "radius": r}, "count": n, "rot"?: "out"|"in"|"along"|degrees}   standing stones, chairs round a table, towers on a wall',
     '  {"type": name, "grid": "area name" or {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops in a field, an orchard, market stalls, gravestones',
@@ -4594,7 +4671,7 @@ window.__scene=SCN;
   pop.addEventListener('drop',async e=>{ const fs=[...e.dataTransfer.files].filter(f=>/^image\//.test(f.type)); if(!fs.length) return; e.preventDefault(); e.stopPropagation(); for(const f of fs) await addPic(f); });
   const picBlocks=()=>pics.map(p=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:p.data}}));
   const picNote=scene=>!pics.length?'':'\n\n'+(pics.length>1?'The pictures above are':'The picture above is')+' what the user means. '+(scene
-    ?'Read each for what it is. A MAP, PLAN, AERIAL VIEW OR SKETCH gives the LAYOUT: put the water, shore, roads, fields, woods and buildings where they are in it, the top of the picture to -z (north), and work out its scale from what is in it (a house is about 8 m across, a road 5 m wide). A PHOTO OR PAINTING FROM THE GROUND gives the CHARACTER: the kinds of buildings, their walls, roofs and colours, the trees, how the land rises, how dense it is; lay it out as the picture suggests, the view\'s left to right along x. Build what is there, simplified into types and rules; leave out what is not. Say in "notes" what you took from the picture and what you had to guess.'
+    ?'Read each for what it is. A MAP, PLAN, AERIAL VIEW OR SKETCH gives the LAYOUT: put the water, shore, roads, fields, woods and buildings where they are in it, the top of the picture to -z (north), and work out its scale from what is in it (a house is about 8 m across, a road 5 m wide). A PHOTO OR PAINTING FROM THE GROUND gives the CHARACTER: the kinds of buildings, their walls, roofs and colours, the trees, how the land rises, how dense it is; lay it out as the picture suggests, the view\'s left to right along x. LAND: if a picture shows hills, a slope or land rising behind the place, give "terrain" features to match (a village climbing from a harbour is a slope rising from the shore, hills behind are hills); a place in a picture is rarely flat. STREETS: buildings that line a street in the picture stand along it, side by side, fronts to the road: make the street a road area and place them with a row naming it and "side". Build what is there, simplified into types and rules; leave out what is not. Say in "notes" what you took from the picture and what you had to guess.'
     :'Build the object it shows: match its proportions, its parts and their colours, the front of it facing +z. Say in "notes" what you simplified.');
   // The user turn: pictures first (Claude reads them before the words about them), then the text.
   const withPics=(text,scene)=>pics.length?[...picBlocks(),{type:'text',text:text+picNote(scene)}]:text;
