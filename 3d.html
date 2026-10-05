@@ -2954,7 +2954,107 @@ function newPart(o={}){
 /* Caches a part derives from its settings: the core's average width per height (so the
    outline can reshape any core) and the section as a lookup table round the turn. */
 const SEC_N=512, MEAN_N=64;
-function prepPart(p){ prepCore(p); prepSection(p); }
+function prepPart(p){ prepCore(p); prepSection(p); if(p.detail&&(!p.cascade||p._detailGen)) applyDetail(p); }   // a pattern is made again whenever the shape it lies on changes
+/* ══ PATTERNS ══ (Oct 5, step 2 of the detail plan: "make the objects very detailed").
+   A part may carry {"detail": {pattern, size, depth, color}}: stones, bricks, shingles,
+   planks, bark or rough, with features "size" metres across, joints "depth" metres deep
+   and "color" in the joints. The pattern is not stored: it is read onto the part's own
+   cascade, rung by rung, each leaf taking the pattern AVERAGED OVER ITS OWN CELL (TB §3,
+   the forward map, with the cell average as the band limit), and each rung keeping only
+   what the coarser rungs before it did not already hold (TVF §4.3, the cascade as
+   residuals). So a pattern's broad lie sits in the coarse rungs and its joints in the
+   fine ones, and the octave levels of a scene show each band at its distance: a far wall
+   is its plain colour, a near one has stones. Only the few numbers of "detail" are saved;
+   the cascade is made again from them, exactly, when the part is opened, and kept with
+   the part only once it is sculpted or painted by hand on top. What a part's finest rung
+   cannot hold (about 1/64 of the way round and 1/48 of the height) averages away. */
+const PATTERNS=['stones','bricks','shingles','planks','boards','bark','rough'];
+function hash2(i,j,s){ let h=Math.imul(i,374761393)+Math.imul(j,668265263)+Math.imul(s,1442695041)|0; h=Math.imul(h^(h>>>13),1274126177); return ((h^(h>>>16))>>>0)/4294967296; }
+function vnoise(x,y,s){ const i=Math.floor(x), j=Math.floor(y), fx=x-i, fy=y-j, u=fx*fx*(3-2*fx), w=fy*fy*(3-2*fy);
+  const a=hash2(i,j,s), b=hash2(i+1,j,s), c=hash2(i,j+1,s), d=hash2(i+1,j+1,s), lo=a+(b-a)*u; return lo+(c+(d-c)*u-lo)*w; }
+const _sm=t=>{ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); };
+/* One pattern at (u, v) metres round and up the part: d the surface (0 the face, -1 the
+   bottom of a joint), g how much of the joint colour shows, t the piece's own tint. */
+function patternAt(kind,u,v,S,seed){
+  if(kind==='rough'){ let a=0,amp=0.5,f=1/S; for(let o=0;o<5;o++){ a+=(vnoise(u*f,v*f,seed+o)-0.5)*2*amp; amp*=0.5; f*=2; } return {d:a-0.5,g:0,t:a}; }
+  if(kind==='bark'){ const x=u/S+vnoise(u/S*0.7,v/(S*4),seed)*1.6, f=x-Math.floor(x), ridge=1-Math.abs(2*f-1);
+    return {d:_sm(ridge*1.5)-1+0.15*(vnoise(u/S*3,v/S*0.5,seed+3)-0.5), g:1-_sm(ridge*2.5), t:(hash2(Math.floor(x),0,seed)-0.5)*2}; }
+  if(kind==='boards'){ const r=patternAt('planks',v,u,S,seed); return r; }   // planks standing up: doors, fences, sheds
+  if(kind==='planks'){ const row=Math.floor(v/S), f=v/S-row, j=_sm(Math.min(f,1-f)/0.06);
+    return {d:j-1+0.12*(hash2(row,0,seed)-0.5)*j+0.05*(vnoise(u/S*0.5,v/S*8,seed)-0.5), g:1-j, t:(hash2(row,1,seed)-0.5)*2}; }
+  if(kind==='shingles'){ const row=Math.floor(v/S), fy=v/S-row, x=u/(0.8*S)+(row%2)*0.5+(hash2(row,2,seed)-0.5)*0.3, col=Math.floor(x), fx=x-col;
+    const slit=_sm(Math.min(fx,1-fx)/0.06), butt=_sm(fy/0.08);
+    return {d:-0.7*fy*slit-(1-slit)*0.9, g:Math.max(1-slit,1-butt)*0.9, t:(hash2(row,col,seed)-0.5)*2}; }
+  // stones and bricks: courses of blocks with mortar between; stones uneven, rounded and bulging
+  const stones=kind==='stones', vb=stones?v+(vnoise(u/S*1.1,0.5,seed)-0.5)*0.4*S:v, row=Math.floor(vb/S), fy=vb/S-row;
+  const w=stones?S*(1.3+0.7*hash2(row,7,seed)):2*S, x=u/w+(row%2)*0.5+(stones?hash2(row,3,seed):0), col=Math.floor(x), fx=x-col;
+  const e=Math.min(fx*w,(1-fx)*w,fy*S,(1-fy)*S)/((stones?0.13:0.09)*S), j=_sm(e);
+  const bulge=stones?0.3*(1-(2*fx-1)**2)*(1-(2*fy-1)**2)+0.12*(vnoise(u/S*2.5,v/S*2.5,seed+5)-0.5):0;
+  return {d:j*(stones?0.7+bulge:1)-1, g:1-j, t:(hash2(row,col,seed)-0.5)*2}; }
+/* A rung read on a whole grid of points at once: the same weights as rungEval, taken round
+   and up separately (the kernel is a product of the two, and so is its total), so a grid
+   costs two passes instead of a window per point. Laying a pattern rung on rung needs
+   every coarser rung at every finer leaf; point by point that took seconds a scene. */
+function rungGrid(rg,ths,hs,chans){
+  const Nt=rg.Nt, Nh=rg.Nh, dct=state.hkernel==='dct', HW=state.aperture, fullT=(2*HW+1>=Nt), fullH=(2*HW+1>=Nh);
+  const colT=ths.map(theta=>{ const ct=theta*Nt/TAU-0.5, j0=fullT?0:Math.floor(ct-HW), j1=fullT?Nt-1:Math.ceil(ct+HW), len=j1-j0+1; _ensure(len);
+    thetaRow(theta,Nt,j0,len,_rowT); if(!fullT) hannRow(ct,j0,len,HW,_rowWT);
+    const idx=[], w=[]; let sw=0; for(let j=j0;j<=j1;j++){ const tt=fullT?1:_rowWT[j-j0]; if(tt===0) continue; const ww=_rowT[j-j0]*tt; idx.push(fullT?j:((j%Nt)+Nt)%Nt); w.push(ww); sw+=ww; }
+    return {idx,w,sw}; });
+  const rowH=hs.map(h=>{ const ch=h*Nh-0.5, i0=fullH?0:Math.max(0,Math.floor(ch-HW)), i1=fullH?Nh-1:Math.min(Nh-1,Math.ceil(ch+HW)), len=i1-i0+1; _ensure(len);
+    if(dct) dctRow(h,Nh,i0,len,_rowH); if(!fullH) hannRow(ch,i0,len,HW,_rowWH);
+    const idx=[], w=[]; let sw=0; for(let i=i0;i<=i1;i++){ const thh=fullH?1:_rowWH[i-i0]; if(thh===0) continue; const wh=(dct?_rowH[i-i0]:kernH(h-leafH(i,Nh),Nh))*thh; if(!dct&&wh<1e-4) continue; idx.push(i); w.push(wh); sw+=wh; }
+    return {idx,w,sw}; });
+  const nT=ths.length, out=chans.map(()=>new Float64Array(hs.length*nT)), tmp=new Float64Array(Nt);
+  for(let a=0;a<hs.length;a++){ const R=rowH[a];
+    chans.forEach((src,c)=>{ tmp.fill(0); for(let m=0;m<R.idx.length;m++){ const base=R.idx[m]*Nt, w=R.w[m]; for(let j=0;j<Nt;j++) tmp[j]+=src[base+j]*w; }
+      const o=out[c]; for(let b=0;b<nT;b++){ const C=colT[b]; let sm=0; for(let m=0;m<C.idx.length;m++) sm+=tmp[C.idx[m]]*C.w[m]; const den=R.sw*C.sw; o[a*nT+b]=Math.abs(den)<1e-12?0:sm/den; } }); }
+  return out; }
+const _detailCache=new Map();
+// how far round (at mid height) and up a part is, in metres
+function girth(p){ const sx=Math.abs(p.scale[0]), sz=Math.abs(p.scale[2]); let P=0, prev=null;
+  for(let j=0;j<=64;j++){ const th=j/64*TAU, r=baseRadius(p,th,0.5), pt=[r*Math.cos(th)*sx,r*Math.sin(th)*p.section.squash*sz]; if(prev) P+=Math.hypot(pt[0]-prev[0],pt[1]-prev[1]); prev=pt; }
+  return [Math.max(P,1e-3),Math.max(Math.abs(p.scale[1]),1e-3)]; }
+/* A part's leaves are laid evenly round and up, 8 by 6 at the first rung; a wall 21 m
+   round and 3 m up then has leaves seven times longer than they are tall, and its stones
+   lose their upright joints (Oct 5: the first stone cottage looked built of logs). A
+   detailed part gets leaves to its own proportions and its pattern's size instead: four
+   to a stone or a shingle row at the finest rung, up to 32 round and 24 up at the first
+   (384 in all). */
+function detailEng(p){ const [P,H]=girth(p), e=Object.assign({},p.eng), f=p.detail.size/4;   // four leaves to a feature at the finest rung (8 times the first)
+  let T=Math.min(32,Math.max(8,Math.round(P/f/8/8)*8)), U=Math.min(24,Math.max(6,Math.round(H/f/8)));
+  while(T*U>384){ if(T>8&&T/P>=U/H) T-=8; else if(U>6) U--; else break; }   // and no more than 384 at the first rung
+  e.baseT=T; e.baseH=U; return e; }
+function makeDetail(p){ const q=p.detail;
+  p.eng=detailEng(p); p.cascade=null; ensureCascade(p); usePart(p);
+  const sx=Math.abs(p.scale[0]), sz=Math.abs(p.scale[2]), sr=Math.max(1e-3,(sx+sz)/2), [P,H]=girth(p), S=q.size, D=q.depth, seed=q.seed|0;
+  // a roof lies on its side: its "up" runs along the ridge, so its rows go round the section instead
+  const uv=q.across?(t,h)=>[h*H,t/TAU*P]:(t,h)=>[t/TAU*P,h*H];
+  const base=new THREE.Color(p.paint.color), gc=new THREE.Color(q.color||'#3a3530'), K=4;
+  /* Relief about the face, not a recess: the pattern's own average depth and colour are
+     taken out, so a far copy (the bare base) is the near one's average, the same size and
+     shade, and nothing shifts as the rungs come in. Measured on a fine grid over the part. */
+  let mD=0, mR=0, mG=0, mB=0; const M=96;
+  for(let a=0;a<M;a++) for(let b=0;b<M;b++){ const [u,v]=uv((a+0.5)/M*TAU,(b+0.5)/M), z=patternAt(q.pattern,u,v,S,seed), tn=0.1*z.t*(1-z.g);
+    mD+=z.d; mR+=base.r*tn+(gc.r-base.r)*z.g; mG+=base.g*tn+(gc.g-base.g)*z.g; mB+=base.b*tn+(gc.b-base.b)*z.g; }
+  mD/=M*M; mR/=M*M; mG/=M*M; mB/=M*M;
+  for(let r=0;r<p.cascade.length;r++){ const rg=p.cascade[r], Nt=rg.Nt, Nh=rg.Nh, dT=TAU/Nt, dH=1/Nh;
+    // what the coarser rungs already hold at this rung's leaves
+    const ths=Array.from({length:Nt},(_,j)=>(j+0.5)*dT), hs=Array.from({length:Nh},(_,i)=>(i+0.5)*dH), low=[0,1,2,3].map(()=>new Float64Array(Nt*Nh));
+    for(let s=0;s<r;s++){ const c=p.cascade[s], g=rungGrid(c,ths,hs,[c.v,c.cR,c.cG,c.cB]); for(let ch=0;ch<4;ch++) for(let k=0;k<g[ch].length;k++) low[ch][k]+=g[ch][k]; }
+    for(let i=0;i<Nh;i++) for(let j=0;j<Nt;j++){ const th=(j+0.5)*dT, h=(i+0.5)*dH; let dd=0,gg=0,tt=0;
+      for(let a=0;a<K;a++) for(let b=0;b<K;b++){ const [u,v]=uv(th+((a+0.5)/K-0.5)*dT,h+((b+0.5)/K-0.5)*dH), s=patternAt(q.pattern,u,v,S,seed); dd+=s.d; gg+=s.g; tt+=s.t; }
+      dd/=K*K; gg/=K*K; tt/=K*K;
+      const k=i*Nt+j, tint=0.1*tt*(1-gg), lv=low[0][k], lc=[low[1][k],low[2][k],low[3][k]];
+      rg.v[k]=(dd-mD)*D/sr-lv;
+      rg.cR[k]=base.r*tint+(gc.r-base.r)*gg-mR-lc[0]; rg.cG[k]=base.g*tint+(gc.g-base.g)*gg-mG-lc[1]; rg.cB[k]=base.b*tint+(gc.b-base.b)*gg-mB-lc[2]; } }
+  return p.cascade; }
+function applyDetail(p){ const q=p.detail; if(!q||!PATTERNS.includes(q.pattern)||!(q.size>0)) return;
+  const key=JSON.stringify([q,p.outline,p.section,p.bend,p.scale,p.core,p.paint.color]);
+  let c=_detailCache.get(key); if(c) p.eng=detailEng(p); else { c=makeDetail(p); if(_detailCache.size>200) _detailCache.clear(); _detailCache.set(key,c); }
+  p.cascade=c.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,v:rg.v.slice(),cR:rg.cR.slice(),cG:rg.cG.slice(),cB:rg.cB.slice(),blocked:new Uint8Array(rg.Nt*rg.Nh)}));
+  p.sculpted=true; p.painted=true; p._detailGen=true; }
+
 function prepCore(p){
   p._coreFn=coreFn(p.core);
   if(p.core.kind==='lathe'){ p._mean=null; return; }
@@ -3034,11 +3134,17 @@ function baseRadius(p,th,h){
   return Math.max(0, env*secAt(p,tw)*m);
 }
 /* call with usePart(p) in force when the part has a cascade */
-function radiusAt(p,th,h){ let r=baseRadius(p,th,h); if(p.cascade && p.sculpted) r+=evalFull(th,h); return Math.max(0,r)/(state.hRun||1); }
+/* rungCap: the finest rung a mesh is built with (Infinity: all of them, -1: none). A scene
+   copy far away is drawn from a prefix of its parts' rungs, the shape's own coarse bands,
+   rather than a sparse sampling of every rung (TVF §5.6: bands are produced by
+   observation, not authored). */
+let rungCap=Infinity;
+const capped=()=>Math.min(rungCap,state.rungs-1);
+function radiusAt(p,th,h){ let r=baseRadius(p,th,h); if(p.cascade && p.sculpted && rungCap>=0) r+=rungCap===Infinity?evalFull(th,h):evalUpTo(th,h,capped()); return Math.max(0,r)/(state.hRun||1); }
 const _c1=new THREE.Color(), _c2=new THREE.Color();
 function baseColor(p,h,out){ _c1.set(p.paint.color); _c2.set(p.paint.color2);
   const c=(p.paint.bands>0 && Math.floor(clamp(h,0,0.9999)*p.paint.bands*2)%2===1)?_c2:_c1; out[0]=c.r; out[1]=c.g; out[2]=c.b; return out; }
-function colorAt(p,th,h,out){ baseColor(p,h,out); if(p.cascade && p.painted){ const c=evalColorUpTo(th,h,state.rungs-1); out[0]+=c[0]; out[1]+=c[1]; out[2]+=c[2]; } return out; }
+function colorAt(p,th,h,out){ baseColor(p,h,out); if(p.cascade && p.painted && rungCap>=0){ const c=evalColorUpTo(th,h,capped()); out[0]+=c[0]; out[1]+=c[1]; out[2]+=c[2]; } return out; }
 /* What the paint brush sees as the colour on screen (the engine's paint converges on it). */
 let _paintPart=null;
 function paintCurrent(th,h){ const o=[0,0,0]; return _paintPart ? colorAt(_paintPart,th,h,o) : evalColorUpTo(th,h,state.rungs-1); }
@@ -3047,15 +3153,28 @@ function paintCurrent(th,h){ const o=[0,0,0]; return _paintPart ? colorAt(_paint
    the outside, over the rim and down the inside to a floor. */
 const DETAIL=[[32,24],[48,36],[72,56],[112,84]];
 let detail=2;
-function buildGeometry(p,dims){
-  const [NT,NH]=dims||DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0];
+function buildGeometry(p,dims,cap){
+  const [NT,NH]=dims||DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0], keepCap=rungCap;
   if(p.cascade) usePart(p);
-  const ring=(h,inset)=>{ const pts=[], cols=[]; for(let j=0;j<NT;j++){ const th=j/NT*TAU, r=Math.max(0,radiusAt(p,th,h)-inset);
-      pts.push(r*Math.cos(th)+lean*h*h, h, r*Math.sin(th)*sq); colorAt(p,th,h,col); cols.push(col[0],col[1],col[2]); } return {pts,cols}; };
-  for(let i=0;i<NH;i++) rings.push(ring(i/(NH-1),0));
+  rungCap=cap==null?Infinity:cap;
+  // every ring's height, outside then (hollow) inside, so the cascade can be read on the whole grid at once
+  const hs=[], insets=[]; for(let i=0;i<NH;i++){ hs.push(i/(NH-1)); insets.push(0); }
   let capTop=true;
   if(p.hollow.on){ const w=p.hollow.wall, f=clamp(p.hollow.floor,0.02,0.9), NI=Math.max(4,Math.round(NH*(1-f)));
-    for(let i=0;i<NI;i++) rings.push(ring(1-(1-f)*(i/(NI-1)),w)); capTop=false; }
+    for(let i=0;i<NI;i++){ hs.push(1-(1-f)*(i/(NI-1))); insets.push(w); } capTop=false; }
+  const ths=Array.from({length:NT},(_,j)=>j/NT*TAU);
+  /* The cascade's share of radius and colour on that grid, rung by rung, by rungGrid's two
+     passes (the same sums as radiusAt and colorAt, point for point, without a window per
+     vertex: a patterned scene built in seconds otherwise). */
+  let gR=null, gC=null; const top=rungCap===Infinity?state.rungs-1:capped();
+  if(p.cascade&&top>=0&&(p.sculpted||p.painted)){ for(let r=0;r<=top&&r<state.rungs;r++){ const rg=state.cascade[r];
+      const g=rungGrid(rg,ths,hs,p.painted?[rg.v,rg.cR,rg.cG,rg.cB]:[rg.v]);
+      if(p.sculpted){ if(!gR) gR=new Float64Array(g[0].length); for(let k=0;k<gR.length;k++) gR[k]+=g[0][k]; }
+      if(p.painted){ if(!gC) gC=[0,1,2].map(()=>new Float64Array(g[0].length)); for(let c=0;c<3;c++) for(let k=0;k<gC[c].length;k++) gC[c][k]+=g[c+1][k]; } } }
+  const ring=a=>{ const h=hs[a], inset=insets[a], pts=[], cols=[]; for(let j=0;j<NT;j++){ const th=ths[j], k=a*NT+j;
+      const r=Math.max(0,Math.max(0,baseRadius(p,th,h)+(gR?gR[k]:0))/(state.hRun||1)-inset);
+      pts.push(r*Math.cos(th)+lean*h*h, h, r*Math.sin(th)*sq); baseColor(p,h,col); if(gC){ col[0]+=gC[0][k]; col[1]+=gC[1][k]; col[2]+=gC[2][k]; } cols.push(col[0],col[1],col[2]); } return {pts,cols}; };
+  for(let a=0;a<hs.length;a++) rings.push(ring(a));
   const pos=[], cl=[], idx=[];
   for(const rg of rings){ for(const v of rg.pts) pos.push(v); for(const c of rg.cols) cl.push(clamp(c,0,1)); }
   for(let r=0;r<rings.length-1;r++) for(let j=0;j<NT;j++){ const a=r*NT+j,b=r*NT+(j+1)%NT,c=(r+1)*NT+j,d=(r+1)*NT+(j+1)%NT; idx.push(a,c,b,b,c,d); }
@@ -3066,7 +3185,7 @@ function buildGeometry(p,dims){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   g.setAttribute('color',new THREE.Float32BufferAttribute(cl,3));
-  g.setIndex(idx); g.computeVertexNormals(); return g;
+  g.setIndex(idx); g.computeVertexNormals(); rungCap=keepCap; return g;
 }
 
 /* ══ STARTING SHAPES ══ plain lathe shapes, and the classic presets as cores. */
@@ -3188,7 +3307,7 @@ renderer.domElement.addEventListener('pointermove',e=>{ if(!stroking) return; co
   if(stroking.draw) drawStrokeTo(theta,h); else if(!isStamp(brushMode)) strokeAt(theta,h); });
 function strokeAt(theta,h){ const p=stroking.p; _paintPart=p;
   for(const t of symThetas(theta)) sculptOnce(t,h);
-  _paintPart=null; if(stroking.painting) p.painted=true; else if(brushMode!=='block'&&brushMode!=='unblock') p.sculpted=true; rebuild(p); }
+  _paintPart=null; if(stroking.painting) p.painted=true; else if(brushMode!=='block'&&brushMode!=='unblock') p.sculpted=true; p._detailGen=false; rebuild(p); }   // worked by hand: the cascade is the part's own now, saved with it
 addEventListener('pointerup',e=>{
   if(stroking){ const s=stroking; stroking=null; orbit.enabled=true;
     if(s.draw){ usePart(s.p); s.p.sculpted=true; commitStroke(); }
@@ -3220,12 +3339,13 @@ const r5=x=>Math.round(x*1e5)/1e5;
 function partData(p){
   const o={ id:p.id, name:p.name, core:p.core, outline:p.outline, section:p.section, bend:p.bend, paint:p.paint, hollow:p.hollow,
     pos:p.pos, rot:p.rot, scale:p.scale, eng:p.eng, sculpted:p.sculpted, painted:p.painted, origOutline:p._origOutline||null };
-  if(p.cascade && (p.sculpted||p.painted)) o.cascade=p.cascade.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,v:Array.from(rg.v,r5),cR:Array.from(rg.cR,r5),cG:Array.from(rg.cG,r5),cB:Array.from(rg.cB,r5),blocked:Array.from(rg.blocked)}));
+  if(p.detail) o.detail=p.detail;
+  if(p.cascade && (p.sculpted||p.painted) && !p._detailGen) o.cascade=p.cascade.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,v:Array.from(rg.v,r5),cR:Array.from(rg.cR,r5),cG:Array.from(rg.cG,r5),cB:Array.from(rg.cB,r5),blocked:Array.from(rg.blocked)}));
   return o; }
 function partFromData(d){ const q=JSON.parse(JSON.stringify(Object.assign({},d,{cascade:undefined})));
   const p=newPart(Object.assign(q,{cascade:null}));
   p._origOutline=d.origOutline||JSON.parse(JSON.stringify(p.outline));
-  if(d.cascade) p.cascade=d.cascade.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,v:Float64Array.from(rg.v),cR:Float64Array.from(rg.cR),cG:Float64Array.from(rg.cG),cB:Float64Array.from(rg.cB),blocked:Uint8Array.from(rg.blocked)}));
+  if(d.cascade){ p._detailGen=false; p.cascade=d.cascade.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,v:Float64Array.from(rg.v),cR:Float64Array.from(rg.cR),cG:Float64Array.from(rg.cG),cB:Float64Array.from(rg.cB),blocked:Uint8Array.from(rg.blocked)})); }
   return p; }
 function sceneData(){ const d={ format:'3d-studio', version:2, parts:S.parts.map(partData), sel:S.sel, editing:S.editing };
   if(SCN.data()){ d.scene=SCN.data(); d.view=sceneOn?'scene':'object'; } return d; }   // a .3da may carry a whole scene beside the object; older readers ignore it
@@ -3764,24 +3884,59 @@ const SCN=(function(){
   /* Distance, in the copy's own size, under which it moves up a level. SIZE, not height:
      a road tile 2 cm tall but 4 m across measured by height would always be "far away". */
   const NEAR=[40,12,5,2];
+  /* DETAIL BY OCTAVES (Oct 5, after "Depth as Recursion" and the TVF spec: the studio's
+     parts already carry a cascade of rungs, each doubling the leaves, but scenes drew
+     every copy from the full surface sampled at five fixed sizes). A type with sculpted or
+     painted parts is drawn instead from PREFIXES of its parts' rungs: level 0 is the base
+     shape alone, on the plain mesh; level l holds the base and rungs 0..l-1, on a mesh with
+     a vertex at every one of rung l-1's leaves (the band's own grid). One rung per octave
+     of distance: rung r's leaves are about 6 pixels apart at 20/2^r of the copy's own
+     sizes, so the levels change at 20, 10, 5 and 2.5, the same rule at every level, and a
+     copy too far for even rung 0 to show costs no more than a plain one. (Measured first
+     at two vertices a leaf and 3-pixel leaves: 1.34 million triangles where the plain
+     levels drew 90 thousand, for detail too fine to see. At one vertex a leaf and 6 pixels
+     the meshes come out at nearly the plain sizes.) And each level also holds the prefix one rung shorter, at the same
+     vertices; the shader blends between the two by how far the copy has come into its
+     octave, so a rung fades in as the camera nears, as evalUpToF does for one object,
+     instead of appearing. Plain types, whose shape is all base and no rungs, keep the
+     sizes and distances above. */
+  const NEAR_OCT=[20,10,5,2.5];
   const MAX_COPIES=20000, MAX_RULE=5000;
   let data=null, built=null, editing=null, stash=null, lastKey='', stats={copies:0,tris:0};
   const group=new THREE.Group(); group.visible=false; scene.add(group);
   const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.62,metalness:0.02,side:THREE.DoubleSide});
+  // the blend: every type mesh carries the shorter prefix (posPrev, nrmPrev) and each copy its fade
+  mat.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader
+    .replace('#include <common>','#include <common>\nattribute vec3 posPrev;\nattribute vec3 nrmPrev;\nattribute float fade;')
+    .replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(mix(nrmPrev, vec3(normal), fade));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3(tangent.xyz);\n#endif')
+    .replace('#include <begin_vertex>','vec3 transformed = mix(posPrev, vec3(position), fade);'); };
+  const detailed=d=>!!((d.cascade&&(d.sculpted||d.painted))||(d.detail&&d.detail.pattern));
+  // the mesh for one part at one level: plain parts as before, detailed ones fine enough for that level's rung
+  function partDims(p,level){ if(!detailed(p)||level===0) return LODS[level]; const k=1<<Math.min(level-1,(p.eng.rungs||4)-1);
+    return [Math.min(256,Math.ceil(Math.max(LODS[level][0],p.eng.baseT*k)/8)*8),Math.min(192,Math.max(LODS[level][1],p.eng.baseH*k))]; }
+  /* A type's first-rung leaf in metres (the geometric mean of round and up, the finest of
+     its detailed parts): the octave distances follow it, so a part given more leaves gets
+     them later, when they are as many pixels apart as a plain part's would be. 156 makes a
+     plain ball of size 1 (8 by 6 leaves) arrive at the distances above. */
+  function leafOf(parts){ let m=Infinity; for(const d of parts){ if(!detailed(d)) continue; const p=partFromData(d), [P,H]=girth(p);
+      m=Math.min(m,Math.sqrt(P/p.eng.baseT*H/p.eng.baseH)); } return m; }
   const V=(x,y,z)=>new THREE.Vector3(x,y,z);
 
   // One type at one resolution: its parts built and moved into place, laid into one geometry.
-  function typeGeometry(parts,dims){
-    const pos=[],nor=[],col=[],idx=[], m=new THREE.Matrix4(), q=new THREE.Quaternion();
-    for(const d of parts){ const p=partFromData(d), g=buildGeometry(p,dims);
+  function typeGeometry(parts,level){
+    const pos=[],nor=[],col=[],idx=[],pp=[],np=[], m=new THREE.Matrix4(), q=new THREE.Quaternion();
+    for(const d of parts){ const p=partFromData(d), dims=partDims(p,level), det=detailed(p);
+      // rungs 0..level-1, and (same vertices) 0..level-2 for the fade; a plain part's two are one, as is level 0's
+      const g=buildGeometry(p,dims,det?level-1:Infinity), g0=det&&level>0?buildGeometry(p,dims,level-2):g;
       m.compose(V(...p.pos),q.setFromEuler(new THREE.Euler(p.rot[0]*PI/180,p.rot[1]*PI/180,p.rot[2]*PI/180)),V(...p.scale));
-      g.applyMatrix4(m); const base=pos.length/3, flip=m.determinant()<0;
-      const P=g.attributes.position.array, N=g.attributes.normal.array, C=g.attributes.color.array, I=g.index.array;
-      for(let i=0;i<P.length;i++){ pos.push(P[i]); nor.push(N[i]); col.push(C[i]); }
+      g.applyMatrix4(m); if(g0!==g) g0.applyMatrix4(m); const base=pos.length/3, flip=m.determinant()<0;
+      const P=g.attributes.position.array, N=g.attributes.normal.array, C=g.attributes.color.array, I=g.index.array, P0=g0.attributes.position.array, N0=g0.attributes.normal.array;
+      for(let i=0;i<P.length;i++){ pos.push(P[i]); nor.push(N[i]); col.push(C[i]); pp.push(P0[i]); np.push(N0[i]); }
       for(let i=0;i<I.length;i+=3) flip?idx.push(I[i]+base,I[i+2]+base,I[i+1]+base):idx.push(I[i]+base,I[i+1]+base,I[i+2]+base);
-      g.dispose(); }
+      g.dispose(); if(g0!==g) g0.dispose(); }
     const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+    g.setAttribute('posPrev',new THREE.Float32BufferAttribute(pp,3)); g.setAttribute('nrmPrev',new THREE.Float32BufferAttribute(np,3));
     g.setAttribute('color',new THREE.Float32BufferAttribute(col,3)); g.setIndex(idx); g.computeBoundingBox(); return g; }
 
   /* ── placement ── */
@@ -4091,17 +4246,18 @@ const SCN=(function(){
       if(Array.isArray(ty.group)) return {name:ty.name,group:ty.group,lod:[],h:1,r:1,size:1,len:1,cx:0};
       const key=JSON.stringify(ty.parts), old=keep&&keep.get(key);
       if(old){ keep.delete(key); return Object.assign(old,{name:ty.name}); }
-      const lod=LODS.map(dims=>({geo:typeGeometry(ty.parts,dims),mesh:null,n:0}));
+      const lod=LODS.map((_,l)=>({geo:typeGeometry(ty.parts,l),mesh:null,n:0}));
       const bb=lod[LODS.length-1].geo.boundingBox;
       const h=Math.max(0.05,bb.max.y), r=Math.max(0.05,Math.max(-bb.min.x,bb.max.x,-bb.min.z,bb.max.z)*0.8);
       // len and cx: its length along its own x and where that length is centred, for span
-      return {name:ty.name,key,lod,h,r,size:Math.max(h,r/0.8*2),len:Math.max(0.05,bb.max.x-bb.min.x),cx:(bb.max.x+bb.min.x)/2}; });
+      return {name:ty.name,key,lod,oct:ty.parts.some(detailed),leaf:ty.parts.some(detailed)?leafOf(ty.parts):0,h,r,size:Math.max(h,r/0.8*2),len:Math.max(0.05,bb.max.x-bb.min.x),cx:(bb.max.x+bb.min.x)/2}; });
     if(keep) for(const T of keep.values()) for(const L of T.lod){ if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); } L.geo.dispose(); }
     disposeGround();
     const {inst,short,gCount}=place(data,types);
     for(const [t,T] of types.entries()){ const n=inst.filter(o=>o.t===t).length; T.count=T.group?(gCount.get(t)||0):n;
       for(const L of T.lod){ if(L.mesh&&L.cap>=n&&n>0){ continue; } if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); L.mesh=null; }
         if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
+        L.fade=new THREE.InstancedBufferAttribute(new Float32Array(n).fill(1),1); L.geo.setAttribute('fade',L.fade);
         L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
     /* The ground is a round island; it grows to hold every area and every copy, with a
        margin (Oct 5: the fields east of the stream, the far corners of a wide map, fell
@@ -4122,8 +4278,15 @@ const SCN=(function(){
     let tris=0;
     for(const o of built.inst){ const T=built.types[o.t], d=Math.hypot(c.x-o.x,c.y-o.y,c.z-o.z)/(T.size*o.s);
       let lv=0; while(lv<NEAR.length&&d<NEAR[lv]) lv++;
-      o.lv=lv; const L=T.lod[lv]; if(!L.mesh) continue; L.mesh.setMatrixAt(L.n,o.m); L.mesh.setColorAt(L.n,o.col); L.n++; tris+=L.geo.index.count/3; }
-    for(const T of built.types) for(const L of T.lod) if(L.mesh){ L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true; if(L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate=true; }
+      /* A detailed type needs two things of its level: a fine enough mesh for its outline,
+         which the plain distances give, and its rungs by octave. It takes the higher of the
+         two; where the outline asks for the finer mesh first, the rung waits at fade 0, so
+         that level shows the shorter prefix on the finer mesh (Oct 5: on the octave
+         distances alone, rocks 20 to 40 sizes off were drawn as 8 by 3 diamonds). */
+      let fade=1;
+      if(T.oct){ const x=Math.log2(156*T.leaf*o.s/(d*T.size*o.s)); lv=Math.max(lv,Math.max(0,Math.min(4,Math.floor(x)))); fade=Math.max(0,Math.min(1,x-lv)); }
+      o.lv=lv; o.fade=fade; const L=T.lod[lv]; if(!L.mesh) continue; L.mesh.setMatrixAt(L.n,o.m); L.mesh.setColorAt(L.n,o.col); L.fade.array[L.n]=fade; L.n++; tris+=L.geo.index.count/3; }
+    for(const T of built.types) for(const L of T.lod) if(L.mesh){ L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true; L.fade.needsUpdate=true; if(L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate=true; }
     stats={copies:built.inst.length,tris}; const el=$('scStats'); if(el) el.textContent=statsText(); }
   const statsText=()=>built?built.inst.length.toLocaleString()+' objects of '+built.types.length+' types · '+Math.round(stats.tris).toLocaleString()+' triangles drawn'+(built.short?' · '+built.short+' did not fit':''):'';
 
@@ -4259,7 +4422,7 @@ const SCN=(function(){
     if(!pt){ const t=-ray.ray.origin.y/ray.ray.direction.y; if(t>0) pt=ray.ray.at(t,V(0,0,0)); }
     if(!pt||!data||Math.hypot(pt.x,pt.z)>(built?built.size:data.ground.size)/2) return null; return [pt.x,pt.z]; }
   function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
-  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR_OCT,NEAR};
 })();
 window.__scene=SCN;
 
@@ -4362,6 +4525,7 @@ window.__scene=SCN;
     '  "rot": [x, y, z]          (degrees, applied X then Y then Z, turning about the base centre; [90,0,0] lays a part along +z, [0,0,-90] along +x)',
     '  "scale": [sx, sy, sz]     (a part is 1 tall before scaling, and ~2*r wide; sy is its height)',
     '  "size"?: [w, h, d]        (instead of scale: the part\'s real width, height and depth in metres, measured before rot. Easiest for boxes: a wall is {"shape": "box", "size": [8, 3, 0.3]})',
+    '  "detail"?: {"pattern": "stones"|"bricks"|"shingles"|"planks"|"boards"|"bark"|"rough", "size": metres, "depth": metres, "color"?: "#rrggbb"}   (SURFACE DETAIL, made by the studio: "size" is one stone, brick course, shingle row, plank or bark ridge, "depth" how deep the joints go, "color" the joints\' colour; the part\'s own color is the stones\' or boards\'. Use it on what has texture: stone and brick walls, tiled or shingled roofs (on the roof part), planks lying across (cladding) or boards standing up (doors, fences, sheds), tree trunks (bark), rocks and foliage (rough). A type placed by "span" is stretched along its length, and so is its detail: leave detail off spanned types, or keep it rough. Keep "size" at least 1/30 of the part\'s girth and 1/24 of its height, or it averages away; put fine detail on smaller parts. Give "detail": null in a change to remove it.)',
     '  "on"?: "name of an earlier part", "face"?: "front"|"back"|"left"|"right"|"top", "at"?: [across, up]   (instead of pos and rot, for anything set INTO OR ONTO A FACE: doors, windows, shutters, signs, a clock face, a chimney on a flat roof. The studio turns the part to face out of that face and sets it flush, slightly proud. "across" is metres from the middle of the face, to the right as seen from outside; "up" is the height of the part\'s bottom above the base of the part it is on (leave it out to centre it). Give the part "size": [width, height, depth], the depth small (0.1). On "top", "at" is [x, z] across the top. ALWAYS use this for doors and windows; never work out their pos yourself.)',
     '  "shape": "roof" is also allowed: a gable roof, a triangular prism. Give "size": [length along the ridge, height, width], "pos" = the centre of its underside (on top of the walls), and "rot": [0, degrees, 0] to turn the ridge (it runs along x at 0).',
     '  "color": "#rrggbb", "stripes"?: 0..10, "stripeColor"?: "#rrggbb" }',
@@ -4435,7 +4599,8 @@ window.__scene=SCN;
     if(p.core.kind==='lathe') o.outline=p.outline.map(r3);
     if(p.section.type!=='round') o.section={type:p.section.type,n:p.section.n,k:+p.section.k.toFixed(2),squash:+p.section.squash.toFixed(2)};
     if(Object.values(p.bend).some(v=>Math.abs(v)>1e-3)) o.bend=p.bend; if(p.hollow.on) o.hollow={wall:p.hollow.wall,floor:p.hollow.floor};
-    if(p.sculpted||p.painted) o.note='hand-sculpted or painted: changing its shape or outline loses that';
+    if(p.detail) o.detail={pattern:p.detail.pattern,size:p.detail.size,depth:p.detail.depth,color:p.detail.color};
+    if((p.sculpted||p.painted)&&!p._detailGen) o.note='hand-sculpted or painted: changing its shape or outline loses that';
     return o; })}); }
 
   // Claude's answer is data from outside: every field is checked and clamped before use.
@@ -4453,6 +4618,8 @@ window.__scene=SCN;
     if(q.hollow===false) o.hollow={on:false,wall:0.06,floor:0.12};
     else if(q.hollow&&typeof q.hollow==='object') o.hollow={on:true,wall:num(q.hollow.wall,0.01,0.25,0.06),floor:num(q.hollow.floor,0.02,0.9,0.12)};
     if('color' in q||'stripes' in q) o.paint=paintOf(hex(q.color,'#d9d4c7'),Math.round(num(q.stripes,0,10,0)),hex(q.stripeColor,'#c8402e'));
+    if(q.detail&&typeof q.detail==='object'&&PATTERNS.includes(q.detail.pattern)){ const S=num(q.detail.size,0.02,5,0.3);
+      o.detail={pattern:q.detail.pattern,size:S,depth:num(q.detail.depth,0,Math.min(0.5,S),S*0.15),color:hex(q.detail.color,'#3a3530'),seed:Math.round(num(q.detail.seed,0,9999,0))}; }
     return o; }
   /* SIZE AND ROOFS (Oct 5, from the harbour village: buildings are where solids of revolution
      strain most). "size": [w, h, d] gives a part's real extent in metres, measured from the
@@ -4473,6 +4640,7 @@ window.__scene=SCN;
     const outline=[[0,0.5],[1,0.5]], section={type:'polygon',n:3,k:1,squash:1,shape:null}, bb=unitSize('cylinder',outline,section);
     const sx=H/(bb.max.x-bb.min.x), sz_=W/(bb.max.z-bb.min.z), yawDeg=o.rot?o.rot[1]:0, yaw=yawDeg*PI/180, pos=o.pos||[0,0,0];
     // laid over (z -90°): the height axis runs along the ridge (+x before the turn) and the flat side faces down
+    if(o.detail) o.detail=Object.assign({},o.detail,{across:true});
     return partFrom('cylinder',Object.assign(o,{name:o.name||'roof',outline,section,scale:[sx,L,sz_],rot:[0,yawDeg,-90],
       pos:[pos[0]-L/2*Math.cos(yaw),pos[1]+bb.max.x*sx,pos[2]+L/2*Math.sin(yaw)]})); }
   /* ON A FACE (Oct 5: "the windows are not flush with the buildings"). Claude placed doors
@@ -4525,7 +4693,8 @@ window.__scene=SCN;
      that is merely moved or recoloured keeps its sculpting. A new outline, section or
      bend changes the shape, and the sculpt residual is cleared, as reshaping by hand does. */
   function updatePart(p,q){ const o=opts(q);
-    for(const k of ['name','pos','rot','scale','paint']) if(o[k]) p[k]=o[k];
+    for(const k of ['name','pos','rot','scale','paint','detail']) if(o[k]) p[k]=o[k];
+    if(q.detail===null||q.detail===false){ delete p.detail; if(p._detailGen){ p.cascade=null; p.sculpted=p.painted=false; p._detailGen=false; } }
     let reshaped=false;
     if(o.outline&&p.core.kind==='lathe'){ p.outline=o.outline; p._origOutline=JSON.parse(JSON.stringify(o.outline)); reshaped=true; }
     if(o.section){ p.section=o.section; reshaped=true; } if(o.bend){ p.bend=o.bend; reshaped=true; } if(o.hollow){ p.hollow=o.hollow; }

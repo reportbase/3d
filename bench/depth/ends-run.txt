@@ -1,0 +1,18 @@
+## E1: continuity at the walls, jump at gaps 1e-6 and 1e-7
+selfSimilar, J2: ratio J(1e-6)/J(1e-7) from 10.000 to 10.000, largest J(1e-7) 7.2e-6; walls outside the predicted band: 0
+selfSimilar, B (control): ratio J(1e-6)/J(1e-7) from 1.000 to 1.000, largest J(1e-7) 0.214; walls outside the predicted band: 15
+smooth, J2: ratio J(1e-6)/J(1e-7) from 10.000 to 10.000, largest J(1e-7) 1.1e-7; walls outside the predicted band: 0
+smooth, B (control): ratio J(1e-6)/J(1e-7) from 1.000 to 1.000, largest J(1e-7) 3.1e-3; walls outside the predicted band: 15
+rocks, J2: ratio J(1e-6)/J(1e-7) from 10.000 to 10.000, largest J(1e-7) 3.6e-6; walls outside the predicted band: 0
+rocks, B (control): ratio J(1e-6)/J(1e-7) from 1.000 to 1.000, largest J(1e-7) 0.462; walls outside the predicted band: 15
+E1 holds: J2 is continuous at every wall
+  known before this plan (DEP-J's thresholds, not claimed as predictions): J-cost worst ratio to DEP-B 0.118 (allowed 2), J-flat corner 5.0e-4 worst outer 6.4e-4
+
+## E2: the ends hypothesis
+self-similar: per octave (k: DEP-B / J2 / W)  -7: 0.010 / 6.4e-4 / 5.5e-4  -6: 0.010 / 5.9e-4 / 5.5e-4  -5: 0.010 / 5.9e-4 / 5.5e-4  -4: 0.010 / 5.9e-4 / 5.5e-4  -3: 0.010 / 5.9e-4 / 5.5e-4  -2: 0.010 / 5.9e-4 / 5.5e-4  -1: 0.010 / 5.9e-4 / 5.5e-4  0: 0.010 / 5.0e-4 / 5.5e-4  1: 0.010 / 5.0e-4 / 5.5e-4  2: 0.010 / 5.9e-4 / 5.5e-4  3: 0.010 / 5.9e-4 / 5.5e-4  4: 0.010 / 5.9e-4 / 5.5e-4  5: 0.010 / 5.9e-4 / 5.5e-4  6: 0.010 / 5.9e-4 / 5.5e-4  7: 0.010 / 5.9e-4 / 5.5e-4  8: 0.010 / 6.4e-4 / 5.5e-4
+smooth: per octave (k: DEP-B / J2 / W)  -7: 4.9e-4 / 2.7e-5 / 2.3e-5  -6: 1.8e-4 / 8.4e-6 / 8.2e-6  -5: 9.1e-5 / 3.8e-6 / 4.0e-6  -4: 4.1e-5 / 1.4e-6 / 1.7e-6  -3: 1.2e-5 / 1.5e-6 / 8.8e-7  -2: 5.5e-5 / 3.9e-6 / 3.0e-6  -1: 1.4e-4 / 8.5e-6 / 7.1e-6  0: 4.6e-4 / 2.0e-5 / 2.2e-5  1: 4.6e-4 / 2.0e-5 / 2.2e-5  2: 1.4e-4 / 8.5e-6 / 7.1e-6  3: 5.5e-5 / 3.9e-6 / 3.0e-6  4: 1.2e-5 / 1.5e-6 / 8.8e-7  5: 4.1e-5 / 1.4e-6 / 1.7e-6  6: 9.1e-5 / 3.8e-6 / 4.0e-6  7: 1.8e-4 / 8.4e-6 / 8.2e-6  8: 4.9e-4 / 2.7e-5 / 2.3e-5
+E2-a holds: W within 2× of J2 and at most 1/8 of DEP-B in every octave
+E2-b: octave 3's error by eighth of its turn (home to horizon): 9.3e-3, 6.7e-5, 3.4e-5, 1.2e-4, 2.6e-4, 2.8e-5, 1.8e-4, 0.019; middle median 9.1e-5
+E2-b holds: the error lives at the ends
+E2-c: W's mean relative error at δ = 1/32, 1/16, 1/8 (and 1/4, not predicted): 9.6e-4, 3.0e-4, 5.5e-4, 4.9e-4: KE2c FIRES
+E2-d: the reading's slope in u at octave 3's home 4.532 and horizon 9.065: holds (not flat: a kink in the even extension)
