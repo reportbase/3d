@@ -71,11 +71,13 @@ const sse = body => { const text = ((body.content || []).find(b => b.type === 't
   let out = ev('message_start', { type: 'message_start', message: { id: 'm', content: [] } }) + ev('content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
   for (let i = 0; i < text.length; i += 97) out += ev('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text.slice(i, i + 97) } });
   return out + ev('content_block_stop', { type: 'content_block_stop', index: 0 }) + ev('message_delta', { type: 'message_delta', delta: { stop_reason: body.stop_reason || 'end_turn' } }) + ev('message_stop', { type: 'message_stop' }); };
+// aiReply may be a list: one reply per request, in turn (a place asked for as an object goes twice).
 await page.route(/login\.tangent\.workers\.dev\/v1\/messages/, r => { const req = JSON.parse(r.request().postData() || '{}'); aiSent.push(req);
   const headers = { 'access-control-allow-origin': '*', 'x-gateway-quota-remaining': '8', 'x-gateway-quota-limit': '10' };
-  if (aiReply.raw) return r.fulfill({ status: aiReply.status, contentType: 'text/html', headers, body: aiReply.raw });
-  if (aiReply.status === 200 && req.stream) return r.fulfill({ status: 200, contentType: 'text/event-stream', headers, body: sse(aiReply.body) });
-  r.fulfill({ status: aiReply.status, contentType: 'application/json', headers, body: JSON.stringify(aiReply.body) }); });
+  const rep = Array.isArray(aiReply) ? aiReply.shift() : aiReply;
+  if (rep.raw) return r.fulfill({ status: rep.status, contentType: 'text/html', headers, body: rep.raw });
+  if (rep.status === 200 && req.stream) return r.fulfill({ status: 200, contentType: 'text/event-stream', headers, body: sse(rep.body) });
+  r.fulfill({ status: rep.status, contentType: 'application/json', headers, body: JSON.stringify(rep.body) }); });
 // A TVF3D-PARTS file rebuilt the way games does it (each field evaluated, moved by its PART
 // matrix), reduced to the piece's extent: [min x,y,z] and [max x,y,z].
 function partsBounds(text){
@@ -832,6 +834,21 @@ try {
     if (await ev(() => document.querySelectorAll('#aiPics img').length) !== 3) throw new Error('more than three pictures were taken');
     await page.click('#aiPics button[data-i="0"]');
     if (await ev(() => document.querySelectorAll('#aiPics img').length) !== 2 || await ev(() => document.getElementById('aiPop').hidden)) throw new Error('× did not take one off, or closed the panel');
+    // a place asked for as an object: Claude says so, and it is built as a scene instead
+    await ev(() => { document.getElementById('aiMode').value = 'new'; });
+    const n0 = await parts(), sent0 = aiSent.length;
+    aiReply = [claudeSays('{"place": true}'), claudeSays(JSON.stringify({ name: 'harbour', notes: 'Built from the map.', ground: { color: '#6b8a4e', size: 100 },
+      types: [{ name: 'hut', parts: [{ name: 'walls', shape: 'box', size: [4, 3, 3], pos: [0, 0, 0], color: '#e8dcc4' }] }], place: [{ type: 'hut', row: { from: [-20, 0], to: [20, 0] }, count: 5 }] }))];
+    await page.fill('#aiPrompt', 'this village');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /Built from the map/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    if (!/reply exactly \{"place": true\}/.test(aiSent[sent0].system) || aiSent.length !== sent0 + 2) throw new Error('the place was not sent twice: ' + (aiSent.length - sent0) + ' requests');
+    if (!/place, not one object/.test(await page.textContent('#aiStatus')) && !/Built from the map/.test(await page.textContent('#aiStatus'))) throw new Error('status: ' + await page.textContent('#aiStatus'));
+    const again = aiSent[sent0 + 1].messages[0].content;
+    if (!/Build a SCENE: this village/.test(again[again.length - 1].text) || again.filter(b => b.type === 'image').length !== 2) throw new Error('the scene request did not carry the words and pictures');
+    if (!await ev(() => document.body.classList.contains('scene-mode')) || await ev(() => __scene.built().inst.length) !== 5) throw new Error('the place was not built as a scene');
+    if (await parts() !== n0) throw new Error('the object was changed by a place');
+    await page.click('#vObject'); await ev(() => __scene.set(null));
     // a scene from the pictures: the guidance on reading maps and photos goes with it
     await page.click('#vScene'); if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');
     await ev(() => { window.__describeModes(); document.getElementById('aiMode').value = 'scene'; });

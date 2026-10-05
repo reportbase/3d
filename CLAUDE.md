@@ -63,6 +63,9 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   first in the user turn (`withPics`), with `picNote` saying how to read them: for
   a scene a map or sketch gives the layout (top of the picture is -z) and a photo
   the character. look & fix sends them again as the reference.
+  A place asked for as a new object (a village from pictures, built in the object
+  view) comes back as `{"place": true}`; `build()` then switches to the scene view and
+  sends the same words and pictures as a new scene.
 - **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, terrain, areas, types, place}`:
   `terrain` is a list of height features (`hill`, `ridge`, `slope`, `noise`) summed
   by `terrainOf`. A sea or lake keeps its `level`, with a shelving floor and the land

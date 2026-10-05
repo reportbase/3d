@@ -4346,6 +4346,7 @@ window.__scene=SCN;
   const KINDS=[...Object.keys(LATHE),...CLASSIC_OK()];
   const SYS=[
     'You build 3D objects for a shape studio. Every object is a set of PARTS. Each part is a solid of revolution around its own vertical axis: a profile (the outline) spun around, optionally with a non-round cross-section, then scaled, turned and placed.',
+    'When you are asked to Build ONE object (not a SCENE) but what is asked for, or shown in the picture, is a PLACE (a village, a town, a street, a harbour, a landscape, a forest, a map, anything with many buildings or a stretch of land), do not build it from parts: reply exactly {"place": true} and nothing else. The studio then builds it as a scene, which has terrain, water, roads and many copies.',
     'Reply with ONE JSON object and nothing else: no markdown fences, no commentary. Write it COMPACT, with no indentation or line breaks inside it: a scene is long, and the room for the answer is shared with your thinking.',
     '{"name": string, "parts": [ part, ... ]}, at most 40 parts. A part:',
     '{ "id"?: number            (only when changing an existing object: the id of the part you are keeping)',
@@ -4695,17 +4696,27 @@ window.__scene=SCN;
       return; }
     const ask=text||'the object in the picture', user=withPics(mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+ask:mode==='set'?'Build a CHESS SET, all six pieces: '+ask:'Build: '+ask,false);
     const body=m=>({model:m,max_tokens:MAX_OUT,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
+    let place=null;
     try{
       const data=await callWithFallback(body);
+      /* A PLACE ASKED FOR AS AN OBJECT (Oct 5: the harbour village from a map and a photo,
+         asked for in the object view, came back as one object: hills as giant blobs, the
+         sea a slab). Claude answers {"place": true} instead, and the request goes again,
+         words and pictures unchanged, as a new scene in the scene view. */
+      if(mode==='new'){ const first=parseJSON(data); if(first&&first.place===true){ place=first; throw PLACE; } }
       const spec=parseReply(data), n=apply(spec,mode);
       if(mode==='set') lastAsk='a chess set, all six pieces in a row: '+ask; else if(mode!=='edit') lastAsk=ask; else if(lastAsk) lastAsk+='; then: '+ask; else lastAsk=ask;
       const pieces=mode==='set'?CHESS.filter(w=>S.parts.some(p=>pieceOf(p)===w)).length:0;
       setStatus((spec.notes?spec.notes+'\n':'')+(spec.name?spec.name+': ':'')+(mode==='edit'?'changed — '+S.parts.length+' parts':n+' part'+(n===1?'':'s')+' built')
         +(mode==='set'?' in '+pieces+' pieces. file → export a chess set writes the six files.':'')+' Undo takes it back. "look & fix" lets Claude check it.');
       if(mode!=='edit') modeEl.value='edit';                 // the natural next step is a refinement
-    }catch(e){ setStatus(e.message,true); }
+    }catch(e){ if(e!==PLACE) setStatus(e.message,true); }
     finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!canFix(); }
+    if(place){ SCN.setView(true); window.__describeModes(); modeEl.value=SCN.data()?'scene-edit':'scene';
+      if(modeEl.value==='scene-edit') modeEl.value='scene';   // a new place, not a change to the scene that is there
+      setStatus('that is a place, not one object — building it as a scene…'); return build(); }
   }
+  const PLACE={};
   const canFix=()=>sceneOn?!!SCN.built():S.parts.length>0;
   const fixBtn=$('aiFix'); fixBtn.disabled=!canFix();
   /* The mode list follows the view: objects in the object view, scenes in the scene view. */
