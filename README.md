@@ -49,7 +49,11 @@ description ("a fantasy set in green marble and gold"), laid out in a row; then
 so the king stays taller than the pawn. Drop all six on the games page. **look & fix** shows Claude pictures of the object from three
 sides next to what you asked for, and it corrects what's wrong: a part floating,
 a head pointing the wrong way. Type a note first to steer it. **copy reply**
-copies Claude's last answer, for reporting a bad result. Undo takes any step back. It runs through the same
+copies Claude's last answer, for reporting a bad result. **+ picture** (or paste
+or drop one on the panel) gives Claude up to three pictures to build from, with
+or without words: a photo of a chair for an object; for a scene, a map, aerial
+view or sketch gives the layout, and a photo or painting the look. They stay
+attached, so change it and look & fix compare against them too. Undo takes any step back. It runs through the same
 sign-in as draw's AI button (the tangent login gateway holds the key; each
 account has a daily allowance).
 
@@ -167,7 +171,9 @@ error, or when an action has no effect.
   file
 - **describe it**, against a stand-in gateway: building an object, changing
   one (keeping a sculpted part's sculpting), look & fix (checking the picture
-  sent really shows the object), and failed replies changing nothing
+  sent really shows the object), building from a picture (shrunk to 1568 px,
+  sent first, sent again by look & fix, three at most, a scene from a map), and
+  failed replies changing nothing
 - **scenes**, against a stand-in gateway: a village's rule counts, straight rows,
   round rings, scattered copies keeping apart and out of excluded areas; every
   copy at the detail its distance calls for; shuffle and undo; editing a type
