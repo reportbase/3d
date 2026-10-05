@@ -54,7 +54,11 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   "look & fix" sends `viewsPng()` (front, side and three-quarter renders in one
   PNG) with the request and the current parts. Tune `SYS` from real results the
   owner sends (the first knight came out as a candlestick).
-- **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, types, place}`:
+- **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, areas, types, place}`:
+  `areas` are named flat ground (rect, circle, polygon, or path with a width),
+  drawn by `groundOf`; `water` and `blocks` flags keep scatters and grids where
+  they belong (`allowed`), and rules name areas for `scatter`, `grid` and
+  `exclude`. Anything flat and large must be an area: types scale uniformly.
   `types` are named lists of `partData`, `place` the placement rules
   (`at`, `row`, `ring`, `grid`, `scatter`, plus `scale`, `turn`, `jitter`, `exclude`,
   `tint`, `y`). `place()` applies them in order with a seeded generator, so a

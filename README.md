@@ -55,11 +55,13 @@ account has a daily allowance).
 
 **scene** (the switch next to the name) builds whole places. Describe one ("a
 fishing village on a rocky coast", "a pine forest around a lake") and Claude
-writes it as a small **library of object types** (a cottage, a pine, a boat, a
+writes it as named **areas** of flat ground (the sea, a beach, roads, fields, a
+square), a small **library of object types** (a cottage, a pine, a boat, a
 rock) and a few dozen **placement rules**: one copy here, a row of houses down a
 street, a ring of stones, a grid of crops, hundreds of trees scattered over a
 hillside. The studio does the repeating, with small random variations, keeping
-scattered copies apart and out of roads. Each type is built once at five levels
+scattered copies apart. Rules use areas by name: boats are scattered "in the
+harbour", and water and roads are kept clear of everything else automatically. Each type is built once at five levels
 of detail and drawn as instances, so a scene can hold thousands of objects:
 copies near the camera are drawn in full, distant ones with a few dozen
 triangles. **edit** on a type opens it in the studio; when you're done, every copy
