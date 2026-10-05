@@ -53,6 +53,19 @@ copies Claude's last answer, for reporting a bad result. Undo takes any step bac
 sign-in as draw's AI button (the tangent login gateway holds the key; each
 account has a daily allowance).
 
+**scene** (the switch next to the name) builds whole places. Describe one ("a
+fishing village on a rocky coast", "a pine forest around a lake") and Claude
+writes it as a small **library of object types** (a cottage, a pine, a boat, a
+rock) and a few dozen **placement rules**: one copy here, a row of houses down a
+street, a ring of stones, a grid of crops, hundreds of trees scattered over a
+hillside. The studio does the repeating, with small random variations, keeping
+scattered copies apart and out of roads. Each type is built once at five levels
+of detail and drawn as instances, so a scene can hold thousands of objects:
+copies near the camera are drawn in full, distant ones with a few dozen
+triangles. **edit** on a type opens it in the studio; when you're done, every copy
+updates. **shuffle** re-places everything with a new seed; **change scene** and
+**look & fix** work on the whole scene; scenes save in the `.3da` with the object.
+
 **advanced** (top right) shows the engine's own controls: which rung the brush
 writes to, leaf counts, the kernel, aperture and the run.
 
@@ -90,7 +103,7 @@ become a 3D section or silhouette.
 
 | Format | What it holds |
 | --- | --- |
-| `.3da` | The whole object: every part's settings, sculpting and paint. Files from the classic editor's assemble mode open too. |
+| `.3da` | The whole object: every part's settings, sculpting and paint, plus the scene if there is one (its types and rules). Files from the classic editor's assemble mode open too. |
 | `.tvf3d` | One part, for the chess pieces in [games](https://github.com/reportbase/games). Lean and hollow aren't representable in it, and the export says so. |
 | `.tvf3d` (chess piece) | The whole object as one chess piece for games: every part's field plus where it goes, stood on the board and sized to a square. Name the file after the piece it replaces (`knight.tvf3d`) and drop it on the games page to try it. |
 | `.tvf3d` × 6 (chess set) | One file per piece, from parts named after their piece ("knight mane 2"), all sharing one scale so the set keeps its proportions in games. |
@@ -129,6 +142,10 @@ error, or when an action has no effect.
 - **describe it**, against a stand-in gateway: building an object, changing
   one (keeping a sculpted part's sculpting), look & fix (checking the picture
   sent really shows the object), and failed replies changing nothing
+- **scenes**, against a stand-in gateway: a village's rule counts, straight rows,
+  round rings, scattered copies keeping apart and out of excluded areas; every
+  copy at the detail its distance calls for; shuffle and undo; editing a type
+  updates all its copies; saving and opening; change scene and look & fix
 - every starting shape
 - duplicate, delete, undo and redo
 

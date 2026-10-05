@@ -69,6 +69,16 @@
   .dropdown button:hover{background:var(--bg4)}
   .dropdown button span{color:var(--faint);font-size:11px}
   .dropdown hr{border:none;border-top:1px solid var(--line);margin:4px 2px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{border:none;border-radius:0;padding:5px 11px}
+  .seg button.on{background:var(--accent);color:#141418}
+  .scene-only{display:none!important}
+  body.scene-mode .scene-only{display:flex!important}
+  body.scene-mode .obj-only, body.scene-mode .tool{display:none!important}
+  .rules{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
+  .rules div b{color:var(--fg);font-weight:600}
+  .typeback{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--accent);color:#141418;border-color:var(--accent);font-weight:600;z-index:5}
+  .typeback[hidden]{display:none}
   .aipop{width:340px;padding:10px;gap:8px}
   .aipop textarea{width:100%;min-height:84px;resize:vertical;background:var(--bg2);color:var(--fg);border:1px solid var(--line2);border-radius:6px;padding:8px;font:inherit;font-size:13px}
   .aipop .row{display:flex;gap:6px;align-items:center}
@@ -170,6 +180,7 @@
 <div class="app">
   <header class="top">
     <div class="brand">3d<small>shape studio</small></div>
+    <div class="seg" title="object: shape one object from parts. scene: a whole place, many copies of many objects"><button id="vObject" class="on">object</button><button id="vScene">scene</button></div>
     <div class="menuwrap"><button id="fileBtn">file &#9662;</button>
       <div class="dropdown" id="fileMenu" hidden>
         <button data-act="new">new, empty <span></span></button>
@@ -228,14 +239,22 @@
   </header>
 
   <aside class="panel parts">
-    <div class="sec">
+    <div class="sec scene-only" id="sceneSec">
+      <div class="h">scene <b id="scName"></b></div>
+      <div class="note" id="scStats">No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast".</div>
+      <div class="h">object types</div>
+      <div class="plist" id="scTypes"></div>
+      <div class="row"><button id="scShuffle" title="place everything again with a new random seed: same rules, different arrangement">shuffle</button><button id="scFrame" title="frame the whole scene">frame</button></div>
+      <div class="note">Every copy of a type shares one shape, drawn finer up close and coarser far away. Edit a type to reshape all its copies at once.</div>
+    </div>
+    <div class="sec obj-only">
       <div class="h">parts <span id="pcount"></span></div>
       <div class="plist" id="plist"></div>
       <div class="row"><select id="addKind" style="flex:1;min-width:0"></select><button id="addPart" style="flex:none">+ add</button></div>
       <div class="row"><button id="dupPart" title="duplicate (Ctrl+D)">duplicate</button><button id="delPart" title="delete (Del)">delete</button></div>
       <div class="note">Click a part to select it. Double-click to shape it in place; Esc steps back out.</div>
     </div>
-    <div class="sec" id="xformSec">
+    <div class="sec obj-only" id="xformSec">
       <div class="h">placement <b id="selName"></b></div>
       <input type="text" id="pname" placeholder="name">
       <div class="field">x<input type="range" id="px" min="-4" max="4" step="0.01"><span class="v" id="vpx"></span></div>
@@ -251,32 +270,37 @@
 
   <main class="view" id="view">
     <div class="vtools">
-      <button id="mMove" class="on" title="move (W)">move</button>
-      <button id="mTurn" title="turn (E)">turn</button>
-      <button id="mSize" title="size and stretch (R)">size</button>
-      <span class="sep"></span>
-      <button id="snap" class="on" title="snap to a grid, and onto parts below when you let go">snap</button>
+      <button id="mMove" class="on obj-only" title="move (W)">move</button>
+      <button id="mTurn" class="obj-only" title="turn (E)">turn</button>
+      <button id="mSize" class="obj-only" title="size and stretch (R)">size</button>
+      <span class="sep obj-only"></span>
+      <button id="snap" class="on obj-only" title="snap to a grid, and onto parts below when you let go">snap</button>
       <button id="frameAll" title="frame everything">frame all</button>
-      <button id="wire" title="show the wireframe of the part you are shaping">wire</button>
+      <button id="wire" class="obj-only" title="show the wireframe of the part you are shaping">wire</button>
     </div>
-    <div class="crumb" id="crumb"></div>
+    <div class="crumb obj-only" id="crumb"></div>
     <div class="toast" id="toast"></div>
-    <div class="hint" id="hint"></div>
+    <div class="hint obj-only" id="hint"></div>
+    <button class="typeback" id="typeBack" hidden></button>
   </main>
 
   <aside class="panel side">
-    <div class="sec">
+    <div class="sec scene-only" id="sceneRules">
+      <div class="h">placement rules</div>
+      <div class="rules" id="scRules"><div class="note">The rules that place the copies show here.</div></div>
+    </div>
+    <div class="sec obj-only">
       <div class="h">side outline <span class="note">drag · click to add · double-click to remove</span></div>
       <svg class="ed" id="outline" viewBox="0 0 240 250"></svg>
       <div class="row"><button id="olFromFile" title="take the outline from the right half of a drawing: an .svg, or a .tvf saved in draw">from a drawing…</button><button id="olReset" title="back to the part's own outline">reset</button></div>
     </div>
-    <div class="sec">
+    <div class="sec obj-only">
       <div class="h">section <span class="note">its shape going around</span></div>
       <div class="stypes" id="stypes"></div>
       <svg class="ed" id="section" viewBox="0 0 240 170"></svg>
       <div id="secParams"></div>
     </div>
-    <div class="sec" id="toolPanel"></div>
+    <div class="sec obj-only" id="toolPanel"></div>
     <div class="sec adv-only" id="advPanel" style="flex-direction:column"></div>
   </aside>
 
@@ -3007,8 +3031,8 @@ function paintCurrent(th,h){ const o=[0,0,0]; return _paintPart ? colorAt(_paint
    the outside, over the rim and down the inside to a floor. */
 const DETAIL=[[32,24],[48,36],[72,56],[112,84]];
 let detail=2;
-function buildGeometry(p){
-  const [NT,NH]=DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0];
+function buildGeometry(p,dims){
+  const [NT,NH]=dims||DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0];
   if(p.cascade) usePart(p);
   const ring=(h,inset)=>{ const pts=[], cols=[]; for(let j=0;j<NT;j++){ const th=j/NT*TAU, r=Math.max(0,radiusAt(p,th,h)-inset);
       pts.push(r*Math.cos(th)+lean*h*h, h, r*Math.sin(th)*sq); colorAt(p,th,h,col); cols.push(col[0],col[1],col[2]); } return {pts,cols}; };
@@ -3094,10 +3118,11 @@ function removePart(p){ scene.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.
 function clearAll(){ while(S.parts.length) removePart(S.parts[0]); S.sel=null; S.editing=null; }
 function select_(id){ S.sel=id; refreshAll(); }
 function setEditing(id){ S.editing=id; if(id) S.sel=id; refreshAll(); if(id) frameOn(selPart()); }
+let sceneOn=false;   // the scene view is showing (see SCENES); the parts stay loaded but hidden
 function refreshLook(){
-  for(const p of S.parts){ const m=p.mesh.material, ghost=S.editing && p.id!==S.editing;
+  for(const p of S.parts){ const m=p.mesh.material, ghost=S.editing && p.id!==S.editing; p.mesh.visible=!sceneOn;
     m.opacity=ghost?0.16:1; m.depthWrite=!ghost; m.emissive.set(p.id===S.sel && !S.editing ? 0x2a1d06 : 0x000000); }
-  const p=selPart(); if(p && !S.editing) gizmo.attach(p.mesh); else gizmo.detach();
+  const p=selPart(); if(p && !S.editing && !sceneOn) gizmo.attach(p.mesh); else gizmo.detach();
   if(wireMesh){ scene.remove(wireMesh); wireMesh=null; }
   if(wireOn && S.editing){ const e=S.parts.find(q=>q.id===S.editing); if(e){ wireMesh=new THREE.Mesh(e.mesh.geometry,new THREE.MeshBasicMaterial({color:0x2bb6a6,wireframe:true,transparent:true,opacity:0.45}));
     wireMesh.userData.id=e.id; e.mesh.add(wireMesh); } }
@@ -3109,7 +3134,7 @@ function boxOf(parts){ const b=new THREE.Box3(); for(const p of parts){ p.mesh.u
 let camAnim=null;
 function frameBox(b){ if(b.isEmpty()) return; const c=b.getCenter(new THREE.Vector3()), r=Math.max(0.35,b.getSize(new THREE.Vector3()).length()/2);
   const dir=cam.position.clone().sub(orbit.target).normalize(); camAnim={t:0,fromP:cam.position.clone(),toP:c.clone().add(dir.multiplyScalar(r*3.0)),fromT:orbit.target.clone(),toT:c}; }
-const frameOn=p=>p&&frameBox(boxOf([p])), frameAll=()=>frameBox(boxOf(S.parts));
+const frameOn=p=>p&&frameBox(boxOf([p])), frameAll=()=>sceneOn?SCN.frame():frameBox(boxOf(S.parts));
 
 /* ══ SCULPTING AND PAINTING IN THE VIEW ═══════════════════════════════════
    A hit on the part becomes (θ,h) in its own frame, and the classic engine's brush
@@ -3155,7 +3180,7 @@ addEventListener('pointerup',e=>{
     commit(s.painting?'paint':'sculpt'); return; }
   if(!downAt || e.target!==renderer.domElement){ downAt=null; return; }
   const moved=Math.hypot(e.clientX-downAt.x,e.clientY-downAt.y); downAt=null;
-  if(moved>4 || gizmo.dragging) return;
+  if(moved>4 || gizmo.dragging || sceneOn) return;
   const pool=S.editing ? S.parts.filter(p=>p.id===S.editing) : S.parts, h=hitAt(e,pool);
   if(h) select_(h.object.userData.id); else if(!S.editing){ S.sel=null; refreshAll(); }
 });
@@ -3186,12 +3211,14 @@ function partFromData(d){ const q=JSON.parse(JSON.stringify(Object.assign({},d,{
   p._origOutline=d.origOutline||JSON.parse(JSON.stringify(p.outline));
   if(d.cascade) p.cascade=d.cascade.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,v:Float64Array.from(rg.v),cR:Float64Array.from(rg.cR),cG:Float64Array.from(rg.cG),cB:Float64Array.from(rg.cB),blocked:Uint8Array.from(rg.blocked)}));
   return p; }
-function sceneData(){ return { format:'3d-studio', version:2, parts:S.parts.map(partData), sel:S.sel, editing:S.editing }; }
+function sceneData(){ const d={ format:'3d-studio', version:2, parts:S.parts.map(partData), sel:S.sel, editing:S.editing };
+  if(SCN.data()){ d.scene=SCN.data(); d.view=sceneOn?'scene':'object'; } return d; }   // a .3da may carry a whole scene beside the object; older readers ignore it
 function loadScene(d){ clearAll();
   if(d.format==='3d-assembly') d=fromAssemblyV1(d);
   if(d.format!=='3d-studio') throw new Error('not a 3d file');
   for(const q of d.parts){ const p=partFromData(q); S.parts.push(p); makeMesh(p); }
-  S.sel=S.parts.some(p=>p.id===d.sel)?d.sel:(S.parts[0]?S.parts[0].id:null); S.editing=S.parts.some(p=>p.id===d.editing)?d.editing:null; refreshAll(); }
+  S.sel=S.parts.some(p=>p.id===d.sel)?d.sel:(S.parts[0]?S.parts[0].id:null); S.editing=S.parts.some(p=>p.id===d.editing)?d.editing:null; refreshAll();
+  if(d.scene!==undefined){ SCN.restore(d.scene); if(d.view) SCN.setView(d.view==='scene'); } }
 /* .3da files from the earlier assemble mode: each part was a preset or a .tvf3d field,
    1.1 tall, placed with a position, an x/y/z turn and a size × stretch. */
 function fromAssemblyV1(d){ return { format:'3d-studio', version:2, parts:d.parts.map((q,i)=>{
@@ -3205,13 +3232,14 @@ function fromAssemblyV1(d){ return { format:'3d-studio', version:2, parts:d.part
 
 /* ══ UNDO ══ one history for everything, each step with a small picture */
 const hist=[]; let hpos=-1;
-function snapshot(){ return { parts:S.parts.map(p=>{ const d=partData(p); if(p.cascade && !(p.sculpted||p.painted)) delete d.cascade; return structuredClone(d); }), sel:S.sel, editing:S.editing }; }
+function snapshot(){ return { parts:S.parts.map(p=>{ const d=partData(p); if(p.cascade && !(p.sculpted||p.painted)) delete d.cascade; return structuredClone(d); }), sel:S.sel, editing:S.editing,
+  scene:SCN.data() }; }   // the scene is never changed in place, only replaced, so keeping a reference is a snapshot
 function thumb(){ renderer.render(scene,cam); const c=document.createElement('canvas'); c.width=132; c.height=88;
   const src=renderer.domElement, sw=src.width, sh=src.height, a=132/88; let w=sw, h=sw/a; if(h>sh){ h=sh; w=sh*a; }
   c.getContext('2d').drawImage(src,(sw-w)/2,(sh-h)/2,w,h,0,0,132,88); return c.toDataURL('image/jpeg',0.7); }
 function commit(label){ hist.splice(hpos+1); hist.push({label,snap:snapshot(),img:null}); if(hist.length>40) hist.shift(); hpos=hist.length-1;
   requestAnimationFrame(()=>{ if(hist[hpos]&&!hist[hpos].img){ hist[hpos].img=thumb(); } drawHist(); }); }
-function jump(i){ if(i<0||i>=hist.length) return; hpos=i; const s=hist[i].snap; loadScene({format:'3d-studio',version:2,parts:s.parts,sel:s.sel,editing:s.editing}); drawHist(); }
+function jump(i){ if(i<0||i>=hist.length) return; hpos=i; const s=hist[i].snap; loadScene({format:'3d-studio',version:2,parts:s.parts,sel:s.sel,editing:s.editing}); SCN.restore(s.scene); drawHist(); }
 function drawHist(){ const el=$('hist'); el.innerHTML='';
   hist.forEach((h,i)=>{ const im=document.createElement('img'); if(h.img) im.src=h.img; im.title=h.label; if(i===hpos) im.className='cur'; im.onclick=()=>jump(i); el.appendChild(im); });
   el.scrollLeft=el.scrollWidth; $('undo').disabled=hpos<=0; $('redo').disabled=hpos>=hist.length-1; }
@@ -3632,9 +3660,9 @@ addEventListener('keydown',e=>{ const t=e.target;
   const meta=e.ctrlKey||e.metaKey, k=e.key.toLowerCase();
   if(meta&&k==='z'){ e.preventDefault(); jump(e.shiftKey?hpos+1:hpos-1); return; }
   if(meta&&k==='y'){ e.preventDefault(); jump(hpos+1); return; }
-  if(meta&&k==='d'){ e.preventDefault(); duplicate(); return; }
+  if(meta&&k==='d'){ e.preventDefault(); if(!sceneOn) duplicate(); return; }
   if(meta&&k==='s'){ e.preventDefault(); fileAction('save'); return; }
-  if(meta) return;
+  if(meta||sceneOn) return;
   if(e.key==='Escape'){ if(S.editing) setEditing(null); else { S.sel=null; refreshAll(); } }
   else if(e.key==='Delete'||e.key==='Backspace') del();
   else if(k==='w') setMode('translate'); else if(k==='e') setMode('rotate'); else if(k==='r') setMode('scale');
@@ -3693,6 +3721,209 @@ function renderGallery(){
     r.render(sc,c); galleryImgs[k]=r.domElement.toDataURL(); sc.remove(m); m.geometry.dispose(); m.material.dispose(); }
   detail=keep; r.dispose();
 }
+
+/* ══ SCENES ══ (Oct 5: "ai's ability to create complex scenes, with many objects, is what
+   interests me … the advantage of this format is it scales to many objects nicely.")
+   A scene is a small LIBRARY of object types (each an ordinary studio object, made of
+   parts) and a list of PLACEMENT RULES: one copy here, a row along a street, a ring of
+   stones, a grid of crops, a forest scattered over an area. Claude can describe a village
+   in a few dozen rules where it could never list ten thousand objects one by one; the
+   repetition, the small random variations and the spacing are this code's job.
+   Rules are applied in order with a seeded random generator, so a scene comes out the same
+   every time it is opened, and "shuffle" just moves the seed. Scatters keep their copies
+   apart and flow around whatever was placed before them.
+   Drawing: every type is built once at five resolutions from the same r(θ,h) its parts are
+   made of, and each resolution is one InstancedMesh. Each frame, every copy takes the
+   resolution its distance calls for, measured in its own heights, so a pine a few heights
+   away is drawn in full and one at the horizon with a few dozen triangles. That is the
+   rung ladder games uses for its boards, here for any object.
+   The scene data is never changed in place, only replaced, so the undo history can keep
+   references to it, and a restore that hands back the same object costs nothing. */
+const SCN=(function(){
+  /* [around, up] per part, coarse to fine. "Around" is always a multiple of 8, so a box's
+     corners (at 45°) are sampled and it stays square at every level. "Up" is never below 3:
+     with only the top and bottom rings, a ball (radius 0 at both) vanishes entirely, which
+     is how the first big test forest lost every oak crown at a distance. */
+  const LODS=[[8,3],[16,5],[24,8],[40,16],[72,40]];
+  /* Distance, in the copy's own size, under which it moves up a level. SIZE, not height:
+     a road tile 2 cm tall but 4 m across measured by height would always be "far away". */
+  const NEAR=[40,12,5,2];
+  const MAX_COPIES=20000, MAX_RULE=5000;
+  let data=null, built=null, editing=null, stash=null, lastKey='', stats={copies:0,tris:0};
+  const group=new THREE.Group(); group.visible=false; scene.add(group);
+  const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.62,metalness:0.02,side:THREE.DoubleSide});
+  const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+  // One type at one resolution: its parts built and moved into place, laid into one geometry.
+  function typeGeometry(parts,dims){
+    const pos=[],nor=[],col=[],idx=[], m=new THREE.Matrix4(), q=new THREE.Quaternion();
+    for(const d of parts){ const p=partFromData(d), g=buildGeometry(p,dims);
+      m.compose(V(...p.pos),q.setFromEuler(new THREE.Euler(p.rot[0]*PI/180,p.rot[1]*PI/180,p.rot[2]*PI/180)),V(...p.scale));
+      g.applyMatrix4(m); const base=pos.length/3, flip=m.determinant()<0;
+      const P=g.attributes.position.array, N=g.attributes.normal.array, C=g.attributes.color.array, I=g.index.array;
+      for(let i=0;i<P.length;i++){ pos.push(P[i]); nor.push(N[i]); col.push(C[i]); }
+      for(let i=0;i<I.length;i+=3) flip?idx.push(I[i]+base,I[i+2]+base,I[i+1]+base):idx.push(I[i]+base,I[i+1]+base,I[i+2]+base);
+      g.dispose(); }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+    g.setAttribute('color',new THREE.Float32BufferAttribute(col,3)); g.setIndex(idx); g.computeBoundingBox(); return g; }
+
+  /* ── placement ── */
+  const rngOf=seed=>{ let a=(seed>>>0)||1; return ()=>{ a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; };
+  const num=(v,lo,hi,d)=>{ v=+v; return isFinite(v)?Math.min(hi,Math.max(lo,v)):d; };
+  const xz=(a,d=[0,0])=>Array.isArray(a)&&a.length>=2?[num(a[0],-5000,5000,d[0]),num(a[1],-5000,5000,d[1])]:d;
+  function area(a){ if(!a||typeof a!=='object') return null;
+    if(Array.isArray(a.rect)&&a.rect.length===4){ const r=a.rect.map(v=>num(v,-5000,5000,0)); return {rect:[Math.min(r[0],r[2]),Math.min(r[1],r[3]),Math.max(r[0],r[2]),Math.max(r[1],r[3])]}; }
+    if(a.center||a.radius!=null) return {center:xz(a.center),radius:num(a.radius,0.1,5000,10)};
+    return null; }
+  const inArea=(x,z,a)=>a.rect?(x>=a.rect[0]&&x<=a.rect[2]&&z>=a.rect[1]&&z<=a.rect[3]):Math.hypot(x-a.center[0],z-a.center[1])<=a.radius;
+  const sampleArea=(a,R)=>{ if(a.rect) return [a.rect[0]+R()*(a.rect[2]-a.rect[0]),a.rect[1]+R()*(a.rect[3]-a.rect[1])];
+    const r=a.radius*Math.sqrt(R()), t=R()*TAU; return [a.center[0]+r*Math.cos(t),a.center[1]+r*Math.sin(t)]; };
+
+  function place(d,types){
+    const R=rngOf(d.seed), out=[], CELL=4, hash=new Map(); let maxR=0, short=0;
+    const key=(i,j)=>i+','+j;
+    const free=(x,z,r)=>{ const k=Math.ceil((r+maxR)/CELL), ci=Math.floor(x/CELL), cj=Math.floor(z/CELL);
+      for(let i=ci-k;i<=ci+k;i++) for(let j=cj-k;j<=cj+k;j++){ const b=hash.get(key(i,j)); if(b) for(const o of b) if(Math.hypot(o.x-x,o.z-z)<o.r+r) return false; } return true; };
+    let rule_=0;   // which rule placed each copy, for the panel and the tests
+    const put=(t,x,z,yaw,s,y,tint)=>{ if(out.length>=MAX_COPIES) return false; const T=types[t], r=T.r*s;
+      const k=key(Math.floor(x/CELL),Math.floor(z/CELL)); if(!hash.has(k)) hash.set(k,[]); hash.get(k).push({x,z,r}); maxR=Math.max(maxR,r);
+      const v=1+(R()*2-1)*tint, m=new THREE.Matrix4().compose(V(x,y,z),new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(s,s,s));
+      out.push({t,x,y,z,s,m,col:new THREE.Color(v,v,v),rule:rule_,lv:0}); return true; };
+    const byName=new Map(types.map((T,i)=>[T.name.toLowerCase(),i]));
+    for(const [ri,rule] of d.place.entries()){ rule_=ri; const t=byName.get(String(rule.type||'').toLowerCase()); if(t==null) continue;
+      const sc=Array.isArray(rule.scale)?[num(rule.scale[0],0.05,50,1),num(rule.scale[1],0.05,50,1)]:[num(rule.scale,0.05,50,1),num(rule.scale,0.05,50,1)];
+      const size=()=>sc[0]+R()*(sc[1]-sc[0]), y=num(rule.y,-100,500,0), jit=num(rule.jitter,0,100,0), tint=num(rule.tint,0,0.4,rule.scatter?0.12:0.05);
+      const excl=(Array.isArray(rule.exclude)?rule.exclude:[]).map(area).filter(Boolean), out_=(x,z)=>excl.some(a=>inArea(x,z,a));
+      const turn=num(rule.turn,-360,360,0)*PI/180, fixed=typeof rule.rot==='number'?rule.rot*PI/180:null;
+      const yawOf=(dir)=>fixed!=null?fixed:rule.rot==='random'?R()*TAU:(dir??0);
+      const J=()=>(R()*2-1)*jit;
+      if(rule.at){ const [x,z]=xz(rule.at); put(t,x,z,(fixed??0)+turn,size(),y,tint); continue; }
+      if(rule.row&&typeof rule.row==='object'){ const a=xz(rule.row.from), b=xz(rule.row.to), L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+        const n=Math.min(MAX_RULE,Math.max(1,rule.every?Math.floor(L/num(rule.every,0.1,1000,5))+1:Math.round(num(rule.count,1,MAX_RULE,5))));
+        const head=Math.atan2(b[0]-a[0],b[1]-a[1]), dir=rule.rot==='across'?head+PI/2:head;
+        for(let i=0;i<n;i++){ const f=n===1?0.5:i/(n-1); put(t,a[0]+(b[0]-a[0])*f+J(),a[1]+(b[1]-a[1])*f+J(),yawOf(dir)+turn,size(),y,tint); } continue; }
+      if(rule.ring&&typeof rule.ring==='object'){ const c=xz(rule.ring.center), rad=num(rule.ring.radius,0.1,5000,5), n=Math.min(MAX_RULE,Math.round(num(rule.count,1,MAX_RULE,8)));
+        for(let i=0;i<n;i++){ const a=i/n*TAU, x=c[0]+rad*Math.sin(a), z=c[1]+rad*Math.cos(a);
+          const dir=rule.rot==='in'?a+PI:rule.rot==='along'?a+PI/2:a;   // default faces out
+          put(t,x+J(),z+J(),yawOf(dir)+turn,size(),y,tint); } continue; }
+      if(rule.grid&&typeof rule.grid==='object'){ const ar=area(rule.grid)||area({rect:rule.grid.rect}); if(!ar||!ar.rect) continue;
+        const ev=Array.isArray(rule.every)?rule.every:[rule.every,rule.every], dx=num(ev[0],0.1,1000,2), dz=num(ev[1],0.1,1000,dx);
+        for(let x=ar.rect[0]+dx/2;x<=ar.rect[2];x+=dx) for(let z=ar.rect[1]+dz/2;z<=ar.rect[3];z+=dz){ if(out_(x,z)) continue; if(!put(t,x+J(),z+J(),yawOf(0)+turn,size(),y,tint)) break; } continue; }
+      if(rule.scatter&&typeof rule.scatter==='object'){ const ar=area(rule.scatter); if(!ar) continue;
+        const n=Math.min(MAX_RULE,Math.round(num(rule.count,1,MAX_RULE,20))), avoid=rule.avoid!==false; let made=0;
+        for(let i=0;i<n;i++){ let ok=false;
+          for(let tries=0;tries<30&&!ok;tries++){ const [x,z]=sampleArea(ar,R), s=size();
+            if(out_(x,z)||(avoid&&!free(x,z,types[t].r*s*0.9))) continue;
+            ok=put(t,x,z,(fixed??R()*TAU)+turn,s,y,tint); }
+          if(ok) made++; }
+        short+=n-made; continue; }
+    }
+    return {inst:out,short}; }
+
+  /* ── building and drawing ── */
+  function disposeBuilt(){ if(!built) return; for(const T of built.types) for(const L of T.lod){ group.remove(L.mesh); L.mesh.dispose(); L.geo.dispose(); }
+    if(built.ground){ group.remove(built.ground); built.ground.geometry.dispose(); built.ground.material.dispose(); } built=null; }
+  function build(){
+    const keep=built&&built.types.reduce((m,T)=>m.set(T.key,T),new Map());   // a type whose parts did not change keeps its meshes
+    const types=data.types.map(ty=>{ const key=JSON.stringify(ty.parts), old=keep&&keep.get(key);
+      if(old){ keep.delete(key); return Object.assign(old,{name:ty.name}); }
+      const lod=LODS.map(dims=>({geo:typeGeometry(ty.parts,dims),mesh:null,n:0}));
+      const bb=lod[LODS.length-1].geo.boundingBox;
+      const h=Math.max(0.05,bb.max.y), r=Math.max(0.05,Math.max(-bb.min.x,bb.max.x,-bb.min.z,bb.max.z)*0.8);
+      return {name:ty.name,key,lod,h,r,size:Math.max(h,r/0.8*2)}; });
+    if(keep) for(const T of keep.values()) for(const L of T.lod){ if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); } L.geo.dispose(); }
+    if(built&&built.ground){ group.remove(built.ground); built.ground.geometry.dispose(); built.ground.material.dispose(); }
+    const {inst,short}=place(data,types);
+    for(const [t,T] of types.entries()){ const n=inst.filter(o=>o.t===t).length; T.count=n;
+      for(const L of T.lod){ if(L.mesh&&L.cap>=n&&n>0){ continue; } if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); L.mesh=null; }
+        if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
+        L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
+    const g=data.ground, gm=new THREE.Mesh(new THREE.CircleGeometry(g.size/2,96),new THREE.MeshStandardMaterial({color:g.color,roughness:0.95}));
+    gm.rotation.x=-PI/2; gm.position.y=-0.01; group.add(gm);
+    built={types,inst,short,ground:gm}; lastKey=''; drawPanel(); if(sceneOn) sky(true); }
+
+  // Each frame: every copy takes the resolution its distance calls for. Skipped while the camera is still.
+  const _m=new THREE.Matrix4();
+  function update(force){
+    if(!sceneOn||!built) return;
+    const c=cam.position, k=c.x.toFixed(2)+','+c.y.toFixed(2)+','+c.z.toFixed(2);
+    if(!force&&k===lastKey) return; lastKey=k;
+    for(const T of built.types) for(const L of T.lod) L.n=0;
+    let tris=0;
+    for(const o of built.inst){ const T=built.types[o.t], d=Math.hypot(c.x-o.x,c.y-o.y,c.z-o.z)/(T.size*o.s);
+      let lv=0; while(lv<NEAR.length&&d<NEAR[lv]) lv++;
+      o.lv=lv; const L=T.lod[lv]; if(!L.mesh) continue; L.mesh.setMatrixAt(L.n,o.m); L.mesh.setColorAt(L.n,o.col); L.n++; tris+=L.geo.index.count/3; }
+    for(const T of built.types) for(const L of T.lod) if(L.mesh){ L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true; if(L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate=true; }
+    stats={copies:built.inst.length,tris}; const el=$('scStats'); if(el) el.textContent=statsText(); }
+  const statsText=()=>built?built.inst.length.toLocaleString()+' objects of '+built.types.length+' types · '+Math.round(stats.tris).toLocaleString()+' triangles drawn'+(built.short?' · '+built.short+' did not fit':''):'';
+
+  /* ── the panels ── */
+  function ruleText(r){ const t='<b>'+escapeHtml(r.type||'?')+'</b>';
+    if(r.at) return t+' at '+xz(r.at).join(', ');
+    if(r.row) return (r.count||'')+' '+t+' in a row'+(r.every?' every '+r.every+' m':'');
+    if(r.ring) return (r.count||'')+' '+t+' in a ring, radius '+(r.ring.radius||'?');
+    if(r.grid) return t+' in a grid every '+(Array.isArray(r.every)?r.every.join(' × '):r.every)+' m';
+    if(r.scatter) return (r.count||'')+' '+t+' scattered'+(r.scatter.radius?' within '+r.scatter.radius+' m':'');
+    return t; }
+  function drawPanel(){
+    $('scName').textContent=data?data.name||'':'';
+    const tl=$('scTypes'); tl.innerHTML='';
+    if(built) built.types.forEach((T,i)=>{ const d=document.createElement('div'); d.className='pitem';
+      d.innerHTML='<span>'+escapeHtml(T.name)+' <span class="note">× '+T.count+'</span></span><button data-i="'+i+'" title="open this type in the studio; when you are done, every copy updates">edit</button>';
+      tl.appendChild(d); });
+    $('scRules').innerHTML=data?data.place.map(r=>'<div>'+ruleText(r)+'</div>').join(''):'<div class="note">The rules that place the copies show here.</div>';
+    $('scStats').textContent=built?statsText():'No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast".'; }
+  $('scTypes').addEventListener('click',e=>{ const b=e.target.closest('button[data-i]'); if(b) editType(+b.dataset.i); });
+
+  /* ── public ── */
+  function setView(on){
+    on=!!on; if(on&&editing!=null) finishEdit();
+    sceneOn=on; document.body.classList.toggle('scene-mode',on); $('vObject').classList.toggle('on',!on); $('vScene').classList.toggle('on',on);
+    group.visible=on; grid.visible=!on; cam.far=on?6000:200; cam.updateProjectionMatrix(); sky(on);
+    if(on){ S.editing=null; } refreshAll(); lastKey=''; update(true);
+    if(on&&built) frame(); else if(!on) frameAll();
+    if(window.__describeModes) window.__describeModes(); }
+  /* A scene is a place, so it gets a sky and a little haze in the distance, which also hides
+     where the coarsest copies are; the object view keeps its plain dark backdrop. */
+  function sky(on){ if(on&&data){ scene.background=new THREE.Color(0x9fb4c8); const g=data.ground.size; scene.fog=new THREE.Fog(0x9fb4c8,g*0.6,g*2.6); }
+    else { scene.background=null; scene.fog=null; } }
+  function frame(){ if(!built||!built.inst.length) return; let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,ymax=0;
+    for(const o of built.inst){ const T=built.types[o.t], r=T.r*o.s; x0=Math.min(x0,o.x-r); x1=Math.max(x1,o.x+r); z0=Math.min(z0,o.z-r); z1=Math.max(z1,o.z+r); ymax=Math.max(ymax,o.y+T.h*o.s); }
+    const c=V((x0+x1)/2,0,(z0+z1)/2), R=Math.max(5,Math.hypot(x1-x0,z1-z0)/2);
+    camAnim={t:0,fromP:cam.position.clone(),toP:c.clone().add(V(R*0.75,R*0.62,R*0.95)),fromT:orbit.target.clone(),toT:c.clone().setY(Math.min(ymax*0.3,R*0.1))}; }
+  function set(d,label){ data=d; if(!d){ disposeBuilt(); drawPanel(); } else build(); if(label) commit(label); }
+  function restore(d){ if(d===undefined||d===data) return; data=d||null; if(!data){ disposeBuilt(); drawPanel(); } else build(); update(true); }
+  // Edit a type: it opens in the studio as an ordinary object; "done" puts it back and rebuilds its copies.
+  function editType(i){ if(!data||!data.types[i]) return; stash=sceneData(); delete stash.scene; editing=i;
+    setView(false); clearAll(); loadScene({format:'3d-studio',version:2,parts:data.types[i].parts}); frameAll();
+    const b=$('typeBack'); b.hidden=false; b.textContent='← done: update '+built.types[i].count+' '+data.types[i].name+(built.types[i].count===1?'':' copies')+' in the scene'; }
+  function finishEdit(){ if(editing==null) return; const i=editing; editing=null; $('typeBack').hidden=true;
+    const types=data.types.slice(); types[i]={name:types[i].name,parts:S.parts.map(partData)};
+    const d=Object.assign({},data,{types}); loadScene(stash); stash=null; data=d; build(); commit('scene: '+types[i].name); }
+  $('typeBack').onclick=()=>setView(true);
+  $('vObject').onclick=()=>setView(false); $('vScene').onclick=()=>setView(true);
+  $('scShuffle').onclick=()=>{ if(data) set(Object.assign({},data,{seed:((data.seed||1)*7919+13)>>>0}),'scene: shuffle'); };
+  $('scFrame').onclick=frame;
+  // For look & fix: the scene drawn from above and from two sides, in one picture.
+  function viewsPng(){
+    if(!built) return null; const W=384,H=384,out=document.createElement('canvas'); out.width=W*3; out.height=H;
+    const g=out.getContext('2d'), r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); r.setSize(W,H,false);
+    const sc=new THREE.Scene(); sc.background=new THREE.Color(0x9fb4c8);
+    sc.add(new THREE.HemisphereLight(0xffffff,0x404040,0.8)); const dl=new THREE.DirectionalLight(0xffffff,0.7); dl.position.set(3,6,4); sc.add(dl);
+    const was=group.visible; group.visible=true; sc.add(group);
+    let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9; for(const o of built.inst){ x0=Math.min(x0,o.x); x1=Math.max(x1,o.x); z0=Math.min(z0,o.z); z1=Math.max(z1,o.z); }
+    const c=V((x0+x1)/2,0,(z0+z1)/2), R=Math.max(5,Math.hypot(x1-x0,z1-z0)/2+5);
+    const c2=new THREE.PerspectiveCamera(40,1,0.1,R*20);
+    [['from above (north is up, +z down)',[0,1,0.001]],['from the south (+z), low',[0.15,0.35,1]],['from the east (+x), low',[1,0.35,0.15]]].forEach(([label,dir],i)=>{
+      const v=V(...dir).normalize().multiplyScalar(R/Math.sin(20*PI/180)); c2.position.copy(c).add(v); c2.lookAt(c);
+      r.render(sc,c2); g.drawImage(r.domElement,i*W,0); g.fillStyle='#14161a'; g.font='15px sans-serif'; g.fillText(label,i*W+10,22); });
+    scene.add(group); group.visible=was; r.dispose(); return out.toDataURL('image/png').split(',')[1]; }
+  // Put the camera somewhere and redraw at once (used by the tests; handy from the console).
+  function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
+})();
+window.__scene=SCN;
 
 /* ══ DESCRIBE IT ══ (Oct 4: "describe it" with Claude in 3d) Words in, an object out. Claude
    answers with the same things the panels set (a starting shape, an outline, a section,
@@ -3785,6 +4016,42 @@ function renderGallery(){
     'When asked to CHANGE an object you are given its current parts as JSON. Return the whole object again: keep the "id" of every part you keep (give only the fields you change, plus pos/rot/scale), leave out parts to delete, and add new parts without an id.',
   ].join('\n');
 
+  /* SCENES: a library of types plus placement rules (see SCENES above). Sent only with scene
+     requests, on top of everything above, since a type is built exactly like an object. */
+  const SCENE_SYS=[
+    'SCENES. When asked for a SCENE you build a whole place out of many objects. Reply with ONE JSON object:',
+    '{"name": string, "seed": integer, "ground": {"color": "#rrggbb", "size": metres across}, "types": [ {"name": string, "parts": [ part, ... ]} ], "place": [ rule, ... ], "notes"?: string}',
+    'Units are metres; y is up and the ground is y = 0; north is -z. A person is 1.7 tall, a door 2.1, a house 5 to 9, a tree 4 to 15, a car 1.5 tall and 4.5 long.',
+    '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Flat things (roads, paths, fields, ponds, plazas) are types too: a box or cylinder a few centimetres tall.',
+    '"place" puts copies of the types in the world. The code does the repetition; NEVER list objects one by one where a rule can do it. Rules, applied in order:',
+    '  {"type": name, "at": [x, z], "rot"?: degrees}   one copy: a landmark, a well, a statue, a road segment',
+    '  {"type": name, "row": {"from": [x, z], "to": [x, z]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   houses down a street, fence posts, street lamps, a hedge',
+    '  {"type": name, "ring": {"center": [x, z], "radius": r}, "count": n, "rot"?: "out"|"in"|"along"|degrees}   standing stones, chairs round a table, towers on a wall',
+    '  {"type": name, "grid": {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops, an orchard, market stalls, gravestones',
+    '  {"type": name, "scatter": {"center": [x, z], "radius": r} or {"rect": [x0, z0, x1, z1]}, "count": n}   forests, rocks, bushes, flowers, a crowd; copies keep apart and avoid everything placed before them',
+    '  Any rule may add "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": [areas] (keep out of roads, squares, water), "tint": 0..0.4 (lightness variation), "y": base height. Scatter rot is random unless given.',
+    'Place the ground features and landmarks first, then rows and rings, and scatters last so they flow around everything else. Keep things off roads and water with "exclude".',
+    'Make it rich and believable: real places hold hundreds or thousands of things. Use the counts a real place would have (a forest is hundreds of trees, a field rows of crops), up to 20000 copies in all, spread over the ground size you give.',
+    'When asked to CHANGE a scene you are given its types (name, height, width, copies) and its rules. Return "place" IN FULL (the new rule list), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
+  ].join('\n');
+  // The scene as Claude sees it when asked to change or check it.
+  function describeSceneAI(){ const d=SCN.data(), b=SCN.built();
+    return JSON.stringify({name:d.name,seed:d.seed,ground:d.ground,types:d.types.map((t,i)=>{ const T=b&&b.types[i]; return {name:t.name,height:T?+T.h.toFixed(2):null,width:T?+(T.r/0.8*2).toFixed(2):null,copies:T?T.count:0}; }),place:d.place}); }
+  // A scene reply, checked: types become parts through the same clamping as any object.
+  function sceneTypes(list){ return (Array.isArray(list)?list:[]).filter(t=>t&&typeof t.name==='string'&&Array.isArray(t.parts)&&t.parts.length).slice(0,30)
+    .map(t=>({name:t.name.slice(0,40),parts:t.parts.filter(q=>q&&typeof q==='object').slice(0,16).map(q=>partData(makePart(q)))})); }
+  function applyScene(spec,mode){
+    const old=mode==='scene-edit'?SCN.data():null, fresh=sceneTypes(spec.types), names=new Set(fresh.map(t=>t.name.toLowerCase()));
+    const place=(Array.isArray(spec.place)?spec.place:old?old.place:[]).filter(r=>r&&typeof r==='object'&&typeof r.type==='string').slice(0,200);
+    let types=fresh;
+    if(old){ const used=new Set(place.map(r=>r.type.toLowerCase())); types=old.types.filter(t=>!names.has(t.name.toLowerCase())&&used.has(t.name.toLowerCase())).concat(fresh); }
+    if(!types.length||!place.length) throw new Error('the answer had no object types or no placement rules — try again');
+    const g=spec.ground&&typeof spec.ground==='object'?spec.ground:(old&&old.ground)||{};
+    const d={name:String(spec.name||(old&&old.name)||'scene').slice(0,60),
+      seed:Number.isFinite(+spec.seed)&&spec.seed!==null?(+spec.seed>>>0):(old?old.seed:1+Math.floor(Math.random()*1e6)),
+      ground:{color:typeof g.color==='string'&&/^#[0-9a-f]{6}$/i.test(g.color)?g.color:'#5b7a46',size:Math.min(5000,Math.max(10,+g.size||200))},types,place};
+    SCN.set(d,'describe: '+d.name); if(!sceneOn) SCN.setView(true); else SCN.frame(); return d; }
+
   // The object as Claude sees it when asked to change it: the same fields it writes.
   const r3=a=>a.map(v=>+(+v).toFixed(3));
   function describeScene(){ return JSON.stringify({parts:S.parts.map(p=>{ const o={id:p.id,name:p.name,
@@ -3826,13 +4093,15 @@ function renderGallery(){
     if(o.paint) p.painted=false;
     prepPart(p); rebuild(p); placeMesh(p); }
 
-  function parseReply(data){
+  function parseJSON(data){
     if(data.stop_reason==='refusal') throw new Error('Claude declined this one — try describing it differently');
     const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     lastText=text; $('aiCopy').disabled=!text;
     const a=text.indexOf('{'), z=text.lastIndexOf('}');
-    if(a<0||z<a) throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for fewer parts':'no object came back — try rephrasing');
-    let spec; try{ spec=JSON.parse(text.slice(a,z+1)); }catch(e){ throw new Error('the answer was not readable JSON — try again'); }
+    if(a<0||z<a) throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for something smaller':'no object came back — try rephrasing');
+    try{ return JSON.parse(text.slice(a,z+1)); }catch(e){ throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for something smaller':'the answer was not readable JSON — try again'); } }
+  function parseReply(data){
+    const spec=parseJSON(data);
     if(!spec||!Array.isArray(spec.parts)||!spec.parts.length) throw new Error('the answer had no parts');
     spec.parts=spec.parts.filter(q=>q&&typeof q==='object').slice(0,100);   // 40 is the rule for one object; a set may use more
     return spec; }
@@ -3886,6 +4155,7 @@ function renderGallery(){
 
   async function lookAndFix(){
     if(busy) return;
+    if(sceneOn) return lookAndFixScene();
     if(!S.parts.length){ setStatus('nothing to look at yet',true); return; }
     if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
     const note=promptEl.value.trim(), ask=lastAsk||note;
@@ -3899,7 +4169,23 @@ function renderGallery(){
       const spec=parseReply(data); apply(spec,'edit');
       setStatus((spec.notes?spec.notes+'\n':'')+'fixed — '+S.parts.length+' parts. Undo takes it back.');
     }catch(e){ setStatus(e.message,true); }
-    finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!S.parts.length; }
+    finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!canFix(); }
+  }
+  async function lookAndFixScene(){
+    if(!SCN.built()){ setStatus('no scene to look at yet',true); return; }
+    if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
+    const note=promptEl.value.trim(), ask=lastAsk||note;
+    busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus('looking at the scene…');
+    const content=[
+      {type:'text',text:'What was asked for: '+(ask||'(not known: judge it as a believable place)')+(note&&note!==ask?'\nThe user adds: '+note:'')+'\n\nThe scene now:\n'+describeSceneAI()},
+      {type:'image',source:{type:'base64',media_type:'image/png',data:SCN.viewsPng()}},
+      {type:'text',text:'These are renders of it from above and from two sides. Compare them with what was asked for. Say in "notes" what is wrong (things floating or buried, wrong scale between types, empty or crowded areas, objects on roads or in water, a type that does not read as what it is), then return the corrected scene as a change.'}];
+    try{
+      const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content}]}));
+      const spec=parseJSON(data); applyScene(spec,'scene-edit'); const b=SCN.built();
+      setStatus((spec.notes?spec.notes+'\n':'')+'fixed — '+b.inst.length.toLocaleString()+' objects of '+b.types.length+' types. Undo takes it back.');
+    }catch(e){ setStatus(e.message,true); }
+    finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!canFix(); }
   }
   async function callWithFallback(body){
     try{ return await apiCall(body(modelEl.value)); }
@@ -3914,7 +4200,19 @@ function renderGallery(){
     if(!text){ setStatus('describe something first',true); promptEl.focus(); return; }
     if(!session){ acct.open=true; setStatus('sign in first — the account row is just below',true); return; }
     if(mode==='edit'&&!S.parts.length){ setStatus('there is nothing to change yet — use "new object"',true); return; }
-    busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus('building…');
+    if(mode==='scene-edit'&&!SCN.data()){ setStatus('there is no scene yet — use "new scene"',true); return; }
+    busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus(mode.startsWith('scene')?'building the scene… (a big one can take a minute)':'building…');
+    if(mode.startsWith('scene')){
+      const user=mode==='scene-edit'?'Here is the current scene:\n'+describeSceneAI()+'\n\nChange it: '+text:'Build a SCENE: '+text;
+      try{ const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content:user}]}));
+        const spec=parseJSON(data), d=applyScene(spec,mode);
+        lastAsk=mode==='scene-edit'&&lastAsk?lastAsk+'; then: '+text:text;
+        const b=SCN.built();
+        setStatus((spec.notes?spec.notes+'\n':'')+d.name+': '+b.inst.length.toLocaleString()+' objects of '+b.types.length+' types'+(b.short?' ('+b.short+' did not fit)':'')+'. Undo takes it back; "look & fix" lets Claude check it; edit a type on the left to reshape all its copies.');
+        modeEl.value='scene-edit'; }
+      catch(e){ setStatus(e.message,true); }
+      finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!canFix(); }
+      return; }
     const user=mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+text:mode==='set'?'Build a CHESS SET, all six pieces: '+text:'Build: '+text;
     const body=m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
     try{
@@ -3926,23 +4224,28 @@ function renderGallery(){
         +(mode==='set'?' in '+pieces+' pieces. file → export a chess set writes the six files.':'')+' Undo takes it back. "look & fix" lets Claude check it.');
       if(mode!=='edit') modeEl.value='edit';                 // the natural next step is a refinement
     }catch(e){ setStatus(e.message,true); }
-    finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!S.parts.length; }
+    finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!canFix(); }
   }
-  const fixBtn=$('aiFix'); fixBtn.disabled=!S.parts.length;
+  const canFix=()=>sceneOn?!!SCN.built():S.parts.length>0;
+  const fixBtn=$('aiFix'); fixBtn.disabled=!canFix();
+  /* The mode list follows the view: objects in the object view, scenes in the scene view. */
+  const OBJ_MODES=modeEl.innerHTML, SCENE_MODES='<option value="scene">new scene</option><option value="scene-edit">change scene</option>';
+  window.__describeModes=()=>{ const want=sceneOn?SCENE_MODES:OBJ_MODES; if(modeEl.innerHTML!==want) modeEl.innerHTML=want;
+    if(sceneOn) modeEl.value=SCN.data()?'scene-edit':'scene'; fixBtn.disabled=busy||!canFix(); };
   goBtn.onclick=build; fixBtn.onclick=lookAndFix;
   $('aiCopy').onclick=()=>{ if(lastText) navigator.clipboard.writeText(lastText).then(()=>setStatus('Claude\'s last reply is on the clipboard'),err=>setStatus('copy failed: '+err.message,true)); };
   promptEl.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); build(); } });
   btn.onclick=e=>{ e.stopPropagation(); const open=pop.hidden; $('fileMenu').hidden=true; pop.hidden=!open;
-    if(open){ fixBtn.disabled=busy||!S.parts.length; if(!session){ acct.open=true; setStatus('sign in below to start'); } setTimeout(()=>promptEl.focus(),0); } };
+    if(open){ window.__describeModes(); if(!session){ acct.open=true; setStatus('sign in below to start'); } setTimeout(()=>promptEl.focus(),0); } };
   addEventListener('click',e=>{ if(!e.target.closest('#aiPop')&&!e.target.closest('#aiBtn')) pop.hidden=true; });
   syncAccount(); refreshMe();
-  window.__describe={apply,parseReply,describeScene,SYS,viewsPng};    // tests drive it without the network
+  window.__describe={apply,parseReply,describeScene,SYS,SCENE_SYS,viewsPng,applyScene,describeSceneAI};    // tests drive it without the network
 })();
 
 /* ══ GO ══ */
 function loop(){ requestAnimationFrame(loop);
   if(camAnim){ camAnim.t=Math.min(1,camAnim.t+0.06); const e=1-Math.pow(1-camAnim.t,3); cam.position.lerpVectors(camAnim.fromP,camAnim.toP,e); orbit.target.lerpVectors(camAnim.fromT,camAnim.toT,e); if(camAnim.t>=1) camAnim=null; }
-  orbit.update(); renderer.render(scene,cam); }
+  orbit.update(); SCN.update(); renderer.render(scene,cam); }
 resize(); renderGallery(); loadExample('lighthouse'); loop();
 window.__studio={S,buildChessSet,exportChessSet,pieceOf,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
   useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D};

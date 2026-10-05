@@ -10,6 +10,8 @@
 //     the whole object as a chess piece (rebuilt from its parts, as games does),
 //   · describe it: build, change, look & fix (pictures sent), a chess set and its six-file
 //     export (relative heights kept), and error replies, from a stand-in gateway
+//   · scenes: a village from the stand-in gateway (rule counts, rows, rings, spacing, exclusions),
+//     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -380,6 +382,141 @@ try {
     if (Math.abs(wide('pawn') - wide('king')) > 0.02) throw new Error('the bases came out different sizes: the set was not scaled together');
     if (await ev(() => document.getElementById('aiMode').value) !== 'edit') throw new Error('did not move on to "change it"');
     await ev(k => __studio.loadScene(k), keep);
+  });
+  // ── scenes ──
+  const VILLAGE = { name: 'test village', seed: 7, ground: { color: '#6b8a4e', size: 220 },
+    types: [
+      { name: 'road', parts: [{ name: 'road', shape: 'box', pos: [0, 0, 0], scale: [4, 0.02, 4], color: '#9b8b70' }] },
+      { name: 'house', parts: [
+        { name: 'walls', shape: 'box', pos: [0, 0, 0], scale: [6, 3.2, 5], color: '#e8dcc4' },
+        { name: 'roof', shape: 'cone', section: { type: 'polygon', n: 4, k: 1, squash: 0.8 }, pos: [0, 3.2, 0], scale: [8.6, 2.6, 8.6], rot: [0, 45, 0], color: '#8c3b2e' },
+        { name: 'door', shape: 'box', pos: [0, 0, 2.45], scale: [1.1, 2.1, 0.12], color: '#5a3a22' }] },
+      { name: 'pine', parts: [
+        { name: 'trunk', shape: 'cylinder', outline: [[0, 0.5], [1, 0.4]], pos: [0, 0, 0], scale: [0.5, 2, 0.5], color: '#5b3d26' },
+        { name: 'crown', shape: 'cone', pos: [0, 1.5, 0], scale: [4.5, 8, 4.5], color: '#2f5d3a' }] },
+      { name: 'oak', parts: [{ name: 'crown', shape: 'ball', pos: [0, 0, 0], scale: [6, 6, 6], color: '#4f7d39' }] },
+      { name: 'rock', parts: [{ name: 'rock', shape: 'ball', pos: [0, -0.3, 0], scale: [1.6, 1.1, 1.3], color: '#8a8580' }] },
+      { name: 'fence post', parts: [{ name: 'post', shape: 'box', pos: [0, 0, 0], scale: [0.15, 1.2, 0.15], color: '#7a5a3a' }] },
+      { name: 'wheat', parts: [{ name: 'tuft', shape: 'cone', pos: [0, 0, 0], scale: [0.6, 1, 0.6], color: '#d8b85a' }] }],
+    place: [
+      { type: 'road', row: { from: [0, -90], to: [0, 90] }, every: 4 },                                   // 0: 46 tiles
+      { type: 'house', row: { from: [-9, -60], to: [-9, 60] }, count: 10, rot: 'along', turn: 90 },       // 1
+      { type: 'rock', ring: { center: [0, 0], radius: 5 }, count: 12, scale: [0.4, 0.6] },                // 2
+      { type: 'fence post', row: { from: [25, -40], to: [25, 40] }, every: 2 },                           // 3: 41
+      { type: 'wheat', grid: { rect: [30, -40, 70, 40] }, every: [1.6, 1.6], scale: [0.8, 1.2] },         // 4: 25 × 50
+      { type: 'pine', scatter: { rect: [-105, -105, -20, 105] }, count: 300, scale: [0.7, 1.4] },         // 5
+      { type: 'oak', scatter: { center: [60, 70], radius: 30 }, count: 30 },                              // 6
+      { type: 'rock', scatter: { center: [0, 0], radius: 100 }, count: 80, exclude: [{ rect: [-4, -95, 4, 95] }, { rect: [28, -42, 72, 42] }] }, // 7
+      { type: 'unicorn', at: [0, 0] }] };                                                                 // 8: no such type, skipped
+  const inst = () => ev(() => __scene.built().inst.map(o => ({ t: __scene.built().types[o.t].name, x: o.x, z: o.z, s: o.s, rule: o.rule, lv: o.lv, r: __scene.built().types[o.t].r * o.s })));
+  let keepObject;
+  await step('scene: build one from a description', async () => {
+    keepObject = await ev(() => __studio.sceneData());
+    await page.click('#vScene');
+    if (!await ev(() => document.body.classList.contains('scene-mode'))) throw new Error('the scene view did not open');
+    if (await ev(() => getComputedStyle(document.getElementById('xformSec')).display) !== 'none') throw new Error('the part panels still show in the scene view');
+    if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');
+    const modes = await ev(() => [...document.getElementById('aiMode').options].map(o => o.value).join(','));
+    if (modes !== 'scene,scene-edit') throw new Error('describe offers ' + modes + ' in the scene view');
+    aiReply = claudeSays(JSON.stringify(VILLAGE));
+    await page.fill('#aiPrompt', 'a small farming village beside a forest');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /objects of/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    const sent = aiSent[aiSent.length - 1];
+    if (!/Build a SCENE/.test(sent.messages[0].content) || !/SCENES\./.test(sent.system)) throw new Error('the request was not a scene request');
+    const all = await inst(), by = r => all.filter(o => o.rule === r);
+    if (by(0).length !== 46 || by(1).length !== 10 || by(2).length !== 12 || by(3).length !== 41 || by(4).length !== 1250) throw new Error('rule counts: ' + [0, 1, 2, 3, 4].map(r => by(r).length).join(','));
+    if (by(5).length < 285 || by(6).length < 25) throw new Error('scatters came up short: ' + by(5).length + ' pines, ' + by(6).length + ' oaks');
+    if (by(8).length) throw new Error('a rule naming a missing type placed something');
+    // rows are straight and even, rings round
+    const hs = by(1).map(o => o.z); if (!by(1).every(o => Math.abs(o.x + 9) < 1e-9) || hs.some((z, i) => i && Math.abs(z - hs[i - 1] - 120 / 9) > 1e-6)) throw new Error('the houses are not an even row');
+    if (!by(2).every(o => Math.abs(Math.hypot(o.x, o.z) - 5) < 1e-6)) throw new Error('the ring is not round');
+    // scattered copies keep apart, and keep out of excluded areas
+    const sc = all.filter(o => o.rule >= 5);
+    for (let i = 0; i < sc.length; i++) for (let j = i + 1; j < sc.length; j++){ const a = sc[i], b = sc[j];
+      if (Math.hypot(a.x - b.x, a.z - b.z) < 0.9 * (a.r + b.r) - 1e-6) throw new Error(a.t + ' and ' + b.t + ' overlap at ' + a.x.toFixed(1) + ',' + a.z.toFixed(1)); }
+    if (by(7).some(o => (Math.abs(o.x) <= 4 && Math.abs(o.z) <= 95) || (o.x >= 28 && o.x <= 72 && Math.abs(o.z) <= 42))) throw new Error('a scattered rock landed in an excluded area');
+    if (!/1,[67]\d\d objects of 7 types/.test(await page.textContent('#scStats'))) throw new Error('stats: ' + await page.textContent('#scStats'));
+    if ((await ev(() => document.getElementById('scTypes').children.length)) !== 7 || (await ev(() => document.getElementById('scRules').children.length)) !== 9) throw new Error('the scene panels were not filled');
+  });
+  await step('scene: copies are drawn finer near the camera', async () => {
+    const all = await inst(), pine = all.find(o => o.t === 'pine');
+    await ev(([x, z]) => __scene.cameraTo([x + 6, 5, z + 6], [x, 3, z]), [pine.x, pine.z]);
+    const near = await inst(), me = near.find(o => o.x === pine.x && o.z === pine.z);
+    if (me.lv !== 4) throw new Error('the pine beside the camera is at level ' + me.lv);
+    // every copy at the level its distance, in its own sizes, calls for; some at the coarsest
+    const wrong = await ev(([x, z]) => { const b = __scene.built(), N = __scene.NEAR; let bad = 0, coarse = 0;
+      for (const o of b.inst){ const d = Math.hypot(x + 6 - o.x, 5 - o.y, z + 6 - o.z) / (b.types[o.t].size * o.s); let lv = 0; while (lv < N.length && d < N[lv]) lv++;
+        if (lv !== o.lv) bad++; if (o.lv === 0) coarse++; } return { bad, coarse }; }, [pine.x, pine.z]);
+    if (wrong.bad || wrong.coarse < 50) throw new Error(wrong.bad + ' copies at the wrong level, ' + wrong.coarse + ' at the coarsest');
+    const drawn = await ev(() => __scene.built().types.reduce((n, T) => n + T.lod.reduce((m, L) => m + (L.mesh ? L.mesh.count : 0), 0), 0));
+    if (drawn !== all.length) throw new Error(drawn + ' copies drawn of ' + all.length);
+    await ev(() => __scene.frame());
+  });
+  await step('scene: shuffle rearranges, the rules stay', async () => {
+    const a = await inst(); await page.click('#scShuffle'); const b = await inst();
+    const same = r => JSON.stringify(a.filter(o => o.rule === r).map(o => [o.x, o.z])) === JSON.stringify(b.filter(o => o.rule === r).map(o => [o.x, o.z]));
+    if (!same(1) || !same(2)) throw new Error('the rows and rings moved');
+    if (same(5)) throw new Error('the forest did not move');
+    await page.click('#undo'); const c = await inst();
+    if (JSON.stringify(c.map(o => [o.x, o.z])) !== JSON.stringify(a.map(o => [o.x, o.z]))) throw new Error('undo did not bring the arrangement back');
+  });
+  await step('scene: edit a type and every copy changes', async () => {
+    const before = await ev(() => __studio.S.parts.length);
+    await ev(() => { const i = __scene.data().types.findIndex(t => t.name === 'house'); document.querySelector('#scTypes button[data-i="' + i + '"]').click(); });
+    if (await ev(() => document.body.classList.contains('scene-mode'))) throw new Error('editing a type did not open the studio');
+    const names = await ev(() => __studio.S.parts.map(p => p.name).join(','));
+    if (names !== 'walls,roof,door') throw new Error('the type opened as ' + names);
+    if (!/10 house copies/.test(await page.textContent('#typeBack'))) throw new Error('banner: ' + await page.textContent('#typeBack'));
+    await ev(() => { __studio.S.parts[0].paint.color = '#2040ff'; __studio.S.parts[0].painted = false; });
+    await page.click('#typeBack');
+    if (!await ev(() => document.body.classList.contains('scene-mode'))) throw new Error('done did not return to the scene');
+    if (await ev(() => __studio.S.parts.length) !== before) throw new Error('the object in the studio was not put back');
+    const blue = await ev(() => { const T = __scene.built().types.find(t => t.name === 'house'), c = T.lod[4].geo.attributes.color.array; for (let i = 0; i < c.length; i += 3) if (c[i + 2] > 0.6 && c[i] < 0.3) return true; return false; });
+    if (!blue) throw new Error('the house copies did not take the new colour');
+    if ((await inst()).filter(o => o.t === 'house').length !== 10) throw new Error('the houses moved or were lost');
+    await page.click('#undo');
+    if (await ev(() => __scene.data().types.find(t => t.name === 'house').parts[0].paint.color) === '#2040ff') throw new Error('undo did not take the edit back');
+  });
+  await step('scene: saved and opened with the object', async () => {
+    const n = (await inst()).length;
+    const d = await download(() => ev(() => __studio.fileAction('save')));
+    const j = JSON.parse(d.text); if (!j.scene || j.scene.types.length !== 7 || j.view !== 'scene') throw new Error('the .3da has no scene');
+    await page.click('#vObject'); await ev(() => __scene.set(null));
+    await page.setInputFiles('#fileOpen', d.path);
+    await page.waitForFunction(n => window.__scene.built() && __scene.built().inst.length === n && document.body.classList.contains('scene-mode'), n, { timeout: 10000 });
+  });
+  await step('scene: change it through describe', async () => {
+    if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');
+    await ev(() => window.__describeModes());
+    if (await ev(() => document.getElementById('aiMode').value) !== 'scene-edit') throw new Error('describe did not offer to change the scene');
+    const place = VILLAGE.place.filter(r => r.type !== 'oak').concat([{ type: 'cart', at: [3, 10], rot: 0 }]);
+    aiReply = claudeSays(JSON.stringify({ name: 'test village', notes: 'Removed the oaks, added a cart.', types: [{ name: 'cart', parts: [{ name: 'bed', shape: 'box', pos: [0, 0.6, 0], scale: [1.4, 0.5, 2.6], color: '#7a5a3a' }] }], place }));
+    await page.fill('#aiPrompt', 'no oaks, and a cart by the road');
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /oaks/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    const sent = aiSent[aiSent.length - 1].messages[0].content;
+    if (!/current scene/.test(sent) || !/"copies":/.test(sent) || !/"place":/.test(sent)) throw new Error('the current scene was not sent');
+    const types = await ev(() => __scene.data().types.map(t => t.name).sort().join(','));
+    if (types !== 'cart,fence post,house,pine,road,rock,wheat') throw new Error('types after the change: ' + types);
+    if ((await inst()).some(o => o.t === 'oak')) throw new Error('the oaks are still there');
+  });
+  await step('scene: look & fix sends pictures of the scene', async () => {
+    aiReply = claudeSays(JSON.stringify({ notes: 'The forest edge was bare; added bushes.', types: [{ name: 'bush', parts: [{ name: 'bush', shape: 'ball', pos: [0, 0, 0], scale: [1.2, 1, 1.2], color: '#3e6b35' }] }],
+      place: (await ev(() => __scene.data().place)).concat([{ type: 'bush', scatter: { rect: [-25, -100, -15, 100] }, count: 40 }]) }));
+    await page.fill('#aiPrompt', '');
+    await page.click('#aiFix');
+    await page.waitForFunction(() => /bushes/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    const sent = aiSent[aiSent.length - 1].messages[0].content;
+    if (!Array.isArray(sent) || sent[1].type !== 'image' || sent[1].source.data.length < 20000 || !/The scene now/.test(sent[0].text)) throw new Error('the scene pictures were not sent');
+    if (!(await inst()).some(o => o.t === 'bush')) throw new Error('the fix was not applied');
+  });
+  await step('scene: back to the object view', async () => {
+    await page.click('#vObject');
+    if (await ev(() => document.body.classList.contains('scene-mode'))) throw new Error('still in the scene view');
+    if (!await ev(() => __studio.S.parts.every(p => p.mesh.visible))) throw new Error('the parts stayed hidden');
+    if (await ev(() => [...document.getElementById('aiMode').options].map(o => o.value).includes('scene'))) throw new Error('describe still offers scenes');
+    await ev(k => __studio.loadScene(k), keepObject);
   });
   await step('describe it: errors are reported, nothing changes', async () => {
     const n = await parts();

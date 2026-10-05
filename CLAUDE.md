@@ -32,7 +32,7 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   scales the core by `outline(h) / _origOutline(h)`, so an untouched outline
   reproduces the core exactly. Keep that property.
 - **File formats:**
-  - `.3da` is JSON `{format:'3d-studio', version:2, parts:[…]}`, and old
+  - `.3da` is JSON `{format:'3d-studio', version:2, parts:[…], scene?, view?}`, and old
     `{format:'3d-assembly', version:1}` files still open (`fromAssemblyV1`).
     Change formats compatibly.
   - `.tvf3d` is what games reads for chess pieces: `TVF3D NH MT color`, then
@@ -54,6 +54,16 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   "look & fix" sends `viewsPng()` (front, side and three-quarter renders in one
   PNG) with the request and the current parts. Tune `SYS` from real results the
   owner sends (the first knight came out as a candlestick).
+- **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, types, place}`:
+  `types` are named lists of `partData`, `place` the placement rules
+  (`at`, `row`, `ring`, `grid`, `scatter`, plus `scale`, `turn`, `jitter`, `exclude`,
+  `tint`, `y`). `place()` applies them in order with a seeded generator, so a
+  scene always comes out the same. Each type is built at the `LODS` resolutions
+  (around-counts multiples of 8, so boxes stay square) and drawn as one
+  InstancedMesh per level; `update()` gives each copy the level for its distance
+  in its own size (`NEAR`). Scene data is replaced, never changed in place, so
+  the undo history keeps references. The `.3da` carries it as `scene` and `view`.
+  A new rule goes in `place()`, `SCENE_SYS` (the prompt) and `ruleText`.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
