@@ -68,7 +68,9 @@ hillside. The studio does the repeating, with small random variations, keeping
 scattered copies apart. Rules use areas by name: boats are scattered "in the
 harbour", and water and roads are kept clear of everything else automatically.
 Everything stands on the ground where it lands (and boats float), and a rule can
-keep to a height range, like pines only on high ground. **walk** puts you in the
+keep to a height range, like pines only on high ground. Streams run downhill on the land
+in a shallow bed; shores and banks slope instead of dropping as cliffs; houses
+can line a named street on one or both sides, facing it. **walk** puts you in the
 scene at eye height (W A S D or arrows, drag to look, Shift to run) and **fly**
 lets you soar over it (Space and Q for up and down); Esc stops. Each type is built once at five levels
 of detail and drawn as instances, so a scene can hold thousands of objects:
