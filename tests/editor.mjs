@@ -10,7 +10,8 @@
 //     the whole object as a chess piece (rebuilt from its parts, as games does),
 //   · describe it: build, change, look & fix (pictures sent), a chess set and its six-file
 //     export (relative heights kept), and error replies, from a stand-in gateway
-//   · scenes: a village from the stand-in gateway (rule counts, rows, rings, spacing, exclusions),
+//   · scenes: a village from the stand-in gateway (rule counts, rows, rings, spacing, exclusions,
+//     a lake and a lane as areas: boats only on water, nothing scattered into either),
 //     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
@@ -385,7 +386,11 @@ try {
   });
   // ── scenes ──
   const VILLAGE = { name: 'test village', seed: 7, ground: { color: '#6b8a4e', size: 220 },
+    areas: [
+      { name: 'lake', water: true, color: '#3b6e94', center: [60, -80], radius: 15 },
+      { name: 'lane', blocks: true, color: '#9b8b70', path: [[-30, -100], [-30, 100]], width: 6 }],
     types: [
+      { name: 'boat', parts: [{ name: 'hull', shape: 'bowl', pos: [0, -0.3, 0], scale: [1.5, 0.6, 1.5], color: '#2d5fa8' }] },
       { name: 'road', parts: [{ name: 'road', shape: 'box', pos: [0, 0, 0], scale: [4, 0.02, 4], color: '#9b8b70' }] },
       { name: 'house', parts: [
         { name: 'walls', shape: 'box', pos: [0, 0, 0], scale: [6, 3.2, 5], color: '#e8dcc4' },
@@ -407,7 +412,8 @@ try {
       { type: 'pine', scatter: { rect: [-105, -105, -20, 105] }, count: 300, scale: [0.7, 1.4] },         // 5
       { type: 'oak', scatter: { center: [60, 70], radius: 30 }, count: 30 },                              // 6
       { type: 'rock', scatter: { center: [0, 0], radius: 100 }, count: 80, exclude: [{ rect: [-4, -95, 4, 95] }, { rect: [28, -42, 72, 42] }] }, // 7
-      { type: 'unicorn', at: [0, 0] }] };                                                                 // 8: no such type, skipped
+      { type: 'unicorn', at: [0, 0] },                                                                    // 8: no such type, skipped
+      { type: 'boat', scatter: 'lake', count: 6 }] };                                                     // 9: on the water, by name
   const inst = () => ev(() => __scene.built().inst.map(o => ({ t: __scene.built().types[o.t].name, x: o.x, z: o.z, s: o.s, rule: o.rule, lv: o.lv, r: __scene.built().types[o.t].r * o.s })));
   let keepObject;
   await step('scene: build one from a description', async () => {
@@ -436,8 +442,13 @@ try {
     for (let i = 0; i < sc.length; i++) for (let j = i + 1; j < sc.length; j++){ const a = sc[i], b = sc[j];
       if (Math.hypot(a.x - b.x, a.z - b.z) < 0.9 * (a.r + b.r) - 1e-6) throw new Error(a.t + ' and ' + b.t + ' overlap at ' + a.x.toFixed(1) + ',' + a.z.toFixed(1)); }
     if (by(7).some(o => (Math.abs(o.x) <= 4 && Math.abs(o.z) <= 95) || (o.x >= 28 && o.x <= 72 && Math.abs(o.z) <= 42))) throw new Error('a scattered rock landed in an excluded area');
-    if (!/1,[67]\d\d objects of 7 types/.test(await page.textContent('#scStats'))) throw new Error('stats: ' + await page.textContent('#scStats'));
-    if ((await ev(() => document.getElementById('scTypes').children.length)) !== 7 || (await ev(() => document.getElementById('scRules').children.length)) !== 9) throw new Error('the scene panels were not filled');
+    // areas: boats only on the lake; nothing scattered on land lands in the lake or on the lane
+    if (by(9).length !== 6 || by(9).some(o => Math.hypot(o.x - 60, o.z + 80) > 15)) throw new Error('boats: ' + by(9).length + ', not all on the lake');
+    const wet = all.filter(o => o.rule >= 5 && o.rule <= 7 && Math.hypot(o.x - 60, o.z + 80) <= 15), onLane = all.filter(o => o.rule >= 5 && o.rule <= 7 && Math.abs(o.x + 30) <= 3 && Math.abs(o.z) <= 100);
+    if (wet.length || onLane.length) throw new Error(wet.length + ' land things in the lake, ' + onLane.length + ' on the lane');
+    if (await ev(() => __scene.built().ground.children.length) < 4) throw new Error('the areas were not drawn');
+    if (!/1,[67]\d\d objects of 8 types/.test(await page.textContent('#scStats'))) throw new Error('stats: ' + await page.textContent('#scStats'));
+    if ((await ev(() => document.getElementById('scTypes').children.length)) !== 8 || (await ev(() => document.getElementById('scRules').children.length)) !== 12) throw new Error('the scene panels were not filled');
   });
   await step('scene: copies are drawn finer near the camera', async () => {
     const all = await inst(), pine = all.find(o => o.t === 'pine');
@@ -481,7 +492,7 @@ try {
   await step('scene: saved and opened with the object', async () => {
     const n = (await inst()).length;
     const d = await download(() => ev(() => __studio.fileAction('save')));
-    const j = JSON.parse(d.text); if (!j.scene || j.scene.types.length !== 7 || j.view !== 'scene') throw new Error('the .3da has no scene');
+    const j = JSON.parse(d.text); if (!j.scene || j.scene.types.length !== 8 || j.scene.areas.length !== 2 || j.view !== 'scene') throw new Error('the .3da has no scene');
     await page.click('#vObject'); await ev(() => __scene.set(null));
     await page.setInputFiles('#fileOpen', d.path);
     await page.waitForFunction(n => window.__scene.built() && __scene.built().inst.length === n && document.body.classList.contains('scene-mode'), n, { timeout: 10000 });
@@ -496,9 +507,10 @@ try {
     await page.click('#aiGo');
     await page.waitForFunction(() => /oaks/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
     const sent = aiSent[aiSent.length - 1].messages[0].content;
-    if (!/current scene/.test(sent) || !/"copies":/.test(sent) || !/"place":/.test(sent)) throw new Error('the current scene was not sent');
+    if (!/current scene/.test(sent) || !/"copies":/.test(sent) || !/"place":/.test(sent) || !/"areas":\[\{"name":"lake"/.test(sent)) throw new Error('the current scene was not sent');
+    if (await ev(() => (__scene.data().areas || []).length) !== 2) throw new Error('a change that did not mention areas lost them');
     const types = await ev(() => __scene.data().types.map(t => t.name).sort().join(','));
-    if (types !== 'cart,fence post,house,pine,road,rock,wheat') throw new Error('types after the change: ' + types);
+    if (types !== 'boat,cart,fence post,house,pine,road,rock,wheat') throw new Error('types after the change: ' + types);
     if ((await inst()).some(o => o.t === 'oak')) throw new Error('the oaks are still there');
   });
   await step('scene: look & fix sends pictures of the scene', async () => {

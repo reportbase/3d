@@ -3772,13 +3772,38 @@ const SCN=(function(){
   const rngOf=seed=>{ let a=(seed>>>0)||1; return ()=>{ a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; };
   const num=(v,lo,hi,d)=>{ v=+v; return isFinite(v)?Math.min(hi,Math.max(lo,v)):d; };
   const xz=(a,d=[0,0])=>Array.isArray(a)&&a.length>=2?[num(a[0],-5000,5000,d[0]),num(a[1],-5000,5000,d[1])]:d;
-  function area(a){ if(!a||typeof a!=='object') return null;
-    if(Array.isArray(a.rect)&&a.rect.length===4){ const r=a.rect.map(v=>num(v,-5000,5000,0)); return {rect:[Math.min(r[0],r[2]),Math.min(r[1],r[3]),Math.max(r[0],r[2]),Math.max(r[1],r[3])]}; }
-    if(a.center||a.radius!=null) return {center:xz(a.center),radius:num(a.radius,0.1,5000,10)};
+  /* AREAS (Oct 5, from the first real scene: a fishing village's boats sat on grass. A sea
+     could only be an object type, and a type scales the same in every direction, so a sea
+     300 m wide would also have been 300 m tall; Claude made a small blue tile instead.)
+     An area is flat ground with a name: a rectangle, a circle, a polygon, or a path with a
+     width (a road, a river). It is drawn as ground, so its size costs nothing, and rules use
+     it by name: "scatter": "harbour" puts boats on the water, "exclude": ["road"] keeps trees
+     off the road. Two flags save every rule from saying it again:
+       water   scatters and grids aimed at dry land never land in it, and a rule aimed at
+               water stays in water (boats, buoys, reeds);
+       blocks  roads and plazas: kept clear by every scatter and grid not aimed at them.
+     Rows, rings and single copies go exactly where they are told: those are deliberate. */
+  const bboxOf=pts=>[Math.min(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1]))];
+  function shapeOf(a){ if(!a||typeof a!=='object') return null;
+    if(Array.isArray(a.rect)&&a.rect.length===4){ const r=a.rect.map(v=>num(v,-5000,5000,0)), b=[Math.min(r[0],r[2]),Math.min(r[1],r[3]),Math.max(r[0],r[2]),Math.max(r[1],r[3])]; return {rect:b,box:b}; }
+    if(Array.isArray(a.polygon)&&a.polygon.length>=3){ const pts=a.polygon.slice(0,200).map(q=>xz(q)); return {polygon:pts,box:bboxOf(pts)}; }
+    if(Array.isArray(a.path)&&a.path.length>=2){ const pts=a.path.slice(0,200).map(q=>xz(q)), w=num(a.width,0.1,500,4), b=bboxOf(pts); return {path:pts,width:w,box:[b[0]-w/2,b[1]-w/2,b[2]+w/2,b[3]+w/2]}; }
+    if(a.center||a.radius!=null){ const c=xz(a.center), r=num(a.radius,0.1,5000,10); return {center:c,radius:r,box:[c[0]-r,c[1]-r,c[0]+r,c[1]+r]}; }
     return null; }
-  const inArea=(x,z,a)=>a.rect?(x>=a.rect[0]&&x<=a.rect[2]&&z>=a.rect[1]&&z<=a.rect[3]):Math.hypot(x-a.center[0],z-a.center[1])<=a.radius;
-  const sampleArea=(a,R)=>{ if(a.rect) return [a.rect[0]+R()*(a.rect[2]-a.rect[0]),a.rect[1]+R()*(a.rect[3]-a.rect[1])];
-    const r=a.radius*Math.sqrt(R()), t=R()*TAU; return [a.center[0]+r*Math.cos(t),a.center[1]+r*Math.sin(t)]; };
+  function segDist(x,z,a,b){ const dx=b[0]-a[0], dz=b[1]-a[1], L=dx*dx+dz*dz; let t=L?((x-a[0])*dx+(z-a[1])*dz)/L:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz); }
+  function inArea(x,z,a){
+    if(a.rect) return x>=a.rect[0]&&x<=a.rect[2]&&z>=a.rect[1]&&z<=a.rect[3];
+    if(a.center) return Math.hypot(x-a.center[0],z-a.center[1])<=a.radius;
+    if(a.polygon){ let inside=false; const P=a.polygon; for(let i=0,j=P.length-1;i<P.length;j=i++){ const [xi,zi]=P[i],[xj,zj]=P[j]; if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi) inside=!inside; } return inside; }
+    if(a.path){ for(let i=0;i<a.path.length-1;i++) if(segDist(x,z,a.path[i],a.path[i+1])<=a.width/2) return true; }
+    return false; }
+  function sampleArea(a,R){
+    if(a.rect) return [a.rect[0]+R()*(a.rect[2]-a.rect[0]),a.rect[1]+R()*(a.rect[3]-a.rect[1])];
+    if(a.center){ const r=a.radius*Math.sqrt(R()), t=R()*TAU; return [a.center[0]+r*Math.cos(t),a.center[1]+r*Math.sin(t)]; }
+    for(let i=0;i<200;i++){ const x=a.box[0]+R()*(a.box[2]-a.box[0]), z=a.box[1]+R()*(a.box[3]-a.box[1]); if(inArea(x,z,a)) return [x,z]; }
+    return null; }
+  // The scene's named areas, ready to test against.
+  const namedAreas=d=>new Map((Array.isArray(d.areas)?d.areas:[]).map(a=>{ const sh=shapeOf(a); return sh&&typeof a.name==='string'?[a.name.toLowerCase(),Object.assign(sh,{name:a.name,water:!!a.water,blocks:!!a.blocks,color:a.color})]:null; }).filter(Boolean));
 
   function place(d,types){
     const R=rngOf(d.seed), out=[], CELL=4, hash=new Map(); let maxR=0, short=0;
@@ -3791,10 +3816,16 @@ const SCN=(function(){
       const v=1+(R()*2-1)*tint, m=new THREE.Matrix4().compose(V(x,y,z),new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(s,s,s));
       out.push({t,x,y,z,s,m,col:new THREE.Color(v,v,v),rule:rule_,lv:0}); return true; };
     const byName=new Map(types.map((T,i)=>[T.name.toLowerCase(),i]));
+    const named=namedAreas(d), waters=[...named.values()].filter(a=>a.water), blockers=[...named.values()].filter(a=>a.blocks&&!a.water);
+    const area=ref=>typeof ref==='string'?named.get(ref.toLowerCase())||null:ref&&typeof ref.area==='string'?named.get(ref.area.toLowerCase())||null:shapeOf(ref);
+    // Is (x, z) somewhere a scatter or grid aimed at `target` may put something?
+    const allowed=(x,z,target)=>{ const wet=waters.some(w=>inArea(x,z,w));
+      if(target&&target.water){ if(!wet) return false; } else if(wet) return false;
+      return !blockers.some(b=>b!==target&&inArea(x,z,b)); };
     for(const [ri,rule] of d.place.entries()){ rule_=ri; const t=byName.get(String(rule.type||'').toLowerCase()); if(t==null) continue;
       const sc=Array.isArray(rule.scale)?[num(rule.scale[0],0.05,50,1),num(rule.scale[1],0.05,50,1)]:[num(rule.scale,0.05,50,1),num(rule.scale,0.05,50,1)];
       const size=()=>sc[0]+R()*(sc[1]-sc[0]), y=num(rule.y,-100,500,0), jit=num(rule.jitter,0,100,0), tint=num(rule.tint,0,0.4,rule.scatter?0.12:0.05);
-      const excl=(Array.isArray(rule.exclude)?rule.exclude:[]).map(area).filter(Boolean), out_=(x,z)=>excl.some(a=>inArea(x,z,a));
+      const excl=(Array.isArray(rule.exclude)?rule.exclude:rule.exclude?[rule.exclude]:[]).map(area).filter(Boolean), out_=(x,z)=>excl.some(a=>inArea(x,z,a));
       const turn=num(rule.turn,-360,360,0)*PI/180, fixed=typeof rule.rot==='number'?rule.rot*PI/180:null;
       const yawOf=(dir)=>fixed!=null?fixed:rule.rot==='random'?R()*TAU:(dir??0);
       const J=()=>(R()*2-1)*jit;
@@ -3807,14 +3838,15 @@ const SCN=(function(){
         for(let i=0;i<n;i++){ const a=i/n*TAU, x=c[0]+rad*Math.sin(a), z=c[1]+rad*Math.cos(a);
           const dir=rule.rot==='in'?a+PI:rule.rot==='along'?a+PI/2:a;   // default faces out
           put(t,x+J(),z+J(),yawOf(dir)+turn,size(),y,tint); } continue; }
-      if(rule.grid&&typeof rule.grid==='object'){ const ar=area(rule.grid)||area({rect:rule.grid.rect}); if(!ar||!ar.rect) continue;
-        const ev=Array.isArray(rule.every)?rule.every:[rule.every,rule.every], dx=num(ev[0],0.1,1000,2), dz=num(ev[1],0.1,1000,dx);
-        for(let x=ar.rect[0]+dx/2;x<=ar.rect[2];x+=dx) for(let z=ar.rect[1]+dz/2;z<=ar.rect[3];z+=dz){ if(out_(x,z)) continue; if(!put(t,x+J(),z+J(),yawOf(0)+turn,size(),y,tint)) break; } continue; }
-      if(rule.scatter&&typeof rule.scatter==='object'){ const ar=area(rule.scatter); if(!ar) continue;
+      if(rule.grid){ const ar=area(rule.grid); if(!ar) continue;
+        const ev=Array.isArray(rule.every)?rule.every:[rule.every,rule.every], dx=num(ev[0],0.1,1000,2), dz=num(ev[1],0.1,1000,dx), B=ar.box;
+        if((B[2]-B[0])/dx*(B[3]-B[1])/dz>MAX_RULE*4) continue;   // a grid that fine over that much ground is a mistake, not a field
+        for(let x=B[0]+dx/2;x<=B[2];x+=dx) for(let z=B[1]+dz/2;z<=B[3];z+=dz){ if(!inArea(x,z,ar)||out_(x,z)||!allowed(x,z,ar)) continue; if(!put(t,x+J(),z+J(),yawOf(0)+turn,size(),y,tint)) break; } continue; }
+      if(rule.scatter){ const ar=area(rule.scatter); if(!ar) continue;
         const n=Math.min(MAX_RULE,Math.round(num(rule.count,1,MAX_RULE,20))), avoid=rule.avoid!==false; let made=0;
         for(let i=0;i<n;i++){ let ok=false;
-          for(let tries=0;tries<30&&!ok;tries++){ const [x,z]=sampleArea(ar,R), s=size();
-            if(out_(x,z)||(avoid&&!free(x,z,types[t].r*s*0.9))) continue;
+          for(let tries=0;tries<30&&!ok;tries++){ const at=sampleArea(ar,R); if(!at) break; const [x,z]=at, s=size();
+            if(out_(x,z)||!allowed(x,z,ar)||(avoid&&!free(x,z,types[t].r*s*0.9))) continue;
             ok=put(t,x,z,(fixed??R()*TAU)+turn,s,y,tint); }
           if(ok) made++; }
         short+=n-made; continue; }
@@ -3822,8 +3854,27 @@ const SCN=(function(){
     return {inst:out,short}; }
 
   /* ── building and drawing ── */
-  function disposeBuilt(){ if(!built) return; for(const T of built.types) for(const L of T.lod){ group.remove(L.mesh); L.mesh.dispose(); L.geo.dispose(); }
-    if(built.ground){ group.remove(built.ground); built.ground.geometry.dispose(); built.ground.material.dispose(); } built=null; }
+  function disposeGround(){ if(!built||!built.ground) return; group.remove(built.ground);
+    built.ground.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); }); built.ground=null; }
+  function disposeBuilt(){ if(!built) return; for(const T of built.types) for(const L of T.lod){ group.remove(L.mesh); if(L.mesh) L.mesh.dispose(); L.geo.dispose(); }
+    disposeGround(); built=null; }
+  /* The ground and its areas as flat meshes, each area a little above the one before so a
+     road over a field over the ground never flickers. Water is glossier than land. */
+  function groundOf(d){
+    const g=new THREE.Group(), flat=(geo,y)=>{ geo.rotateX(-PI/2); geo.translate(0,y,0); return geo; };
+    const gm=new THREE.Mesh(flat(new THREE.CircleGeometry(d.ground.size/2,96),-0.01),new THREE.MeshStandardMaterial({color:d.ground.color,roughness:0.95})); g.add(gm);
+    [...namedAreas(d).values()].forEach((a,i)=>{ const y=0.03*(i+1), col=typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:(a.water?'#3b6e94':'#9b8b70');
+      // each layer also pulled toward the camera in depth, so from far off it still wins over the one beneath
+      const mat=new THREE.MeshStandardMaterial({color:col,roughness:a.water?0.25:0.95,metalness:a.water?0.08:0,polygonOffset:true,polygonOffsetFactor:-(i+1),polygonOffsetUnits:-4*(i+1)}),
+        add=geo=>g.add(new THREE.Mesh(flat(geo,y),mat));
+      const shape=pts=>{ const sh=new THREE.Shape(); pts.forEach(([x,z],k)=>k?sh.lineTo(x,-z):sh.moveTo(x,-z)); return new THREE.ShapeGeometry(sh); };   // after the turn flat, shape y becomes -z
+      if(a.rect) add(shape([[a.rect[0],a.rect[1]],[a.rect[2],a.rect[1]],[a.rect[2],a.rect[3]],[a.rect[0],a.rect[3]]]));
+      else if(a.polygon) add(shape(a.polygon));
+      else if(a.center){ const c=new THREE.CircleGeometry(a.radius,64); c.translate(a.center[0],-a.center[1],0); add(c); }
+      else if(a.path){ for(let k=0;k<a.path.length-1;k++){ const [x0,z0]=a.path[k],[x1,z1]=a.path[k+1], L=Math.hypot(x1-x0,z1-z0); if(!L) continue;
+          const nx=-(z1-z0)/L*a.width/2, nz=(x1-x0)/L*a.width/2; add(shape([[x0+nx,z0+nz],[x1+nx,z1+nz],[x1-nx,z1-nz],[x0-nx,z0-nz]])); }
+        for(const [x,z] of a.path){ const c=new THREE.CircleGeometry(a.width/2,24); c.translate(x,-z,0); add(c); } } });   // round joints, so a bend has no notch
+    return g; }
   function build(){
     const keep=built&&built.types.reduce((m,T)=>m.set(T.key,T),new Map());   // a type whose parts did not change keeps its meshes
     const types=data.types.map(ty=>{ const key=JSON.stringify(ty.parts), old=keep&&keep.get(key);
@@ -3833,14 +3884,13 @@ const SCN=(function(){
       const h=Math.max(0.05,bb.max.y), r=Math.max(0.05,Math.max(-bb.min.x,bb.max.x,-bb.min.z,bb.max.z)*0.8);
       return {name:ty.name,key,lod,h,r,size:Math.max(h,r/0.8*2)}; });
     if(keep) for(const T of keep.values()) for(const L of T.lod){ if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); } L.geo.dispose(); }
-    if(built&&built.ground){ group.remove(built.ground); built.ground.geometry.dispose(); built.ground.material.dispose(); }
+    disposeGround();
     const {inst,short}=place(data,types);
     for(const [t,T] of types.entries()){ const n=inst.filter(o=>o.t===t).length; T.count=n;
       for(const L of T.lod){ if(L.mesh&&L.cap>=n&&n>0){ continue; } if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); L.mesh=null; }
         if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
         L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
-    const g=data.ground, gm=new THREE.Mesh(new THREE.CircleGeometry(g.size/2,96),new THREE.MeshStandardMaterial({color:g.color,roughness:0.95}));
-    gm.rotation.x=-PI/2; gm.position.y=-0.01; group.add(gm);
+    const gm=groundOf(data); group.add(gm);
     built={types,inst,short,ground:gm}; lastKey=''; drawPanel(); if(sceneOn) sky(true); }
 
   // Each frame: every copy takes the resolution its distance calls for. Skipped while the camera is still.
@@ -3864,7 +3914,7 @@ const SCN=(function(){
     if(r.row) return (r.count||'')+' '+t+' in a row'+(r.every?' every '+r.every+' m':'');
     if(r.ring) return (r.count||'')+' '+t+' in a ring, radius '+(r.ring.radius||'?');
     if(r.grid) return t+' in a grid every '+(Array.isArray(r.every)?r.every.join(' × '):r.every)+' m';
-    if(r.scatter) return (r.count||'')+' '+t+' scattered'+(r.scatter.radius?' within '+r.scatter.radius+' m':'');
+    if(r.scatter) return (r.count||'')+' '+t+' scattered'+(typeof r.scatter==='string'?' in '+escapeHtml(r.scatter):r.scatter.area?' in '+escapeHtml(r.scatter.area):r.scatter.radius?' within '+r.scatter.radius+' m':'');
     return t; }
   function drawPanel(){
     $('scName').textContent=data?data.name||'':'';
@@ -3872,7 +3922,7 @@ const SCN=(function(){
     if(built) built.types.forEach((T,i)=>{ const d=document.createElement('div'); d.className='pitem';
       d.innerHTML='<span>'+escapeHtml(T.name)+' <span class="note">× '+T.count+'</span></span><button data-i="'+i+'" title="open this type in the studio; when you are done, every copy updates">edit</button>';
       tl.appendChild(d); });
-    $('scRules').innerHTML=data?data.place.map(r=>'<div>'+ruleText(r)+'</div>').join(''):'<div class="note">The rules that place the copies show here.</div>';
+    $('scRules').innerHTML=data?(data.areas||[]).map(a=>'<div>area <b>'+escapeHtml(a.name||'?')+'</b>'+(a.water?' (water)':a.blocks?' (kept clear)':'')+'</div>').join('')+data.place.map(r=>'<div>'+ruleText(r)+'</div>').join(''):'<div class="note">The rules that place the copies show here.</div>';
     $('scStats').textContent=built?statsText():'No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast".'; }
   $('scTypes').addEventListener('click',e=>{ const b=e.target.closest('button[data-i]'); if(b) editType(+b.dataset.i); });
 
@@ -3880,7 +3930,10 @@ const SCN=(function(){
   function setView(on){
     on=!!on; if(on&&editing!=null) finishEdit();
     sceneOn=on; document.body.classList.toggle('scene-mode',on); $('vObject').classList.toggle('on',!on); $('vScene').classList.toggle('on',on);
-    group.visible=on; grid.visible=!on; cam.far=on?6000:200; cam.updateProjectionMatrix(); sky(on);
+    /* Near plane too: the object view needs 2 cm to get close to a small part, but over a
+       scene thousands of metres deep that leaves too little depth precision, and the flat
+       areas lying on each other flicker. Half a metre is close enough for a place. */
+    group.visible=on; grid.visible=!on; cam.far=on?6000:200; cam.near=on?0.5:0.02; cam.updateProjectionMatrix(); sky(on);
     if(on){ S.editing=null; } refreshAll(); lastKey=''; update(true);
     if(on&&built) frame(); else if(!on) frameAll();
     if(window.__describeModes) window.__describeModes(); }
@@ -4020,23 +4073,24 @@ window.__scene=SCN;
      requests, on top of everything above, since a type is built exactly like an object. */
   const SCENE_SYS=[
     'SCENES. When asked for a SCENE you build a whole place out of many objects. Reply with ONE JSON object:',
-    '{"name": string, "seed": integer, "ground": {"color": "#rrggbb", "size": metres across}, "types": [ {"name": string, "parts": [ part, ... ]} ], "place": [ rule, ... ], "notes"?: string}',
+    '{"name": string, "seed": integer, "ground": {"color": "#rrggbb", "size": metres across}, "areas": [ area, ... ], "types": [ {"name": string, "parts": [ part, ... ]} ], "place": [ rule, ... ], "notes"?: string}',
     'Units are metres; y is up and the ground is y = 0; north is -z. A person is 1.7 tall, a door 2.1, a house 5 to 9, a tree 4 to 15, a car 1.5 tall and 4.5 long.',
-    '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Flat things (roads, paths, fields, ponds, plazas) are types too: a box or cylinder a few centimetres tall.',
+    '"areas" are the flat ground of the place, drawn in order on top of the ground: the sea, a lake, a river, a beach, roads and paths, fields, a market square. ANYTHING FLAT AND LARGE IS AN AREA, NEVER A TYPE (a type scales the same in every direction, so it cannot be a sea or a long road). An area: {"name": string, "color": "#rrggbb", and one shape: "rect": [x0, z0, x1, z1] | "center": [x, z], "radius": r | "polygon": [[x, z], ...] | "path": [[x, z], ...], "width": metres; plus "water": true for sea, lakes, rivers and ponds, or "blocks": true for roads, paths and squares}. Scatters and grids never put land things in water or on blocked areas; a rule aimed at a water area keeps its copies in the water. A coast is a large water area covering part of the ground, with a beach area along its edge.',
+    '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0.',
     '"place" puts copies of the types in the world. The code does the repetition; NEVER list objects one by one where a rule can do it. Rules, applied in order:',
     '  {"type": name, "at": [x, z], "rot"?: degrees}   one copy: a landmark, a well, a statue, a road segment',
     '  {"type": name, "row": {"from": [x, z], "to": [x, z]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   houses down a street, fence posts, street lamps, a hedge',
     '  {"type": name, "ring": {"center": [x, z], "radius": r}, "count": n, "rot"?: "out"|"in"|"along"|degrees}   standing stones, chairs round a table, towers on a wall',
-    '  {"type": name, "grid": {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops, an orchard, market stalls, gravestones',
-    '  {"type": name, "scatter": {"center": [x, z], "radius": r} or {"rect": [x0, z0, x1, z1]}, "count": n}   forests, rocks, bushes, flowers, a crowd; copies keep apart and avoid everything placed before them',
-    '  Any rule may add "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": [areas] (keep out of roads, squares, water), "tint": 0..0.4 (lightness variation), "y": base height. Scatter rot is random unless given.',
-    'Place the ground features and landmarks first, then rows and rings, and scatters last so they flow around everything else. Keep things off roads and water with "exclude".',
+    '  {"type": name, "grid": "area name" or {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops in a field, an orchard, market stalls, gravestones',
+    '  {"type": name, "scatter": "area name" or {"center": [x, z], "radius": r} or {"rect": [x0, z0, x1, z1]}, "count": n}   forests, rocks, bushes, a crowd, boats in a harbour ("scatter": "harbour"); copies keep apart and avoid everything placed before them',
+    '  Any rule may add "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "tint": 0..0.4 (lightness variation), "y": base height. Scatter rot is random unless given.',
+    'Place landmarks first, then rows and rings, and scatters last so they flow around everything else. Rows and single copies go exactly where you put them, so keep them out of water and off roads yourself (a row of houses runs BESIDE a road, a pier reaches INTO the water).',
     'Make it rich and believable: real places hold hundreds or thousands of things. Use the counts a real place would have (a forest is hundreds of trees, a field rows of crops), up to 20000 copies in all, spread over the ground size you give.',
-    'When asked to CHANGE a scene you are given its types (name, height, width, copies) and its rules. Return "place" IN FULL (the new rule list), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
+    'When asked to CHANGE a scene you are given its areas, its types (name, height, width, copies) and its rules. Return "areas" and "place" IN FULL (the new lists), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
   ].join('\n');
   // The scene as Claude sees it when asked to change or check it.
   function describeSceneAI(){ const d=SCN.data(), b=SCN.built();
-    return JSON.stringify({name:d.name,seed:d.seed,ground:d.ground,types:d.types.map((t,i)=>{ const T=b&&b.types[i]; return {name:t.name,height:T?+T.h.toFixed(2):null,width:T?+(T.r/0.8*2).toFixed(2):null,copies:T?T.count:0}; }),place:d.place}); }
+    return JSON.stringify({name:d.name,seed:d.seed,ground:d.ground,areas:d.areas||[],types:d.types.map((t,i)=>{ const T=b&&b.types[i]; return {name:t.name,height:T?+T.h.toFixed(2):null,width:T?+(T.r/0.8*2).toFixed(2):null,copies:T?T.count:0}; }),place:d.place}); }
   // A scene reply, checked: types become parts through the same clamping as any object.
   function sceneTypes(list){ return (Array.isArray(list)?list:[]).filter(t=>t&&typeof t.name==='string'&&Array.isArray(t.parts)&&t.parts.length).slice(0,30)
     .map(t=>({name:t.name.slice(0,40),parts:t.parts.filter(q=>q&&typeof q==='object').slice(0,16).map(q=>partData(makePart(q)))})); }
@@ -4049,7 +4103,10 @@ window.__scene=SCN;
     const g=spec.ground&&typeof spec.ground==='object'?spec.ground:(old&&old.ground)||{};
     const d={name:String(spec.name||(old&&old.name)||'scene').slice(0,60),
       seed:Number.isFinite(+spec.seed)&&spec.seed!==null?(+spec.seed>>>0):(old?old.seed:1+Math.floor(Math.random()*1e6)),
-      ground:{color:typeof g.color==='string'&&/^#[0-9a-f]{6}$/i.test(g.color)?g.color:'#5b7a46',size:Math.min(5000,Math.max(10,+g.size||200))},types,place};
+      ground:{color:typeof g.color==='string'&&/^#[0-9a-f]{6}$/i.test(g.color)?g.color:'#5b7a46',size:Math.min(5000,Math.max(10,+g.size||200))},
+      areas:(Array.isArray(spec.areas)?spec.areas:old&&old.areas?old.areas:[]).filter(a=>a&&typeof a==='object'&&typeof a.name==='string').slice(0,60)
+        .map(a=>({name:a.name.slice(0,40),color:typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:undefined,water:!!a.water,blocks:!!a.blocks,
+          rect:a.rect,center:a.center,radius:a.radius,polygon:a.polygon,path:a.path,width:a.width})),types,place};
     SCN.set(d,'describe: '+d.name); if(!sceneOn) SCN.setView(true); else SCN.frame(); return d; }
 
   // The object as Claude sees it when asked to change it: the same fields it writes.
@@ -4179,7 +4236,7 @@ window.__scene=SCN;
     const content=[
       {type:'text',text:'What was asked for: '+(ask||'(not known: judge it as a believable place)')+(note&&note!==ask?'\nThe user adds: '+note:'')+'\n\nThe scene now:\n'+describeSceneAI()},
       {type:'image',source:{type:'base64',media_type:'image/png',data:SCN.viewsPng()}},
-      {type:'text',text:'These are renders of it from above and from two sides. Compare them with what was asked for. Say in "notes" what is wrong (things floating or buried, wrong scale between types, empty or crowded areas, objects on roads or in water, a type that does not read as what it is), then return the corrected scene as a change.'}];
+      {type:'text',text:'These are renders of it from above and from two sides. Compare them with what was asked for. Say in "notes" what is wrong (things floating or buried, wrong scale between types, empty or crowded places, boats on land or houses in water, objects on roads, missing ground like a sea or a road, a type that does not read as what it is), then return the corrected scene as a change.'}];
     try{
       const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content}]}));
       const spec=parseJSON(data); applyScene(spec,'scene-edit'); const b=SCN.built();
