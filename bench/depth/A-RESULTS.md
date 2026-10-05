@@ -24,10 +24,10 @@ The spill wasn't aliasing, so averaging couldn't cure it. Averaging damps what f
 back from above the top's last mode. Then the histopolant divides each mode by σ_m to
 reproduce the modes below n exactly, and that division undoes the smoothing. What is left
 is a truncated series fitted to content the top can't hold, and the error of that is
-spread over the whole sweep whether the leaves are points or averages. The plan was
-right that point samples were the wrong thing to suspect only in the sense that it chose
-the wrong remedy: the band-limiting in TVF's forward map works because the cascade keeps
-it (`makeDetail` never divides it out). A top that is both exact below n and quiet above
+spread over the whole sweep whether the leaves are points or averages. So the plan
+blamed the wrong thing: the leaves weren't the fault, the exact top was. The
+band-limiting in TVF's forward map works because the cascade keeps it (`makeDetail`
+never divides it out). A top that is both exact below n and quiet above
 it is not available from averaging alone.
 
 The T-a top fails A1 for a reason the run shows directly: its own error far out is
