@@ -55,13 +55,18 @@ account has a daily allowance).
 
 **scene** (the switch next to the name) builds whole places. Describe one ("a
 fishing village on a rocky coast", "a pine forest around a lake") and Claude
-writes it as named **areas** of flat ground (the sea, a beach, roads, fields, a
+writes it as **terrain** (hills, ridges, valleys, land rising from a shore),
+named **areas** of ground (the sea, a beach, roads, fields, a
 square), a small **library of object types** (a cottage, a pine, a boat, a
 rock) and a few dozen **placement rules**: one copy here, a row of houses down a
 street, a ring of stones, a grid of crops, hundreds of trees scattered over a
 hillside. The studio does the repeating, with small random variations, keeping
 scattered copies apart. Rules use areas by name: boats are scattered "in the
-harbour", and water and roads are kept clear of everything else automatically. Each type is built once at five levels
+harbour", and water and roads are kept clear of everything else automatically.
+Everything stands on the ground where it lands (and boats float), and a rule can
+keep to a height range, like pines only on high ground. **walk** puts you in the
+scene at eye height (W A S D or arrows, drag to look, Shift to run) and **fly**
+lets you soar over it (Space and Q for up and down); Esc stops. Each type is built once at five levels
 of detail and drawn as instances, so a scene can hold thousands of objects:
 copies near the camera are drawn in full, distant ones with a few dozen
 triangles. **edit** on a type opens it in the studio; when you're done, every copy
@@ -147,7 +152,9 @@ error, or when an action has no effect.
 - **scenes**, against a stand-in gateway: a village's rule counts, straight rows,
   round rings, scattered copies keeping apart and out of excluded areas; every
   copy at the detail its distance calls for; shuffle and undo; editing a type
-  updates all its copies; saving and opening; change scene and look & fix
+  updates all its copies; saving and opening; change scene and look & fix;
+  terrain heights, copies standing on the ground, boats at a raised lake's
+  level, the elevation filter; walking at eye height and flying
 - every starting shape
 - duplicate, delete, undo and redo
 
