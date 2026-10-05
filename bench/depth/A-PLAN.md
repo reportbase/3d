@@ -91,3 +91,23 @@ If a check fails, the run's numbers are printed but no verdict stands.
 
 - `bench/depth/avg.mjs`, `node bench/depth/avg.mjs`; output `avg-run.txt`.
 - `bench/depth/A-RESULTS.md`, after the run.
+
+## Amendments before the counted run (5 October 2026)
+
+Two runs stopped in the checks of the code, before any predicted measure was printed;
+their output is kept (`avg-run-void.txt`, `avg-run-void2.txt`). The predictions and
+kills above are unchanged. What changed:
+
+1. **Code faults, fixed** (7606bab): the triangle average was halved, and the
+   integrator's tolerance could fall below roundoff and recurse without end.
+2. **The histopolant check gets cos(mu) directly.** As written, the averaging read
+   cos(m · u(x(u))), a round trip through the line and back. On T-F that round trip
+   carries about 4 × 10⁻¹² of noise into cos(255u) near u = 0. That tests the round
+   trip, not the method, and it stalled the integrator. The readings themselves never
+   take that round trip: they're evaluated at x directly.
+3. **The check's bar is 10⁻¹¹, not 10⁻¹².** Even given directly, cos(255u) near u = π
+   carries about 10⁻¹³ of roundoff, and recovering mode 255 amplifies it by up to
+   Λ/σ₂₅₅ ≈ 4.5 × 1.57 ≈ 7. The 10⁻¹² bar was unreachable for that mode (run 2 saw
+   1.8 × 10⁻¹²). The rock check keeps 10⁻¹².
+4. **The integrator also stops at the integrand's own noise** (an error estimate near
+   roundoff that only halves when the piece halves), and at depth 20.

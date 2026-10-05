@@ -85,8 +85,11 @@ function gk(g, a, b){ const c = (a + b) / 2, h = (b - a) / 2; let K = 0, G = 0, 
 // stops at the tolerance, or once the error estimate is at roundoff: 1e-13 of the piece's width times the reading's
 // size over the whole window, from meanOver (G). Roundoff in evaluating cos(255u) is absolute, so near a zero of the
 // reading a floor relative to the values seen there can't be met.
-function adapt(g, a, b, tol, G, d = 0){ const [K, e] = gk(g, a, b);
-  if (e <= tol || e <= 1e-13 * (b - a) * G || d > 40) return K; const c = (a + b) / 2; return adapt(g, a, c, tol / 2, G, d + 1) + adapt(g, c, b, tol / 2, G, d + 1); }
+// It also stops at the integrand's own noise: near roundoff (below 1e-11 of the piece times G) an estimate that
+// only halves when the piece halves is noise, not a feature (a smooth one falls far faster, a kink 4–8×).
+function adapt(g, a, b, tol, G, d = 0, eUp = Infinity){ const [K, e] = gk(g, a, b);
+  if (e <= tol || e <= 1e-13 * (b - a) * G || d > 20 || (e <= 1e-11 * (b - a) * G && e >= 0.4 * eUp)) return K;
+  const c = (a + b) / 2; return adapt(g, a, c, tol / 2, G, d + 1, e) + adapt(g, c, b, tol / 2, G, d + 1, e); }
 // mean of g over [a, b], from 64 pieces, each to 1e-15 of its share
 // (with a weight w of total area `area`, the weighted mean: a triangle of peak 1 two cells wide has area one cell)
 // The roundoff floor's size G is the integrand's largest value at 257 points even over the whole window.
@@ -101,7 +104,7 @@ const TOPS = {
   'T-F': { toU: x => 2 * Math.atan(MF.rho((log2(x) + 8) / 16)), xOf: u => 2 ** (16 * Math.sin(u / 2) ** 2 - 8) },   // the exponent's place, flattened
 };
 const even = u => { u = Math.abs(u); return u > PI ? 2 * PI - u : u; };   // the cosine series reads the even extension
-function topNode(T, take, fn){ const S = S256, n = S.n, du = PI / n, g = u => fn(TOPS[T].xOf(even(u)));
+function topNode(T, take, fn, gU = null){ const S = S256, n = S.n, du = PI / n, g = gU || (u => fn(TOPS[T].xOf(even(u))));   // gU: the reading as a function of u, for the checks
   let vals, sig;
   if (take === 'point'){ vals = S.t.map(r => fn(T === 'T-a' ? r : 2 ** (16 * MF.f(r) - 8))); sig = () => 1; }
   else if (take === 'box'){ vals = S.u.map(uj => meanOver(g, uj - du / 2, uj + du / 2)); sig = m => m ? Math.sin(m * du / 2) / (m * du / 2) : 1; }
@@ -140,7 +143,7 @@ function p2(g){ const d = depthOf(g), first = g.order.slice(0, 2).map(o => o.wha
 let codeOK = true;
 say('## Checks of the code');
 for (const T of ['T-a', 'T-F']) for (const m of [37, 255]) for (const take of ['point', 'box', 'tri']){
-  const fn = x => Math.cos(m * TOPS[T].toU(x)), P = build(fn, [topNode(T, take, fn)]), e = Math.max(...ALL.map(x => Math.abs(P(x) - fn(x)))), ok = e <= 1e-12; codeOK &&= ok;
+  const fn = x => Math.cos(m * TOPS[T].toU(x)), P = build(fn, [topNode(T, take, fn, u => Math.cos(m * u))]), e = Math.max(...ALL.map(x => Math.abs(P(x) - fn(x)))), ok = e <= 1e-11; codeOK &&= ok;   // bar: A-PLAN.md's amendment
   say(`  ${T}, cos(${m}u), ${take}: worst ${fmt(e)} ${ok ? 'ok' : '!! FAILS'}`); }
 { const g = x => Math.exp(-(((x - 64) / 0.05) ** 2)), got = meanOver(g, 40, 65), want = 0.05 * Math.sqrt(PI) / 25, e = Math.abs(got - want) / want, ok = e <= 1e-12; codeOK &&= ok;
   say(`  a rock 0.05 wide averaged over a cell 25 wide: relative difference from the closed form ${fmt(e)} ${ok ? 'ok' : '!! FAILS'}`); }
