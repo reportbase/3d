@@ -13,7 +13,9 @@
 //   · scenes: a village from the stand-in gateway (rule counts, rows, rings, spacing, exclusions,
 //     a lake and a lane as areas: boats only on water, nothing scattered into either),
 //     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix,
-//     terrain (heights, copies on the ground, a raised lake, elevation), walking and flying
+//     terrain (heights, copies on the ground, a raised lake, elevation), walking and flying,
+//     prefabs (laid out whole per copy, turned, nested, yards kept clear), span, rows along a
+//     path, stretch; parts given by size, and the roof shape
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -577,12 +579,113 @@ try {
     await page.keyboard.press('Escape');
     if (await ev(() => !!__scene.nav || !__studio.orbit().enabled)) throw new Error('Esc did not return to orbiting');
   });
+  await step('scene: prefabs, span, rows along a path, stretch', async () => {
+    const box = (name, size, color, pos = [0, 0, 0]) => ({ name, shape: 'box', size, pos, color });
+    const TOWN = { name: 'prefab town', seed: 11, ground: { color: '#6b8a4e', size: 220 },
+      types: [
+        { name: 'cottage', parts: [box('walls', [6, 3, 4], '#e8dcc4'), { name: 'roof', shape: 'roof', size: [6.6, 2, 4.8], pos: [0, 3, 0], color: '#8c3b2e' }] },
+        { name: 'wall', parts: [box('stones', [1, 1, 0.4], '#9a948a')] },
+        { name: 'flower', parts: [{ name: 'f', shape: 'ball', size: [0.4, 0.4, 0.4], pos: [0, 0, 0], color: '#d04a7a' }] },
+        { name: 'post', parts: [box('post', [0.2, 1, 0.2], '#7a5a3a')] },
+        { name: 'lamp', parts: [box('pole', [0.15, 3, 0.15], '#333333')] },
+        { name: 'pine', parts: [{ name: 'crown', shape: 'cone', size: [3, 7, 3], pos: [0, 0, 0], color: '#2f5d3a' }] },
+        { name: 'homestead', group: [
+          { type: 'cottage', at: [0, 0] },
+          { type: 'wall', span: { path: [[-5, 3], [-5, -8], [5, -8]] } },
+          { type: 'flower', scatter: { rect: [-4, -7, 4, -4] }, count: 4 }] },
+        { name: 'hamlet', group: [{ type: 'homestead', at: [-12, 0] }, { type: 'homestead', at: [12, 0] }] },
+        { name: 'loop', group: [{ type: 'loop', at: [0, 0] }, { type: 'post', at: [1, 0] }] }],
+      place: [
+        { type: 'homestead', scatter: { rect: [-90, -90, -20, -20] }, count: 6 },               // 0
+        { type: 'homestead', row: { path: [[60, -20], [60, 40], [90, 40]] }, count: 3 },          // 1: headings 0, 0, 90°
+        { type: 'hamlet', at: [0, 70], rot: 30 },                                                 // 2: a prefab of prefabs
+        { type: 'wall', span: { from: [-50, 0], to: [-20, 0] } },                                 // 3: one wall 30 m long
+        { type: 'wall', span: { path: [[0, -40], [20, -40], [20, -20]] } },                       // 4: two walls, a corner
+        { type: 'lamp', row: { path: [[0, -60], [30, -60], [30, -30]] }, every: 10 },             // 5: 7 lamps, round the corner
+        { type: 'post', at: [-95, 40], stretch: [1, 3, 1] },                                      // 6: three times as tall
+        { type: 'loop', at: [-60, 60] },                                                          // 7: a group holding itself stops
+        { type: 'pine', scatter: { center: [0, 0], radius: 100 }, count: 300 }] };                // 8
+    await page.click('#vScene');
+    await ev(h => __describe.applyScene(h, 'scene'), TOWN);
+    const all = await ev(() => { const b = __scene.built(); return b.inst.map(o => { const e = o.m.elements;
+      return { t: b.types[o.t].name, len: b.types[o.t].len, x: o.x, z: o.z, rule: o.rule, yaw: Math.atan2(-e[2], e[0]), sx: Math.hypot(e[0], e[1], e[2]), sy: Math.hypot(e[4], e[5], e[6]) }; }); });
+    const by = r => all.filter(o => o.rule === r), near = (a, b, e = 1e-6) => Math.abs(a - b) <= e;
+    const ang = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+    const count = n => ev(n => __scene.built().types.find(t => t.name === n).count, n);
+    // every copy of a prefab is laid out whole, in its own frame
+    const homes = all.filter(o => o.t === 'cottage');
+    if (homes.length !== 11 || await count('homestead') !== 11 || await count('hamlet') !== 1) throw new Error(homes.length + ' cottages, ' + await count('homestead') + ' homesteads counted');
+    if (by(0).filter(o => o.t === 'cottage').length !== 6) throw new Error('the scattered prefabs came up short');
+    const local = (h, o) => { const dx = o.x - h.x, dz = o.z - h.z, c = Math.cos(h.yaw), s = Math.sin(h.yaw); return [dx * c - dz * s, dx * s + dz * c]; };
+    const gardens = [];
+    for (const r of [0, 1, 2]){ const list = by(r); let h = null;
+      for (const o of list){ if (o.t === 'cottage'){ h = o; gardens.push({ h, walls: [], flowers: [] }); continue; } const g = gardens[gardens.length - 1];
+        if (o.t === 'wall') g.walls.push(o); if (o.t === 'flower') g.flowers.push(local(h, o)); } }
+    for (const { h, walls } of gardens){
+      if (walls.length !== 2) throw new Error('a homestead has ' + walls.length + ' walls');
+      const [a, b] = walls.map(w => local(h, w));
+      if (!near(a[0], -5, 1e-6) || !near(a[1], -2.5, 1e-6) || !near(b[0], 0, 1e-6) || !near(b[1], -8, 1e-6)) throw new Error('the garden walls are not where the prefab puts them: ' + JSON.stringify([a, b]));
+      if (!near(walls[0].sx * walls[0].len, 11, 1e-3) || !near(walls[1].sx * walls[1].len, 10, 1e-3)) throw new Error('the garden walls do not reach corner to corner');
+      if (ang(walls[1].yaw, h.yaw) > 1e-6 || ang(walls[0].yaw, h.yaw + Math.PI / 2) > 1e-6) throw new Error('the garden walls do not turn with the homestead'); }
+    if (gardens.some(g => g.flowers.length !== 4 || g.flowers.some(([x, z]) => x < -4 || x > 4 || z < -7 || z > -4))) throw new Error('flowers outside their bed');
+    if (JSON.stringify(gardens[0].flowers) === JSON.stringify(gardens[1].flowers)) throw new Error('two homesteads came out identical');
+    // rows along a path: positions and headings, also for prefabs
+    const row = by(1).filter(o => o.t === 'cottage');
+    const want = [[60, -20, 0], [60, 25, 0], [90, 40, Math.PI / 2]];
+    if (row.some((o, i) => !near(o.x, want[i][0]) || !near(o.z, want[i][1]) || ang(o.yaw, want[i][2]) > 1e-6)) throw new Error('the row along a path: ' + JSON.stringify(row.map(o => [o.x, o.z, o.yaw])));
+    const lamps = by(5);
+    if (lamps.length !== 7 || !lamps.every(o => (near(o.z, -60) && o.x >= -1e-9 && o.x <= 30 + 1e-9) || (near(o.x, 30) && o.z >= -60 && o.z <= -30)) || !lamps.some(o => near(o.x, 30) && near(o.z, -60))) throw new Error('lamps: ' + JSON.stringify(lamps.map(o => [o.x, o.z])));
+    // a prefab of prefabs: two homesteads, 12 m either side, turned with it
+    const hm = by(2).filter(o => o.t === 'cottage'), t30 = 30 * Math.PI / 180;
+    if (hm.length !== 2 || !near(hm[0].x, -12 * Math.cos(t30)) || !near(hm[0].z, 70 + 12 * Math.sin(t30)) || ang(hm[0].yaw, t30) > 1e-6) throw new Error('the hamlet: ' + JSON.stringify(hm.map(o => [o.x, o.z, o.yaw])));
+    if (by(7).length < 1 || by(7).length > 3) throw new Error('a group holding itself placed ' + by(7).length);
+    // span: stretched end to end, laid along the line
+    const w = by(3); if (w.length !== 1 || !near(w[0].x, -35) || !near(w[0].z, 0) || !near(w[0].sx * w[0].len, 30, 1e-3) || ang(w[0].yaw, 0) > 1e-6) throw new Error('span: ' + JSON.stringify(w));
+    const c = by(4); if (c.length !== 2 || !near(c[1].x, 20) || !near(c[1].z, -30) || ang(c[1].yaw, -Math.PI / 2) > 1e-6 || !near(c[1].sx * c[1].len, 20, 1e-3)) throw new Error('span along a path: ' + JSON.stringify(c));
+    // stretch: the rule makes one copy taller without touching the type
+    const p = by(6)[0], q = by(7).find(o => o.t === 'post'); if (!near(p.sy, 3 * p.sx, 1e-6) || !near(q.sy, q.sx, 1e-6)) throw new Error('stretch: ' + p.sx + ' × ' + p.sy);
+    // the yards stay clear: nothing scattered after lands inside a homestead
+    const pines = by(8); if (pines.length < 200) throw new Error('only ' + pines.length + ' pines');
+    for (const pn of pines) for (const g of gardens){ const [lx, lz] = local(g.h, pn); if (lx > -5 && lx < 5 && lz > -8 && lz < 2) throw new Error('a pine grew in a yard'); }
+    // the panel, and what Claude is shown of the scene
+    if (!/× 11 · prefab of 3 rules/.test(await page.textContent('#scTypes'))) throw new Error('panel: ' + await page.textContent('#scTypes'));
+    const told = JSON.parse(await ev(() => __describe.describeSceneAI()));
+    const ht = told.types.find(t => t.name === 'homestead'), wt = told.types.find(t => t.name === 'wall');
+    if (!ht || ht.group.length !== 3 || ht.copies !== 11 || !wt || !near(wt.length, 1, 0.03) || !near(wt.height, 1, 0.03)) throw new Error('describeSceneAI: ' + JSON.stringify([ht, wt]));
+    // a change that keeps only the rule placing homesteads keeps the types inside them
+    await ev(() => __describe.applyScene({ types: [], place: [{ type: 'homestead', at: [0, 0] }] }, 'scene-edit'));
+    const kept = await ev(() => __scene.data().types.map(t => t.name).sort().join(','));
+    if (kept !== 'cottage,flower,homestead,wall') throw new Error('a change kept ' + kept);
+    if ((await ev(() => __scene.built().inst.length)) !== 7) throw new Error('one homestead should be 7 copies');
+  });
   await step('scene: back to the object view', async () => {
     await page.click('#vObject');
     if (await ev(() => document.body.classList.contains('scene-mode'))) throw new Error('still in the scene view');
     if (!await ev(() => __studio.S.parts.every(p => p.mesh.visible))) throw new Error('the parts stayed hidden');
     if (await ev(() => [...document.getElementById('aiMode').options].map(o => o.value).includes('scene'))) throw new Error('describe still offers scenes');
     await ev(k => __studio.loadScene(k), keepObject);
+  });
+  await step('describe it: parts given by size, and the roof shape', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    await ev(() => __describe.apply({ name: 'shed', parts: [
+      { name: 'walls', shape: 'box', size: [6, 3, 4], pos: [0, 0, 0], color: '#e8dcc4' },
+      { name: 'barrel', shape: 'cylinder', size: [1, 1.4, 1], pos: [5, 0, 0], color: '#7a5a3a' },
+      { name: 'roof', shape: 'roof', size: [6.6, 2, 4.8], pos: [0, 3, 0], color: '#8c3b2e' },
+      { name: 'porch roof', shape: 'roof', size: [3, 1, 2], pos: [-5, 2, 0], rot: [0, 90, 0], color: '#8c3b2e' }] }, 'new'));
+    const got = await ev(() => Object.fromEntries(__studio.S.parts.map(p => { p.mesh.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(p.mesh);
+      // the ridge: where the highest vertices are, across the roof
+      const P = p.mesh.geometry.attributes.position, v = new THREE.Vector3(); let top = -1e9, at = [];
+      for (let i = 0; i < P.count; i++){ v.fromBufferAttribute(P, i).applyMatrix4(p.mesh.matrixWorld); if (v.y > top + 1e-4){ top = v.y; at = [v.clone()]; } else if (v.y > top - 1e-4) at.push(v.clone()); }
+      return [p.name, { lo: b.min.toArray(), hi: b.max.toArray(), ridge: at.map(q => [q.x, q.z]) }]; })));
+    const is = (n, lo, hi, e = 0.06) => { const b = got[n]; if (!b) throw new Error('no ' + n);
+      for (let k = 0; k < 3; k++) if (Math.abs(b.lo[k] - lo[k]) > e || Math.abs(b.hi[k] - hi[k]) > e) throw new Error(n + ' spans ' + JSON.stringify([b.lo, b.hi]) + ', not ' + JSON.stringify([lo, hi])); };
+    is('walls', [-3, 0, -2], [3, 3, 2]);
+    is('barrel', [4.5, 0, -0.5], [5.5, 1.4, 0.5]);
+    is('roof', [-3.3, 3, -2.4], [3.3, 5, 2.4]);                     // eaves at pos, ridge 2 m up, overhanging the walls
+    is('porch roof', [-6, 2, -1.5], [-4, 3, 1.5]);                 // turned 90°: the ridge runs along z
+    if (got.roof.ridge.some(([x, z]) => Math.abs(z) > 0.05) || Math.max(...got.roof.ridge.map(q => q[0])) - Math.min(...got.roof.ridge.map(q => q[0])) < 6) throw new Error('the roof ridge does not run along its length');
+    if (got['porch roof'].ridge.some(([x]) => Math.abs(x + 5) > 0.05)) throw new Error('the turned roof ridge is not along z');
+    await ev(k => __studio.loadScene(k), keep);
   });
   await step('describe it: errors are reported, nothing changes', async () => {
     const n = await parts();

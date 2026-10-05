@@ -76,6 +76,15 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   InstancedMesh per level; `update()` gives each copy the level for its distance
   in its own size (`NEAR`). Scene data is replaced, never changed in place, so
   the undo history keeps references. The `.3da` carries it as `scene` and `view`.
+  A type may instead be a **prefab**, `{name, group:[rules]}`: rules in the type's own
+  frame (centre 0,0, front +z). `place()` runs every rule in a frame (`toW`, `dirW`);
+  `put()` of a group runs its rules again in the copy's frame, two levels deep at
+  most, then keeps its footprint (`groupR`, worked out from the rules) clear. Named
+  areas stay world coordinates, inline shapes are local. `span` lays one copy per
+  segment along a line or path, stretched to the segment (`T.len`, `T.cx`); a long
+  stretched copy registers a string of small circles, not one big one. Parts may be
+  given by `size` (metres, measured by `unitSize`), and `shape:'roof'` (`makeRoof`)
+  is a gable roof with its eaves at `pos` and its ridge along its length.
   A new rule goes in `place()`, `SCENE_SYS` (the prompt) and `ruleText`.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 

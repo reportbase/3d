@@ -3834,61 +3834,119 @@ const SCN=(function(){
   // The scene's named areas, ready to test against.
   const namedAreas=d=>new Map((Array.isArray(d.areas)?d.areas:[]).map(a=>{ const sh=shapeOf(a); return sh&&typeof a.name==='string'?[a.name.toLowerCase(),Object.assign(sh,{name:a.name,water:!!a.water,blocks:!!a.blocks,color:a.color,level:a.level})]:null; }).filter(Boolean));
 
+  /* PLACEMENT, with PREFABS (Oct 5: "proceed" with prefabs and box shapes). A type may be a
+     GROUP instead of parts: a little layout of other types, {"name": "farmstead", "group":
+     [rules]}, written in its own local coordinates (centre 0,0, front +z). Any rule places
+     it exactly like a single object, and each copy runs the group's rules again in its own
+     frame, moved, turned and scaled, with fresh random numbers, so no two farmsteads are
+     alike. Groups may hold groups, two deep. Once a copy is laid out, its footprint is kept
+     clear, so the forest does not grow through the yard.
+     Every rule therefore runs in a FRAME: identity at the top, the copy's own inside a group.
+     Points and directions go through toW; named areas are the world's, inline shapes are in
+     the frame. */
   function place(d,types){
     const R=rngOf(d.seed), out=[], CELL=4, hash=new Map(); let maxR=0, short=0;
     const key=(i,j)=>i+','+j;
     const free=(x,z,r)=>{ const k=Math.ceil((r+maxR)/CELL), ci=Math.floor(x/CELL), cj=Math.floor(z/CELL);
       for(let i=ci-k;i<=ci+k;i++) for(let j=cj-k;j<=cj+k;j++){ const b=hash.get(key(i,j)); if(b) for(const o of b) if(Math.hypot(o.x-x,o.z-z)<o.r+r) return false; } return true; };
-    let rule_=0;   // which rule placed each copy, for the panel and the tests
+    const reg=(x,z,r)=>{ const k=key(Math.floor(x/CELL),Math.floor(z/CELL)); if(!hash.has(k)) hash.set(k,[]); hash.get(k).push({x,z,r}); maxR=Math.max(maxR,r); };
+    let rule_=0;   // which top-level rule placed each copy, for the panel and the tests
     const TR=terrainOf(d);
     /* Where a copy's base goes: on water, the water's level; on land, the ground. A wide copy
        on a slope takes the lowest of five points under its footprint, so a house settles into
        a hillside instead of standing out of it on one corner. */
     const baseY=(x,z,r)=>{ const w=TR.waterAt(x,z); if(w!=null) return w; if(!TR.any) return 0;
       let h=TR.ground(x,z); const e=r*0.6; for(const [dx,dz] of [[e,0],[-e,0],[0,e],[0,-e]]) h=Math.min(h,TR.ground(x+dx,z+dz)); return h; };
-    const put=(t,x,z,yaw,s,y,tint)=>{ if(out.length>=MAX_COPIES) return false; const T=types[t], r=T.r*s; y+=baseY(x,z,r);
-      const k=key(Math.floor(x/CELL),Math.floor(z/CELL)); if(!hash.has(k)) hash.set(k,[]); hash.get(k).push({x,z,r}); maxR=Math.max(maxR,r);
-      const v=1+(R()*2-1)*tint, m=new THREE.Matrix4().compose(V(x,y,z),new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(s,s,s));
-      out.push({t,x,y,z,s,m,col:new THREE.Color(v,v,v),rule:rule_,lv:0}); return true; };
     const byName=new Map(types.map((T,i)=>[T.name.toLowerCase(),i]));
     const named=namedAreas(d), waters=[...named.values()].filter(a=>a.water), blockers=[...named.values()].filter(a=>a.blocks&&!a.water);
+    const isNamed=ref=>typeof ref==='string'||(ref&&typeof ref.area==='string');
     const area=ref=>typeof ref==='string'?named.get(ref.toLowerCase())||null:ref&&typeof ref.area==='string'?named.get(ref.area.toLowerCase())||null:shapeOf(ref);
     // Is (x, z) somewhere a scatter or grid aimed at `target` may put something?
     const allowed=(x,z,target)=>{ const wet=waters.some(w=>inArea(x,z,w));
       if(target&&target.water){ if(!wet) return false; } else if(wet) return false;
       return !blockers.some(b=>b!==target&&inArea(x,z,b)); };
-    for(const [ri,rule] of d.place.entries()){ rule_=ri; const t=byName.get(String(rule.type||'').toLowerCase()); if(t==null) continue;
-      const sc=Array.isArray(rule.scale)?[num(rule.scale[0],0.05,50,1),num(rule.scale[1],0.05,50,1)]:[num(rule.scale,0.05,50,1),num(rule.scale,0.05,50,1)];
-      const size=()=>sc[0]+R()*(sc[1]-sc[0]), y=num(rule.y,-100,500,0), jit=num(rule.jitter,0,100,0), tint=num(rule.tint,0,0.4,rule.scatter?0.12:0.05);
-      const excl=(Array.isArray(rule.exclude)?rule.exclude:rule.exclude?[rule.exclude]:[]).map(area).filter(Boolean), out_=(x,z)=>excl.some(a=>inArea(x,z,a));
-      const turn=num(rule.turn,-360,360,0)*PI/180, fixed=typeof rule.rot==='number'?rule.rot*PI/180:null;
+    const toW=(f,lx,lz)=>{ const c=Math.cos(f.yaw), s=Math.sin(f.yaw); return [f.x+(lx*c+lz*s)*f.s, f.z+(-lx*s+lz*c)*f.s]; };
+    const dirW=(f,dx,dz)=>Math.atan2(dx,dz)+f.yaw;   // a heading in the frame, as a world yaw
+    const scaleOf=rule=>Array.isArray(rule.scale)?[num(rule.scale[0],0.05,50,1),num(rule.scale[1],0.05,50,1)]:[num(rule.scale,0.05,50,1),num(rule.scale,0.05,50,1)];
+    /* How far a group reaches from its centre, worked out from its rules (not by laying one
+       out), so a scatter of farmsteads can keep them apart before placing any. */
+    const reach=new Map();
+    function groupR(t,depth=0){ if(reach.has(t)) return reach.get(t); reach.set(t,1);
+      let r=1; for(const rule of types[t].group){ const c=byName.get(String(rule.type||'').toLowerCase()); if(c==null) continue;
+        const cr=(types[c].group?(depth<2?groupR(c,depth+1):1):types[c].r)*scaleOf(rule)[1], far=p=>{ const q=xz(p); return Math.hypot(q[0],q[1]); };
+        if(rule.at) r=Math.max(r,far(rule.at)+cr);
+        if(rule.row&&rule.row.from) r=Math.max(r,far(rule.row.from)+cr,far(rule.row.to)+cr);
+        for(const P of [rule.row&&rule.row.path,rule.span&&rule.span.path]) if(Array.isArray(P)) for(const p of P) r=Math.max(r,far(p)+cr);
+        if(rule.span&&rule.span.from) r=Math.max(r,far(rule.span.from)+cr,far(rule.span.to)+cr);
+        if(rule.ring) r=Math.max(r,far(rule.ring.center)+num(rule.ring.radius,0.1,5000,5)+cr);
+        const sh=(rule.scatter&&!isNamed(rule.scatter)&&shapeOf(rule.scatter))||(rule.grid&&!isNamed(rule.grid)&&shapeOf(rule.grid));
+        if(sh) r=Math.max(r,Math.hypot(sh.box[0],sh.box[1])+cr,Math.hypot(sh.box[2],sh.box[3])+cr,Math.hypot(sh.box[0],sh.box[3])+cr,Math.hypot(sh.box[2],sh.box[1])+cr); }
+      r=Math.min(r,500); reach.set(t,r); types[t].r=r; return r; }
+    const gCount=new Map();
+    // One copy. A group lays itself out in its own frame; anything else is an instance.
+    const put=(t,x,z,yaw,s,y,tint,st,depth)=>{ const T=types[t];
+      if(T.group){ if(depth>=2) return false; const f={x,z,yaw,s};
+        for(const rule of T.group) runRule(rule,f,depth+1);
+        reg(x,z,groupR(t)*s*0.85); gCount.set(t,(gCount.get(t)||0)+1); return true; }
+      if(out.length>=MAX_COPIES) return false;
+      const sx=st?st[0]:1, sy=st?st[1]:1, sz=st?st[2]:1, r=T.r*s*Math.max(sx,sz); y+=baseY(x,z,r);
+      /* A long thin copy (a spanned wall, a hedge) keeps its footprint along its length, a
+         string of small circles; one circle as wide as it is long would wall off the whole
+         garden it is meant to go round. */
+      const lo=Math.min(sx,sz), hi=Math.max(sx,sz);
+      if(hi/lo>2){ const rr=T.r*s*lo, hl=T.r/0.8*s*hi, ax=sx>=sz, c=Math.cos(yaw), sn=Math.sin(yaw), ux=ax?c:sn, uz=ax?-sn:c, o=ax?T.cx*sx*s:0, n=Math.min(200,Math.ceil(hl/rr));
+        for(let i=-n;i<=n;i++){ const u=o+hl*i/n; reg(x+ux*u,z+uz*u,rr); } }
+      else reg(x,z,r);
+      const v=1+(R()*2-1)*tint, m=new THREE.Matrix4().compose(V(x,y,z),new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(s*sx,s*sy,s*sz));
+      out.push({t,x,y,z,s,m,col:new THREE.Color(v,v,v),rule:rule_,lv:0}); return true; };
+    function runRule(rule,f,depth){ const t=byName.get(String(rule.type||'').toLowerCase()); if(t==null||!rule||typeof rule!=='object') return;
+      const T=types[t], sc=scaleOf(rule), size=()=>(sc[0]+R()*(sc[1]-sc[0]))*f.s, y=num(rule.y,-100,500,0)*f.s, jit=num(rule.jitter,0,100,0)*f.s, tint=num(rule.tint,0,0.4,rule.scatter?0.12:0.05);
+      const st=Array.isArray(rule.stretch)&&rule.stretch.length===3?rule.stretch.map(v=>num(v,0.05,50,1)):null;
+      const exNamed=[], exLocal=[]; for(const e of (Array.isArray(rule.exclude)?rule.exclude:rule.exclude?[rule.exclude]:[])){ const a=area(e); if(a) (isNamed(e)?exNamed:exLocal).push(a); }
+      const out_=(x,z,lx,lz)=>exNamed.some(a=>inArea(x,z,a))||exLocal.some(a=>inArea(lx,lz,a));
+      const turn=num(rule.turn,-360,360,0)*PI/180, fixed=typeof rule.rot==='number'?rule.rot*PI/180+f.yaw:null;
       const el=Array.isArray(rule.elevation)?[num(rule.elevation[0],-1000,5000,-1e9),num(rule.elevation[1],-1000,5000,1e9)]:null;
-      const high=(x,z)=>!el||(()=>{ const g=TR.ground(x,z); return g>=el[0]&&g<=el[1]; })();   // "pines only above 5 m", "reeds below 1 m"
-      const yawOf=(dir)=>fixed!=null?fixed:rule.rot==='random'?R()*TAU:(dir??0);
+      const high=(x,z)=>{ if(!el) return true; const g=TR.ground(x,z); return g>=el[0]&&g<=el[1]; };   // "pines only above 5 m", "reeds below 1 m"
+      const yawOf=dir=>fixed!=null?fixed:rule.rot==='random'?R()*TAU:(dir??f.yaw);
       const J=()=>(R()*2-1)*jit;
-      if(rule.at){ const [x,z]=xz(rule.at); put(t,x,z,(fixed??0)+turn,size(),y,tint); continue; }
-      if(rule.row&&typeof rule.row==='object'){ const a=xz(rule.row.from), b=xz(rule.row.to), L=Math.hypot(b[0]-a[0],b[1]-a[1]);
-        const n=Math.min(MAX_RULE,Math.max(1,rule.every?Math.floor(L/num(rule.every,0.1,1000,5))+1:Math.round(num(rule.count,1,MAX_RULE,5))));
-        const head=Math.atan2(b[0]-a[0],b[1]-a[1]), dir=rule.rot==='across'?head+PI/2:head;
-        for(let i=0;i<n;i++){ const f=n===1?0.5:i/(n-1); put(t,a[0]+(b[0]-a[0])*f+J(),a[1]+(b[1]-a[1])*f+J(),yawOf(dir)+turn,size(),y,tint); } continue; }
+      const R_=t=>T.group?groupR(t):T.r;
+      if(rule.at){ const [lx,lz]=xz(rule.at), [x,z]=toW(f,lx,lz); put(t,x,z,(fixed??f.yaw)+turn,size(),y,tint,st,depth); return; }
+      // Points along a line or a path, n of them or one every so many metres, each with its heading.
+      const along=(P,n,every)=>{ const segs=[]; let L=0; for(let i=0;i<P.length-1;i++){ const l=Math.hypot(P[i+1][0]-P[i][0],P[i+1][1]-P[i][1]); segs.push([P[i],P[i+1],L,l]); L+=l; }
+        const cnt=Math.min(MAX_RULE,Math.max(1,every?Math.floor(L/every)+1:n)), pts=[];
+        for(let i=0;i<cnt;i++){ const at=cnt===1?L/2:L*i/(cnt-1), sg=segs.find(q=>at<=q[2]+q[3]+1e-9)||segs[segs.length-1], u=sg[3]?(at-sg[2])/sg[3]:0;
+          pts.push([sg[0][0]+(sg[1][0]-sg[0][0])*u,sg[0][1]+(sg[1][1]-sg[0][1])*u,sg[1][0]-sg[0][0],sg[1][1]-sg[0][1]]); } return pts; };
+      if(rule.row&&typeof rule.row==='object'){ const P=Array.isArray(rule.row.path)&&rule.row.path.length>=2?rule.row.path.slice(0,200).map(q=>xz(q)):[xz(rule.row.from),xz(rule.row.to)];
+        for(const [lx,lz,dx,dz] of along(P,Math.round(num(rule.count,1,MAX_RULE,5)),rule.every?num(rule.every,0.1,1000,5):0)){
+          const head=dirW(f,dx,dz), dir=rule.rot==='across'?head+PI/2:head, [x,z]=toW(f,lx,lz); put(t,x+J(),z+J(),yawOf(dir)+turn,size(),y,tint,st,depth); } return; }
+      /* SPAN: one copy per stretch of line, laid along it and stretched to reach end to end.
+         A wall, a fence run, a hedge, a bridge, a pier: built once at any length (its length
+         along its own x), placed from here to there. */
+      if(rule.span&&typeof rule.span==='object'&&!T.group){ const P=Array.isArray(rule.span.path)&&rule.span.path.length>=2?rule.span.path.slice(0,200).map(q=>xz(q)):[xz(rule.span.from),xz(rule.span.to)];
+        for(let i=0;i<P.length-1;i++){ const [ax,az]=toW(f,...P[i]), [bx,bz]=toW(f,...P[i+1]), dx=bx-ax, dz=bz-az, L=Math.hypot(dx,dz); if(L<0.05) continue;
+          const s=size(), yaw=Math.atan2(-dz,dx)+turn, sx=L/(T.len*s), c=Math.cos(yaw), sn=Math.sin(yaw), off=T.cx*sx*s;
+          put(t,(ax+bx)/2-off*c,(az+bz)/2+off*sn,yaw,s,y,tint,[sx*(st?st[0]:1),st?st[1]:1,st?st[2]:1],depth); } return; }
       if(rule.ring&&typeof rule.ring==='object'){ const c=xz(rule.ring.center), rad=num(rule.ring.radius,0.1,5000,5), n=Math.min(MAX_RULE,Math.round(num(rule.count,1,MAX_RULE,8)));
-        for(let i=0;i<n;i++){ const a=i/n*TAU, x=c[0]+rad*Math.sin(a), z=c[1]+rad*Math.cos(a);
-          const dir=rule.rot==='in'?a+PI:rule.rot==='along'?a+PI/2:a;   // default faces out
-          put(t,x+J(),z+J(),yawOf(dir)+turn,size(),y,tint); } continue; }
-      if(rule.grid){ const ar=area(rule.grid); if(!ar) continue;
+        for(let i=0;i<n;i++){ const a=i/n*TAU, lx=c[0]+rad*Math.sin(a), lz=c[1]+rad*Math.cos(a), [x,z]=toW(f,lx,lz);
+          const dir=(rule.rot==='in'?a+PI:rule.rot==='along'?a+PI/2:a)+f.yaw;   // default faces out
+          put(t,x+J(),z+J(),yawOf(dir)+turn,size(),y,tint,st,depth); } return; }
+      if(rule.grid){ const ar=area(rule.grid); if(!ar) return; const world=isNamed(rule.grid);
         const ev=Array.isArray(rule.every)?rule.every:[rule.every,rule.every], dx=num(ev[0],0.1,1000,2), dz=num(ev[1],0.1,1000,dx), B=ar.box;
-        if((B[2]-B[0])/dx*(B[3]-B[1])/dz>MAX_RULE*4) continue;   // a grid that fine over that much ground is a mistake, not a field
-        for(let x=B[0]+dx/2;x<=B[2];x+=dx) for(let z=B[1]+dz/2;z<=B[3];z+=dz){ if(!inArea(x,z,ar)||out_(x,z)||!allowed(x,z,ar)||!high(x,z)) continue; if(!put(t,x+J(),z+J(),yawOf(0)+turn,size(),y,tint)) break; } continue; }
-      if(rule.scatter){ const ar=area(rule.scatter); if(!ar) continue;
+        if((B[2]-B[0])/dx*(B[3]-B[1])/dz>MAX_RULE*4) return;   // a grid that fine over that much ground is a mistake, not a field
+        for(let lx=B[0]+dx/2;lx<=B[2];lx+=dx) for(let lz=B[1]+dz/2;lz<=B[3];lz+=dz){ if(!inArea(lx,lz,ar)) continue; const [x,z]=world?[lx,lz]:toW(f,lx,lz);
+          if(out_(x,z,lx,lz)||!allowed(x,z,world?ar:null)||!high(x,z)) continue; if(!put(t,x+J(),z+J(),yawOf(f.yaw)+turn,size(),y,tint,st,depth)) return; } return; }
+      if(rule.scatter){ const ar=area(rule.scatter); if(!ar) return; const world=isNamed(rule.scatter);
         const n=Math.min(MAX_RULE,Math.round(num(rule.count,1,MAX_RULE,20))), avoid=rule.avoid!==false; let made=0;
         for(let i=0;i<n;i++){ let ok=false;
-          for(let tries=0;tries<30&&!ok;tries++){ const at=sampleArea(ar,R); if(!at) break; const [x,z]=at, s=size();
-            if(out_(x,z)||!allowed(x,z,ar)||!high(x,z)||(avoid&&!free(x,z,types[t].r*s*0.9))) continue;
-            ok=put(t,x,z,(fixed??R()*TAU)+turn,s,y,tint); }
+          for(let tries=0;tries<30&&!ok;tries++){ const at=sampleArea(ar,R); if(!at) break; const [lx,lz]=at, [x,z]=world?at:toW(f,lx,lz), s=size();
+            if(out_(x,z,lx,lz)||!allowed(x,z,world?ar:null)||!high(x,z)||(avoid&&!free(x,z,R_(t)*s*0.9))) continue;
+            ok=put(t,x,z,(fixed??R()*TAU)+turn,s,y,tint,st,depth); }
           if(ok) made++; }
-        short+=n-made; continue; }
+        if(depth===0) short+=n-made; return; }
     }
-    return {inst:out,short}; }
+    const ID={x:0,z:0,yaw:0,s:1};
+    for(const [ri,rule] of d.place.entries()){ rule_=ri; runRule(rule,ID,0); }
+    return {inst:out,short,gCount}; }
 
   /* ── building and drawing ── */
   function disposeGround(){ if(!built||!built.ground) return; group.remove(built.ground);
@@ -3947,16 +4005,20 @@ const SCN=(function(){
     return g; }
   function build(){
     const keep=built&&built.types.reduce((m,T)=>m.set(T.key,T),new Map());   // a type whose parts did not change keeps its meshes
-    const types=data.types.map(ty=>{ const key=JSON.stringify(ty.parts), old=keep&&keep.get(key);
+    const types=data.types.map(ty=>{
+      // a prefab has no shape of its own: place() lays out its rules, and works out its reach
+      if(Array.isArray(ty.group)) return {name:ty.name,group:ty.group,lod:[],h:1,r:1,size:1,len:1,cx:0};
+      const key=JSON.stringify(ty.parts), old=keep&&keep.get(key);
       if(old){ keep.delete(key); return Object.assign(old,{name:ty.name}); }
       const lod=LODS.map(dims=>({geo:typeGeometry(ty.parts,dims),mesh:null,n:0}));
       const bb=lod[LODS.length-1].geo.boundingBox;
       const h=Math.max(0.05,bb.max.y), r=Math.max(0.05,Math.max(-bb.min.x,bb.max.x,-bb.min.z,bb.max.z)*0.8);
-      return {name:ty.name,key,lod,h,r,size:Math.max(h,r/0.8*2)}; });
+      // len and cx: its length along its own x and where that length is centred, for span
+      return {name:ty.name,key,lod,h,r,size:Math.max(h,r/0.8*2),len:Math.max(0.05,bb.max.x-bb.min.x),cx:(bb.max.x+bb.min.x)/2}; });
     if(keep) for(const T of keep.values()) for(const L of T.lod){ if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); } L.geo.dispose(); }
     disposeGround();
-    const {inst,short}=place(data,types);
-    for(const [t,T] of types.entries()){ const n=inst.filter(o=>o.t===t).length; T.count=n;
+    const {inst,short,gCount}=place(data,types);
+    for(const [t,T] of types.entries()){ const n=inst.filter(o=>o.t===t).length; T.count=T.group?(gCount.get(t)||0):n;
       for(const L of T.lod){ if(L.mesh&&L.cap>=n&&n>0){ continue; } if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); L.mesh=null; }
         if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
         L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
@@ -3981,7 +4043,8 @@ const SCN=(function(){
   /* ── the panels ── */
   function ruleText(r){ const t='<b>'+escapeHtml(r.type||'?')+'</b>';
     if(r.at) return t+' at '+xz(r.at).join(', ');
-    if(r.row) return (r.count||'')+' '+t+' in a row'+(r.every?' every '+r.every+' m':'');
+    if(r.row) return (r.count||'')+' '+t+(r.row.path?' along a path':' in a row')+(r.every?' every '+r.every+' m':'');
+    if(r.span) return t+' spanning '+(r.span.path?(r.span.path.length-1)+' stretches':'from '+xz(r.span.from).join(', ')+' to '+xz(r.span.to).join(', '));
     if(r.ring) return (r.count||'')+' '+t+' in a ring, radius '+(r.ring.radius||'?');
     if(r.grid) return t+' in a grid every '+(Array.isArray(r.every)?r.every.join(' × '):r.every)+' m';
     if(r.scatter) return (r.count||'')+' '+t+' scattered'+(typeof r.scatter==='string'?' in '+escapeHtml(r.scatter):r.scatter.area?' in '+escapeHtml(r.scatter.area):r.scatter.radius?' within '+r.scatter.radius+' m':'');
@@ -3990,7 +4053,8 @@ const SCN=(function(){
     $('scName').textContent=data?data.name||'':'';
     const tl=$('scTypes'); tl.innerHTML='';
     if(built) built.types.forEach((T,i)=>{ const d=document.createElement('div'); d.className='pitem';
-      d.innerHTML='<span>'+escapeHtml(T.name)+' <span class="note">× '+T.count+'</span></span><button data-i="'+i+'" title="open this type in the studio; when you are done, every copy updates">edit</button>';
+      d.innerHTML='<span>'+escapeHtml(T.name)+' <span class="note">× '+T.count+(T.group?' · prefab of '+T.group.length+' rules':'')+'</span></span>'
+        +(T.group?'':'<button data-i="'+i+'" title="open this type in the studio; when you are done, every copy updates">edit</button>');
       tl.appendChild(d); });
     const tf=data&&Array.isArray(data.terrain)?data.terrain:[], tw=k=>tf.filter(f=>f&&f[k]!=null).length;
     const tline=tf.length?'<div>terrain: '+['hill','ridge','slope','noise'].filter(k=>tw(k)).map(k=>tw(k)+' '+k+(tw(k)>1&&k!=='noise'?'s':'')).join(', ')+'</div>':'';
@@ -4020,7 +4084,7 @@ const SCN=(function(){
   function set(d,label){ data=d; if(!d){ disposeBuilt(); drawPanel(); } else build(); if(label) commit(label); }
   function restore(d){ if(d===undefined||d===data) return; data=d||null; if(!data){ disposeBuilt(); drawPanel(); } else build(); update(true); }
   // Edit a type: it opens in the studio as an ordinary object; "done" puts it back and rebuilds its copies.
-  function editType(i){ if(!data||!data.types[i]) return; stash=sceneData(); delete stash.scene; editing=i;
+  function editType(i){ if(!data||!data.types[i]||data.types[i].group) return; stash=sceneData(); delete stash.scene; editing=i;
     setView(false); clearAll(); loadScene({format:'3d-studio',version:2,parts:data.types[i].parts}); frameAll();
     const b=$('typeBack'); b.hidden=false; b.textContent='← done: update '+built.types[i].count+' '+data.types[i].name+(built.types[i].count===1?'':' copies')+' in the scene'; }
   function finishEdit(){ if(editing==null) return; const i=editing; editing=null; $('typeBack').hidden=true;
@@ -4201,6 +4265,8 @@ window.__scene=SCN;
     '  "pos": [x, y, z]          (the centre of the part\'s BASE; y is up; the ground is y = 0)',
     '  "rot": [x, y, z]          (degrees, applied X then Y then Z, turning about the base centre; [90,0,0] lays a part along +z, [0,0,-90] along +x)',
     '  "scale": [sx, sy, sz]     (a part is 1 tall before scaling, and ~2*r wide; sy is its height)',
+    '  "size"?: [w, h, d]        (instead of scale: the part\'s real width, height and depth in metres, measured before rot. Easiest for boxes: a wall is {"shape": "box", "size": [8, 3, 0.3]}, a door a box [1, 2.1, 0.1] on the front face)',
+    '  "shape": "roof" is also allowed: a gable roof, a triangular prism. Give "size": [length along the ridge, height, width], "pos" = the centre of its underside (on top of the walls), and "rot": [0, degrees, 0] to turn the ridge (it runs along x at 0).',
     '  "color": "#rrggbb", "stripes"?: 0..10, "stripeColor"?: "#rrggbb" }',
     'The FRONT of the object faces +z. Things that point sideways or forward are TURNED parts: every part is round about its own axis, so a muzzle, a nose, an arm, a branch, a spout, a tail or a boat\'s length is a part laid over with rot. A head that looks forward and a little down is an egg or ball, longer than wide, at rot [100,0,0]; ears are small cones; a crest or mane is a row of 4 to 8 small flattened parts (section squash 0.3) lying ALONG the back of the neck, overlapping, angled up and back and pressed into it, never sticking straight out like spikes; a curved neck is two or three overlapping cylinders, each tilted a little more than the one below (or use bend lean, which curves the top toward +x before rot turns it).',
     'Every part must touch or overlap its neighbour: work out where each part ends (a part standing upright reaches from pos.y to pos.y + scale[1]) and start the next one at or just below that. Check each part before you answer; nothing should float or sit buried.',
@@ -4222,28 +4288,36 @@ window.__scene=SCN;
     'Units are metres; y is up and the ground is y = 0; north is -z. A person is 1.7 tall, a door 2.1, a house 5 to 9, a tree 4 to 15, a car 1.5 tall and 4.5 long.',
     '"areas" are the flat ground of the place, drawn in order on top of the ground: the sea, a lake, a river, a beach, roads and paths, fields, a market square. ANYTHING FLAT AND LARGE IS AN AREA, NEVER A TYPE (a type scales the same in every direction, so it cannot be a sea or a long road). An area: {"name": string, "color": "#rrggbb", and one shape: "rect": [x0, z0, x1, z1] | "center": [x, z], "radius": r | "polygon": [[x, z], ...] | "path": [[x, z], ...], "width": metres; plus "water": true for sea, lakes, rivers and ponds, or "blocks": true for roads, paths and squares}. Scatters and grids never put land things in water or on blocked areas; a rule aimed at a water area keeps its copies in the water. A coast is a large water area covering part of the ground, with a beach area along its edge.',
     '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0, the hull mostly above it (about a third below), so the boat reads from above and from the side.',
+    'A type may instead be a PREFAB: {"name": string, "group": [ rule, ... ]}, a little layout of other types written in its own coordinates (centre 0, 0, front +z), using the same rules as below. It is placed by any rule like a single object; every copy re-rolls its scatters, so no two are alike, and its footprint is kept clear of later scatters. BUILD PLACES FROM PREFABS: a cottage with its garden, fence and shed; a farmstead with house, barn, hay and hens; a market stall with its crates; a pier with boats tied along it; a campsite. Then place the prefabs with rows, rings and scatters. Prefabs may contain prefabs, two deep.',
+    'Buildings: walls are boxes with "size", roofs are "roof" parts, doors and windows thin boxes set into a face. Build a few house types that differ (one and two storeys, different roof colours) rather than one repeated everywhere.',
     '"place" puts copies of the types in the world. The code does the repetition; NEVER list objects one by one where a rule can do it. Rules, applied in order:',
     '  {"type": name, "at": [x, z], "rot"?: degrees}   one copy: a landmark, a well, a statue, a road segment',
-    '  {"type": name, "row": {"from": [x, z], "to": [x, z]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   houses down a street, fence posts, street lamps, a hedge',
+    '  {"type": name, "row": {"from": [x, z], "to": [x, z]} or {"path": [[x, z], ...]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   houses down a street, lamps along a winding road, fence posts',
+    '  {"type": name, "span": {"from": [x, z], "to": [x, z]} or {"path": [[x, z], ...]}}   one copy per stretch, laid along it and stretched to reach end to end (along the type\'s own x): walls, fence runs, hedges, a bridge, a pier into the water. Build the type at any length along x, e.g. a wall box size [4, 2, 0.4].',
     '  {"type": name, "ring": {"center": [x, z], "radius": r}, "count": n, "rot"?: "out"|"in"|"along"|degrees}   standing stones, chairs round a table, towers on a wall',
     '  {"type": name, "grid": "area name" or {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops in a field, an orchard, market stalls, gravestones',
     '  {"type": name, "scatter": "area name" or {"center": [x, z], "radius": r} or {"rect": [x0, z0, x1, z1]}, "count": n}   forests, rocks, bushes, a crowd, boats in a harbour ("scatter": "harbour"); copies keep apart and avoid everything placed before them',
-    '  Any rule may add "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "elevation": [min, max] (scatters and grids only where the ground is that high: pines above 5 m, reeds below 1 m), "tint": 0..0.4 (lightness variation), "y": height above the ground. Scatter rot is random unless given.',
+    '  Any rule may add "stretch": [sx, sy, sz] (stretch each copy along its own axes: a longer barn, a taller tower), "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "elevation": [min, max] (scatters and grids only where the ground is that high: pines above 5 m, reeds below 1 m), "tint": 0..0.4 (lightness variation), "y": height above the ground. Scatter rot is random unless given.',
     'Place landmarks first, then rows and rings, and scatters last so they flow around everything else. Rows and single copies go exactly where you put them, so keep them out of water and off roads yourself (a row of houses runs BESIDE a road, a pier reaches INTO the water).',
     'Make it rich and believable: real places hold hundreds or thousands of things. Use the counts a real place would have (a forest is hundreds of trees, a field rows of crops), up to 20000 copies in all, spread over the ground size you give.',
     'When asked to CHANGE a scene you are given its terrain, areas, types (name, height, width, copies) and rules. Return "terrain", "areas" and "place" IN FULL (the new lists), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
   ].join('\n');
   // The scene as Claude sees it when asked to change or check it.
   function describeSceneAI(){ const d=SCN.data(), b=SCN.built();
-    return JSON.stringify({name:d.name,seed:d.seed,ground:d.ground,terrain:d.terrain||[],areas:d.areas||[],types:d.types.map((t,i)=>{ const T=b&&b.types[i]; return {name:t.name,height:T?+T.h.toFixed(2):null,width:T?+(T.r/0.8*2).toFixed(2):null,copies:T?T.count:0}; }),place:d.place}); }
+    return JSON.stringify({name:d.name,seed:d.seed,ground:d.ground,terrain:d.terrain||[],areas:d.areas||[],types:d.types.map((t,i)=>{ const T=b&&b.types[i]; return t.group?{name:t.name,group:t.group,copies:T?T.count:0}
+      :{name:t.name,height:T?+T.h.toFixed(2):null,width:T?+(T.r/0.8*2).toFixed(2):null,length:T?+T.len.toFixed(2):null,copies:T?T.count:0}; }),place:d.place}); }
   // A scene reply, checked: types become parts through the same clamping as any object.
-  function sceneTypes(list){ return (Array.isArray(list)?list:[]).filter(t=>t&&typeof t.name==='string'&&Array.isArray(t.parts)&&t.parts.length).slice(0,30)
-    .map(t=>({name:t.name.slice(0,40),parts:t.parts.filter(q=>q&&typeof q==='object').slice(0,16).map(q=>partData(makePart(q)))})); }
+  function sceneTypes(list){ return (Array.isArray(list)?list:[]).filter(t=>t&&typeof t.name==='string'&&((Array.isArray(t.parts)&&t.parts.length)||(Array.isArray(t.group)&&t.group.length))).slice(0,40)
+    .map(t=>Array.isArray(t.group)?{name:t.name.slice(0,40),group:t.group.filter(r=>r&&typeof r==='object'&&typeof r.type==='string').slice(0,40)}
+      :{name:t.name.slice(0,40),parts:t.parts.filter(q=>q&&typeof q==='object').slice(0,16).map(q=>partData(makePart(q)))}); }
   function applyScene(spec,mode){
     const old=mode==='scene-edit'?SCN.data():null, fresh=sceneTypes(spec.types), names=new Set(fresh.map(t=>t.name.toLowerCase()));
     const place=(Array.isArray(spec.place)?spec.place:old?old.place:[]).filter(r=>r&&typeof r==='object'&&typeof r.type==='string').slice(0,200);
     let types=fresh;
-    if(old){ const used=new Set(place.map(r=>r.type.toLowerCase())); types=old.types.filter(t=>!names.has(t.name.toLowerCase())&&used.has(t.name.toLowerCase())).concat(fresh); }
+    if(old){ // keep an old type if a rule still uses it, directly or inside a prefab
+      const all=new Map(old.types.concat(fresh).map(t=>[t.name.toLowerCase(),t])), used=new Set(), walk=(rules,d)=>{ for(const r of rules){ const n=String(r.type||'').toLowerCase();
+        if(used.has(n)) continue; used.add(n); const t=all.get(n); if(t&&t.group&&d<3) walk(t.group,d+1); } };
+      walk(place,0); types=old.types.filter(t=>!names.has(t.name.toLowerCase())&&used.has(t.name.toLowerCase())).concat(fresh); }
     if(!types.length||!place.length) throw new Error('the answer had no object types or no placement rules — try again');
     const g=spec.ground&&typeof spec.ground==='object'?spec.ground:(old&&old.ground)||{};
     const d={name:String(spec.name||(old&&old.name)||'scene').slice(0,60),
@@ -4282,8 +4356,32 @@ window.__scene=SCN;
     else if(q.hollow&&typeof q.hollow==='object') o.hollow={on:true,wall:num(q.hollow.wall,0.01,0.25,0.06),floor:num(q.hollow.floor,0.02,0.9,0.12)};
     if('color' in q||'stripes' in q) o.paint=paintOf(hex(q.color,'#d9d4c7'),Math.round(num(q.stripes,0,10,0)),hex(q.stripeColor,'#c8402e'));
     return o; }
-  function makePart(q){ const kind=KINDS.includes(q.shape)?q.shape:'cylinder', o=opts(q);
+  /* SIZE AND ROOFS (Oct 5, from the harbour village: buildings are where solids of revolution
+     strain most). "size": [w, h, d] gives a part's real extent in metres, measured from the
+     shape itself at scale 1, so a box section's corners, a squash or an outline all come out
+     exactly; it is far easier to write a wall as 8 × 3 × 0.3 than as scale factors. A "roof"
+     is a gable: a triangular prism lying along its ridge, which as a turned part means a
+     cylinder with a three-sided section, laid on its side and lifted so its eaves sit at
+     pos. That rotation is fiddly to get right by hand, so it is done here: Claude says how
+     long, how high and how wide, and which way the ridge runs. */
+  const unitBox=new Map();
+  // measured at 96 around, a multiple of 3 and 4, so a triangle's or a box's corners are caught, not cut
+  function unitSize(kind,outline,section){ const k=kind+'|'+JSON.stringify(outline||null)+'|'+JSON.stringify(section||null);
+    if(unitBox.has(k)) return unitBox.get(k);
+    const o={scale:[1,1,1]}; if(outline) o.outline=outline; if(section) o.section=section;
+    const g=buildGeometry(partFrom(kind,o),[96,12]); g.computeBoundingBox(); const bb=g.boundingBox.clone(); g.dispose(); unitBox.set(k,bb); return bb; }
+  const sizeOf=v=>Array.isArray(v)&&v.length===3?v.map(x=>num(x,0.01,1000,1)):null;
+  function makeRoof(q){ const o=opts(q), sz=sizeOf(q.size)||[4,2,4], [L,H,W]=sz;
+    const outline=[[0,0.5],[1,0.5]], section={type:'polygon',n:3,k:1,squash:1,shape:null}, bb=unitSize('cylinder',outline,section);
+    const sx=H/(bb.max.x-bb.min.x), sz_=W/(bb.max.z-bb.min.z), yawDeg=o.rot?o.rot[1]:0, yaw=yawDeg*PI/180, pos=o.pos||[0,0,0];
+    // laid over (z -90°): the height axis runs along the ridge (+x before the turn) and the flat side faces down
+    return partFrom('cylinder',Object.assign(o,{name:o.name||'roof',outline,section,scale:[sx,L,sz_],rot:[0,yawDeg,-90],
+      pos:[pos[0]-L/2*Math.cos(yaw),pos[1]+bb.max.x*sx,pos[2]+L/2*Math.sin(yaw)]})); }
+  function makePart(q){ if(q&&q.shape==='roof') return makeRoof(q);
+    const kind=KINDS.includes(q.shape)?q.shape:'cylinder', o=opts(q);
     if(!LATHE[kind]) delete o.outline;                       // a classic core keeps its own profile
+    const sz=sizeOf(q.size);
+    if(sz){ const bb=unitSize(kind,o.outline,o.section); o.scale=[sz[0]/Math.max(1e-3,bb.max.x-bb.min.x),sz[1]/Math.max(1e-3,bb.max.y-bb.min.y),sz[2]/Math.max(1e-3,bb.max.z-bb.min.z)]; }
     return partFrom(kind,o); }
   /* Changing a part in place: only what Claude sent is touched, so a hand-sculpted part
      that is merely moved or recoloured keeps its sculpting. A new outline, section or

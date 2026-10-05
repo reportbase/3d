@@ -73,6 +73,16 @@ triangles. **edit** on a type opens it in the studio; when you're done, every co
 updates. **shuffle** re-places everything with a new seed; **change scene** and
 **look & fix** work on the whole scene; scenes save in the `.3da` with the object.
 
+A type can also be a **prefab**: a little layout of other types, like a
+homestead (a cottage, a walled garden, a bed of cabbages), written once in its
+own coordinates. Rules place prefabs exactly like single objects, a street of
+homesteads or fifty farmsteads scattered over the valley, and every copy lays
+itself out again, turned with it and with its own random details; the forest
+keeps out of its yard. Walls, fences and hedges are **spans**, one copy stretched
+from corner to corner along a line or a path; rows can follow a **path** too, so
+lamps go round the bend of a street. Parts can be given by their **size** in
+metres, and **roof** is a gable roof sitting on its eaves.
+
 **advanced** (top right) shows the engine's own controls: which rung the brush
 writes to, leaf counts, the kernel, aperture and the run.
 
@@ -154,7 +164,11 @@ error, or when an action has no effect.
   copy at the detail its distance calls for; shuffle and undo; editing a type
   updates all its copies; saving and opening; change scene and look & fix;
   terrain heights, copies standing on the ground, boats at a raised lake's
-  level, the elevation filter; walking at eye height and flying
+  level, the elevation filter; walking at eye height and flying; prefabs laid
+  out whole in each copy's frame (turned, nested, different in each copy, their
+  yards kept clear), spans reaching end to end, rows along a path, stretch
+- parts given by size come out exactly that size; a roof sits on its eaves with
+  the ridge along its length
 - every starting shape
 - duplicate, delete, undo and redo
 
