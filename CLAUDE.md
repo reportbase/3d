@@ -54,7 +54,14 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   "look & fix" sends `viewsPng()` (front, side and three-quarter renders in one
   PNG) with the request and the current parts. Tune `SYS` from real results the
   owner sends (the first knight came out as a candlestick).
-- **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, areas, types, place}`:
+- **Scenes** (the `SCENES` block, `SCN`) are `{name, seed, ground, terrain, areas, types, place}`:
+  `terrain` is a list of height features (`hill`, `ridge`, `slope`, `noise`) summed
+  by `terrainOf`; under water areas the land is pushed below the water's `level`.
+  With terrain the ground is one vertex-coloured grid (`terrainMesh`), water flat
+  sheets on it; copies stand on the ground (`baseY`, lowest point under the
+  footprint) or float at a water level; `elevation` filters scatters and grids.
+  Walk and fly (`setNav`, `tick`) move the camera with W A S D and drag to look;
+  the orbit controls stand aside while they run.
   `areas` are named flat ground (rect, circle, polygon, or path with a width),
   drawn by `groundOf`; `water` and `blocks` flags keep scatters and grids where
   they belong (`allowed`), and rules name areas for `scatter`, `grid` and

@@ -79,6 +79,8 @@
   .rules div b{color:var(--fg);font-weight:600}
   .typeback{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--accent);color:#141418;border-color:var(--accent);font-weight:600;z-index:5}
   .typeback[hidden]{display:none}
+  .navhint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#000a;color:#e8e4da;padding:6px 12px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:5}
+  .navhint[hidden]{display:none}
   .aipop{width:340px;padding:10px;gap:8px}
   .aipop textarea{width:100%;min-height:84px;resize:vertical;background:var(--bg2);color:var(--fg);border:1px solid var(--line2);border-radius:6px;padding:8px;font:inherit;font-size:13px}
   .aipop .row{display:flex;gap:6px;align-items:center}
@@ -276,12 +278,14 @@
       <span class="sep obj-only"></span>
       <button id="snap" class="on obj-only" title="snap to a grid, and onto parts below when you let go">snap</button>
       <button id="frameAll" title="frame everything">frame all</button>
+      <span class="seg scene-only"><button id="navOrbit" class="on" title="turn around the scene and zoom">orbit</button><button id="navWalk" title="walk through the scene at eye height: W A S D or arrows, drag to look, Shift to run, Esc to stop">walk</button><button id="navFly" title="fly over the scene: W A S D or arrows, drag to look, Space and Q up and down, Shift for speed, Esc to stop">fly</button></span>
       <button id="wire" class="obj-only" title="show the wireframe of the part you are shaping">wire</button>
     </div>
     <div class="crumb obj-only" id="crumb"></div>
     <div class="toast" id="toast"></div>
     <div class="hint obj-only" id="hint"></div>
     <button class="typeback" id="typeBack" hidden></button>
+    <div class="navhint" id="navHint" hidden>W A S D or arrows to move · drag to look · Shift to run · Space / Q up and down when flying · Esc to stop</div>
   </main>
 
   <aside class="panel side">
@@ -3802,8 +3806,33 @@ const SCN=(function(){
     if(a.center){ const r=a.radius*Math.sqrt(R()), t=R()*TAU; return [a.center[0]+r*Math.cos(t),a.center[1]+r*Math.sin(t)]; }
     for(let i=0;i<200;i++){ const x=a.box[0]+R()*(a.box[2]-a.box[0]), z=a.box[1]+R()*(a.box[3]-a.box[1]); if(inArea(x,z,a)) return [x,z]; }
     return null; }
+  /* TERRAIN (Oct 5: "yes" to hills and a fly-through, after the harbour village came out
+     flat as a table). The ground's height is a sum of a few features Claude can name:
+       hill   a rounded rise (or, with a negative height, a hollow), optionally flat-topped
+       ridge  the same along a line: a spine of hills, a dyke, a valley floor if negative
+       slope  a gradual rise from one point toward another: land climbing from the shore
+       noise  gentle rolling everywhere, so open ground is never dead flat
+     Water stays level: under a water area the land is pushed down below its surface, so the
+     shore is wherever the ground meets the water, and a lake may sit at its own "level". */
+  const smooth=t=>{ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); };
+  function terrainOf(d){
+    const fs=(Array.isArray(d.terrain)?d.terrain:[]).slice(0,40).map(f=>{ if(!f||typeof f!=='object') return null;
+      const h=num(f.height,-500,1000,0); if(!h&&f.noise==null) return null;
+      if(f.hill){ const c=xz(f.hill), r=num(f.radius,1,5000,30), fl=num(f.flat,0,0.95,0); return (x,z)=>h*smooth((r-Math.hypot(x-c[0],z-c[1]))/(r*(1-fl))); }
+      if(Array.isArray(f.ridge)&&f.ridge.length>=2){ const P=f.ridge.slice(0,100).map(q=>xz(q)), r=num(f.width,1,5000,30)/2;
+        return (x,z)=>{ let dm=1e9; for(let i=0;i<P.length-1;i++) dm=Math.min(dm,segDist(x,z,P[i],P[i+1])); return h*smooth((r-dm)/r); }; }
+      if(f.slope&&typeof f.slope==='object'){ const a=xz(f.slope.from), b=xz(f.slope.to), dx=b[0]-a[0], dz=b[1]-a[1], L=dx*dx+dz*dz||1;
+        return (x,z)=>h*smooth(((x-a[0])*dx+(z-a[1])*dz)/L); }
+      if(f.noise!=null){ const amp=num(f.noise,0,200,2), sc=num(f.scale,5,5000,60), R=rngOf((d.seed||1)*31+7), p=[R(),R(),R(),R(),R(),R()].map(v=>v*TAU);
+        return (x,z)=>amp*(0.55*Math.sin(x/sc+p[0])*Math.cos(z/sc*1.13+p[1])+0.3*Math.sin((x*0.71+z*0.7)/sc*2.3+p[2])+0.15*Math.cos((x*1.7-z*0.9)/sc*4.1+p[3])); }
+      return null; }).filter(Boolean);
+    const waters=[...namedAreas(d).values()].filter(a=>a.water);
+    const waterAt=(x,z)=>{ for(const w of waters) if(inArea(x,z,w)) return num(w.level,-500,1000,0); return null; };
+    const raw=(x,z)=>{ let h=0; for(const f of fs) h+=f(x,z); return h; };
+    const ground=(x,z)=>{ let h=raw(x,z); for(const w of waters) if(inArea(x,z,w)) h=Math.min(h,num(w.level,-500,1000,0)-1.5); return h; };
+    return {any:fs.length>0,ground,waterAt}; }
   // The scene's named areas, ready to test against.
-  const namedAreas=d=>new Map((Array.isArray(d.areas)?d.areas:[]).map(a=>{ const sh=shapeOf(a); return sh&&typeof a.name==='string'?[a.name.toLowerCase(),Object.assign(sh,{name:a.name,water:!!a.water,blocks:!!a.blocks,color:a.color})]:null; }).filter(Boolean));
+  const namedAreas=d=>new Map((Array.isArray(d.areas)?d.areas:[]).map(a=>{ const sh=shapeOf(a); return sh&&typeof a.name==='string'?[a.name.toLowerCase(),Object.assign(sh,{name:a.name,water:!!a.water,blocks:!!a.blocks,color:a.color,level:a.level})]:null; }).filter(Boolean));
 
   function place(d,types){
     const R=rngOf(d.seed), out=[], CELL=4, hash=new Map(); let maxR=0, short=0;
@@ -3811,7 +3840,13 @@ const SCN=(function(){
     const free=(x,z,r)=>{ const k=Math.ceil((r+maxR)/CELL), ci=Math.floor(x/CELL), cj=Math.floor(z/CELL);
       for(let i=ci-k;i<=ci+k;i++) for(let j=cj-k;j<=cj+k;j++){ const b=hash.get(key(i,j)); if(b) for(const o of b) if(Math.hypot(o.x-x,o.z-z)<o.r+r) return false; } return true; };
     let rule_=0;   // which rule placed each copy, for the panel and the tests
-    const put=(t,x,z,yaw,s,y,tint)=>{ if(out.length>=MAX_COPIES) return false; const T=types[t], r=T.r*s;
+    const TR=terrainOf(d);
+    /* Where a copy's base goes: on water, the water's level; on land, the ground. A wide copy
+       on a slope takes the lowest of five points under its footprint, so a house settles into
+       a hillside instead of standing out of it on one corner. */
+    const baseY=(x,z,r)=>{ const w=TR.waterAt(x,z); if(w!=null) return w; if(!TR.any) return 0;
+      let h=TR.ground(x,z); const e=r*0.6; for(const [dx,dz] of [[e,0],[-e,0],[0,e],[0,-e]]) h=Math.min(h,TR.ground(x+dx,z+dz)); return h; };
+    const put=(t,x,z,yaw,s,y,tint)=>{ if(out.length>=MAX_COPIES) return false; const T=types[t], r=T.r*s; y+=baseY(x,z,r);
       const k=key(Math.floor(x/CELL),Math.floor(z/CELL)); if(!hash.has(k)) hash.set(k,[]); hash.get(k).push({x,z,r}); maxR=Math.max(maxR,r);
       const v=1+(R()*2-1)*tint, m=new THREE.Matrix4().compose(V(x,y,z),new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(s,s,s));
       out.push({t,x,y,z,s,m,col:new THREE.Color(v,v,v),rule:rule_,lv:0}); return true; };
@@ -3827,6 +3862,8 @@ const SCN=(function(){
       const size=()=>sc[0]+R()*(sc[1]-sc[0]), y=num(rule.y,-100,500,0), jit=num(rule.jitter,0,100,0), tint=num(rule.tint,0,0.4,rule.scatter?0.12:0.05);
       const excl=(Array.isArray(rule.exclude)?rule.exclude:rule.exclude?[rule.exclude]:[]).map(area).filter(Boolean), out_=(x,z)=>excl.some(a=>inArea(x,z,a));
       const turn=num(rule.turn,-360,360,0)*PI/180, fixed=typeof rule.rot==='number'?rule.rot*PI/180:null;
+      const el=Array.isArray(rule.elevation)?[num(rule.elevation[0],-1000,5000,-1e9),num(rule.elevation[1],-1000,5000,1e9)]:null;
+      const high=(x,z)=>!el||(()=>{ const g=TR.ground(x,z); return g>=el[0]&&g<=el[1]; })();   // "pines only above 5 m", "reeds below 1 m"
       const yawOf=(dir)=>fixed!=null?fixed:rule.rot==='random'?R()*TAU:(dir??0);
       const J=()=>(R()*2-1)*jit;
       if(rule.at){ const [x,z]=xz(rule.at); put(t,x,z,(fixed??0)+turn,size(),y,tint); continue; }
@@ -3841,12 +3878,12 @@ const SCN=(function(){
       if(rule.grid){ const ar=area(rule.grid); if(!ar) continue;
         const ev=Array.isArray(rule.every)?rule.every:[rule.every,rule.every], dx=num(ev[0],0.1,1000,2), dz=num(ev[1],0.1,1000,dx), B=ar.box;
         if((B[2]-B[0])/dx*(B[3]-B[1])/dz>MAX_RULE*4) continue;   // a grid that fine over that much ground is a mistake, not a field
-        for(let x=B[0]+dx/2;x<=B[2];x+=dx) for(let z=B[1]+dz/2;z<=B[3];z+=dz){ if(!inArea(x,z,ar)||out_(x,z)||!allowed(x,z,ar)) continue; if(!put(t,x+J(),z+J(),yawOf(0)+turn,size(),y,tint)) break; } continue; }
+        for(let x=B[0]+dx/2;x<=B[2];x+=dx) for(let z=B[1]+dz/2;z<=B[3];z+=dz){ if(!inArea(x,z,ar)||out_(x,z)||!allowed(x,z,ar)||!high(x,z)) continue; if(!put(t,x+J(),z+J(),yawOf(0)+turn,size(),y,tint)) break; } continue; }
       if(rule.scatter){ const ar=area(rule.scatter); if(!ar) continue;
         const n=Math.min(MAX_RULE,Math.round(num(rule.count,1,MAX_RULE,20))), avoid=rule.avoid!==false; let made=0;
         for(let i=0;i<n;i++){ let ok=false;
           for(let tries=0;tries<30&&!ok;tries++){ const at=sampleArea(ar,R); if(!at) break; const [x,z]=at, s=size();
-            if(out_(x,z)||!allowed(x,z,ar)||(avoid&&!free(x,z,types[t].r*s*0.9))) continue;
+            if(out_(x,z)||!allowed(x,z,ar)||!high(x,z)||(avoid&&!free(x,z,types[t].r*s*0.9))) continue;
             ok=put(t,x,z,(fixed??R()*TAU)+turn,s,y,tint); }
           if(ok) made++; }
         short+=n-made; continue; }
@@ -3860,8 +3897,41 @@ const SCN=(function(){
     disposeGround(); built=null; }
   /* The ground and its areas as flat meshes, each area a little above the one before so a
      road over a field over the ground never flickers. Water is glossier than land. */
+  /* With terrain the ground is one grid shaped to the height, the land areas painted onto it
+     vertex by vertex so a road follows the hill it crosses; steep ground shades toward rock.
+     Water stays a flat sheet at its level. The grid is about a metre and a half per cell, a
+     few hundred across at most. */
+  function terrainMesh(d,TR){
+    const S=d.ground.size, N=Math.max(96,Math.min(320,Math.round(S/1.5))), step=S/N, half=S/2;
+    const land=[...namedAreas(d).values()].filter(a=>!a.water);
+    const base=new THREE.Color(d.ground.color), rock=new THREE.Color('#8a8580'), tmp=new THREE.Color();
+    const pos=new Float32Array((N+1)*(N+1)*3), col=new Float32Array((N+1)*(N+1)*3), idx=[];
+    for(let j=0;j<=N;j++) for(let i=0;i<=N;i++){ const x=-half+i*step, z=-half+j*step, k=(j*(N+1)+i)*3;
+      pos[k]=x; pos[k+1]=TR.ground(x,z); pos[k+2]=z;
+      let c=base; for(const a of land){ if(x<a.box[0]||x>a.box[2]||z<a.box[1]||z>a.box[3]) continue;
+        if(inArea(x,z,a)) c=tmp.set(typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:'#9b8b70'); }   // the last area listed wins, as when they are layered flat
+      col[k]=c.r; col[k+1]=c.g; col[k+2]=c.b; }
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const cx=-half+(i+0.5)*step, cz=-half+(j+0.5)*step; if(Math.hypot(cx,cz)>half) continue;   // a round island of ground, as before
+      const a=j*(N+1)+i, b=a+1, c2=a+N+1, e=c2+1; idx.push(a,c2,b,b,c2,e); }
+    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    const nr=geo.attributes.normal.array; for(let k=0;k<col.length;k+=3){ const steep=smooth((0.86-nr[k+1])/0.25)*0.65;
+      if(steep>0){ col[k]+=(rock.r-col[k])*steep; col[k+1]+=(rock.g-col[k+1])*steep; col[k+2]+=(rock.b-col[k+2])*steep; } }
+    return new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95})); }
   function groundOf(d){
+    const TR=terrainOf(d);
     const g=new THREE.Group(), flat=(geo,y)=>{ geo.rotateX(-PI/2); geo.translate(0,y,0); return geo; };
+    if(TR.any){ g.add(terrainMesh(d,TR));
+      [...namedAreas(d).values()].filter(a=>a.water).forEach((a,i)=>{ const lv=num(a.level,-500,1000,0), col=typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:'#3b6e94';
+        const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.25,metalness:0.08,polygonOffset:true,polygonOffsetFactor:-(i+1),polygonOffsetUnits:-4*(i+1)});
+        const add=geo=>g.add(new THREE.Mesh(flat(geo,lv+0.02*i),mat)), shape=pts=>{ const sh=new THREE.Shape(); pts.forEach(([x,z],k)=>k?sh.lineTo(x,-z):sh.moveTo(x,-z)); return new THREE.ShapeGeometry(sh); };
+        if(a.rect) add(shape([[a.rect[0],a.rect[1]],[a.rect[2],a.rect[1]],[a.rect[2],a.rect[3]],[a.rect[0],a.rect[3]]]));
+        else if(a.polygon) add(shape(a.polygon));
+        else if(a.center){ const c=new THREE.CircleGeometry(a.radius,64); c.translate(a.center[0],-a.center[1],0); add(c); }
+        else if(a.path){ for(let k=0;k<a.path.length-1;k++){ const [x0,z0]=a.path[k],[x1,z1]=a.path[k+1], L=Math.hypot(x1-x0,z1-z0); if(!L) continue;
+            const nx=-(z1-z0)/L*a.width/2, nz=(x1-x0)/L*a.width/2; add(shape([[x0+nx,z0+nz],[x1+nx,z1+nz],[x1-nx,z1-nz],[x0-nx,z0-nz]])); }
+          for(const [x,z] of a.path){ const c=new THREE.CircleGeometry(a.width/2,24); c.translate(x,-z,0); add(c); } } });
+      return g; }
     const gm=new THREE.Mesh(flat(new THREE.CircleGeometry(d.ground.size/2,96),-0.01),new THREE.MeshStandardMaterial({color:d.ground.color,roughness:0.95})); g.add(gm);
     [...namedAreas(d).values()].forEach((a,i)=>{ const y=0.03*(i+1), col=typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:(a.water?'#3b6e94':'#9b8b70');
       // each layer also pulled toward the camera in depth, so from far off it still wins over the one beneath
@@ -3891,7 +3961,7 @@ const SCN=(function(){
         if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
         L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
     const gm=groundOf(data); group.add(gm);
-    built={types,inst,short,ground:gm}; lastKey=''; drawPanel(); if(sceneOn) sky(true); }
+    built={types,inst,short,ground:gm,TR:terrainOf(data)}; lastKey=''; drawPanel(); if(sceneOn) sky(true); }
 
   // Each frame: every copy takes the resolution its distance calls for. Skipped while the camera is still.
   const _m=new THREE.Matrix4();
@@ -3922,13 +3992,15 @@ const SCN=(function(){
     if(built) built.types.forEach((T,i)=>{ const d=document.createElement('div'); d.className='pitem';
       d.innerHTML='<span>'+escapeHtml(T.name)+' <span class="note">× '+T.count+'</span></span><button data-i="'+i+'" title="open this type in the studio; when you are done, every copy updates">edit</button>';
       tl.appendChild(d); });
-    $('scRules').innerHTML=data?(data.areas||[]).map(a=>'<div>area <b>'+escapeHtml(a.name||'?')+'</b>'+(a.water?' (water)':a.blocks?' (kept clear)':'')+'</div>').join('')+data.place.map(r=>'<div>'+ruleText(r)+'</div>').join(''):'<div class="note">The rules that place the copies show here.</div>';
+    const tf=data&&Array.isArray(data.terrain)?data.terrain:[], tw=k=>tf.filter(f=>f&&f[k]!=null).length;
+    const tline=tf.length?'<div>terrain: '+['hill','ridge','slope','noise'].filter(k=>tw(k)).map(k=>tw(k)+' '+k+(tw(k)>1&&k!=='noise'?'s':'')).join(', ')+'</div>':'';
+    $('scRules').innerHTML=data?tline+(data.areas||[]).map(a=>'<div>area <b>'+escapeHtml(a.name||'?')+'</b>'+(a.water?' (water)':a.blocks?' (kept clear)':'')+'</div>').join('')+data.place.map(r=>'<div>'+ruleText(r)+'</div>').join(''):'<div class="note">The rules that place the copies show here.</div>';
     $('scStats').textContent=built?statsText():'No scene yet. Use describe ✦ → new scene, e.g. "a fishing village on a rocky coast".'; }
   $('scTypes').addEventListener('click',e=>{ const b=e.target.closest('button[data-i]'); if(b) editType(+b.dataset.i); });
 
   /* ── public ── */
   function setView(on){
-    on=!!on; if(on&&editing!=null) finishEdit();
+    on=!!on; if(on&&editing!=null) finishEdit(); if(!on&&nav) setNav('orbit');
     sceneOn=on; document.body.classList.toggle('scene-mode',on); $('vObject').classList.toggle('on',!on); $('vScene').classList.toggle('on',on);
     /* Near plane too: the object view needs 2 cm to get close to a small part, but over a
        scene thousands of metres deep that leaves too little depth precision, and the flat
@@ -3941,7 +4013,7 @@ const SCN=(function(){
      where the coarsest copies are; the object view keeps its plain dark backdrop. */
   function sky(on){ if(on&&data){ scene.background=new THREE.Color(0x9fb4c8); const g=data.ground.size; scene.fog=new THREE.Fog(0x9fb4c8,g*0.6,g*2.6); }
     else { scene.background=null; scene.fog=null; } }
-  function frame(){ if(!built||!built.inst.length) return; let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,ymax=0;
+  function frame(){ if(!built||!built.inst.length) return; if(nav) setNav('orbit'); let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,ymax=0;
     for(const o of built.inst){ const T=built.types[o.t], r=T.r*o.s; x0=Math.min(x0,o.x-r); x1=Math.max(x1,o.x+r); z0=Math.min(z0,o.z-r); z1=Math.max(z1,o.z+r); ymax=Math.max(ymax,o.y+T.h*o.s); }
     const c=V((x0+x1)/2,0,(z0+z1)/2), R=Math.max(5,Math.hypot(x1-x0,z1-z0)/2);
     camAnim={t:0,fromP:cam.position.clone(),toP:c.clone().add(V(R*0.75,R*0.62,R*0.95)),fromT:orbit.target.clone(),toT:c.clone().setY(Math.min(ymax*0.3,R*0.1))}; }
@@ -3972,9 +4044,63 @@ const SCN=(function(){
       const v=V(...dir).normalize().multiplyScalar(R/Math.sin(20*PI/180)); c2.position.copy(c).add(v); c2.lookAt(c);
       r.render(sc,c2); g.drawImage(r.domElement,i*W,0); g.fillStyle='#14161a'; g.font='15px sans-serif'; g.fillText(label,i*W+10,22); });
     scene.add(group); group.visible=was; r.dispose(); return out.toDataURL('image/png').split(',')[1]; }
+  /* WALK AND FLY (Oct 5). The orbit camera is for looking at a scene; walking through it is
+     how you find out what it is like to be there. Walk keeps your eyes 1.7 m above the
+     ground under you, so you climb the hills; fly goes where you point. W A S D or the
+     arrows move, dragging looks, Shift runs, Space and Q rise and sink when flying, Esc
+     stops. The detail levels follow the camera as always, so the ground around you
+     sharpens as you go. */
+  let nav=null, navLast=0;
+  const navKeys=new Set();
+  function setNav(mode){
+    if(mode==='orbit'||!built){ if(nav){ const f=new THREE.Vector3(); cam.getWorldDirection(f); orbit.target.copy(cam.position).add(f.multiplyScalar(20)); }
+      nav=null; orbit.enabled=true; }
+    else { const f=new THREE.Vector3(); cam.getWorldDirection(f); camAnim=null; orbit.enabled=false;
+      nav={mode,yaw:Math.atan2(-f.x,-f.z),pitch:Math.asin(Math.max(-1,Math.min(1,f.y)))};
+      if(mode==='walk'){ nav.pitch=Math.max(-0.4,Math.min(0.3,nav.pitch));
+        if(cam.position.y>built.TR.ground(cam.position.x,cam.position.z)+40||built.TR.waterAt(cam.position.x,cam.position.z)!=null){
+          /* Dropping in from high up (or over water): land on dry ground in the thick of what
+             was built: beside the placed (not scattered) copy nearest the middle of them all,
+             facing it. A corner of the map can be open sea, and a forest is no place to start. */
+          const dry=built.inst.filter(o=>built.TR.waterAt(o.x,o.z)==null), made=dry.filter(o=>{ const r=data.place[o.rule]||{}; return r.at||r.row||r.ring; });
+          const land=made.length?made:dry;   // something put there on purpose (a house, a landmark), not the nearest tree
+          if(land.length){
+            let mx=0,mz=0; for(const o of land){ mx+=o.x; mz+=o.z; } mx/=land.length; mz/=land.length;
+            let best=land[0], bd=1e18; for(const o of land){ const dd=(o.x-mx)**2+(o.z-mz)**2; if(dd<bd){ bd=dd; best=o; } }
+            const back=built.types[best.t].r*best.s+6; let x=best.x, z=best.z+back;
+            if(built.TR.waterAt(x,z)!=null){ x=best.x; z=best.z-back; }
+            cam.position.set(x,0,z); nav.yaw=Math.atan2(-(best.x-x),-(best.z-z)); nav.pitch=0; } } } }
+    if(nav) settle();   // at once, not on the next frame: the camera must never sit inside a hill
+    navLast=performance.now(); navKeys.clear();
+    for(const [id,m] of [['navOrbit','orbit'],['navWalk','walk'],['navFly','fly']]) $(id).classList.toggle('on',(nav?nav.mode:'orbit')===m);
+    $('navHint').hidden=!nav; }
+  function tick(){
+    if(!nav||!sceneOn) return; const now=performance.now(), dt=Math.min(0.1,(now-navLast)/1000); navLast=now;
+    const run=navKeys.has('shift'), fly=nav.mode==='fly', sp=(fly?Math.max(20,data.ground.size/12):5)*(run?3:1)*dt;
+    const fx=-Math.sin(nav.yaw), fz=-Math.cos(nav.yaw), rx=Math.cos(nav.yaw), rz=-Math.sin(nav.yaw);
+    let mx=0, mz=0, my=0;
+    if(navKeys.has('w')||navKeys.has('arrowup')){ mx+=fx; mz+=fz; } if(navKeys.has('s')||navKeys.has('arrowdown')){ mx-=fx; mz-=fz; }
+    if(navKeys.has('d')||navKeys.has('arrowright')){ mx+=rx; mz+=rz; } if(navKeys.has('a')||navKeys.has('arrowleft')){ mx-=rx; mz-=rz; }
+    if(fly){ if(navKeys.has(' ')||navKeys.has('e')) my+=1; if(navKeys.has('q')||navKeys.has('c')) my-=1;
+      if(navKeys.has('w')||navKeys.has('arrowup')) my+=Math.sin(nav.pitch)*1.2; if(navKeys.has('s')||navKeys.has('arrowdown')) my-=Math.sin(nav.pitch)*1.2; }
+    cam.position.x+=mx*sp; cam.position.z+=mz*sp; cam.position.y+=my*sp; settle(); }
+  // Eyes 1.7 m above the ground (or the water) when walking, never below 1 m when flying.
+  function settle(){ const g=built.TR.ground(cam.position.x,cam.position.z), w=built.TR.waterAt(cam.position.x,cam.position.z), floor=Math.max(g,w??-1e9);
+    if(nav.mode==='walk') cam.position.y=floor+1.7; else cam.position.y=Math.max(cam.position.y,floor+1);
+    cam.rotation.set(nav.pitch,nav.yaw,0,'YXZ'); }
+  addEventListener('keydown',e=>{ if(!nav) return; const t=e.target; if(t.tagName==='TEXTAREA'||t.tagName==='INPUT'||t.tagName==='SELECT') return;
+    const k=e.key.toLowerCase(); if(k==='escape'){ setNav('orbit'); return; }
+    if(e.shiftKey) navKeys.add('shift'); navKeys.add(k); if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault(); });
+  addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); navKeys.delete(k); if(k==='shift'||!e.shiftKey) navKeys.delete('shift'); });
+  addEventListener('blur',()=>navKeys.clear());
+  let look=null;
+  renderer.domElement.addEventListener('pointerdown',e=>{ if(nav&&sceneOn){ look={x:e.clientX,y:e.clientY}; renderer.domElement.setPointerCapture(e.pointerId); } });
+  renderer.domElement.addEventListener('pointermove',e=>{ if(!look||!nav) return; nav.yaw-=(e.clientX-look.x)*0.004; nav.pitch=Math.max(-1.45,Math.min(1.45,nav.pitch-(e.clientY-look.y)*0.004)); look={x:e.clientX,y:e.clientY}; });
+  renderer.domElement.addEventListener('pointerup',()=>{ look=null; });
+  $('navOrbit').onclick=()=>setNav('orbit'); $('navWalk').onclick=()=>setNav('walk'); $('navFly').onclick=()=>setNav('fly');
   // Put the camera somewhere and redraw at once (used by the tests; handy from the console).
   function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
-  return {setView,set,restore,update,frame,viewsPng,cameraTo,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
 })();
 window.__scene=SCN;
 
@@ -4073,24 +4199,25 @@ window.__scene=SCN;
      requests, on top of everything above, since a type is built exactly like an object. */
   const SCENE_SYS=[
     'SCENES. When asked for a SCENE you build a whole place out of many objects. Reply with ONE JSON object:',
-    '{"name": string, "seed": integer, "ground": {"color": "#rrggbb", "size": metres across}, "areas": [ area, ... ], "types": [ {"name": string, "parts": [ part, ... ]} ], "place": [ rule, ... ], "notes"?: string}',
+    '{"name": string, "seed": integer, "ground": {"color": "#rrggbb", "size": metres across}, "terrain": [ feature, ... ], "areas": [ area, ... ], "types": [ {"name": string, "parts": [ part, ... ]} ], "place": [ rule, ... ], "notes"?: string}',
+    '"terrain" shapes the ground; heights add up. Features: {"hill": [x, z], "radius": r, "height": h, "flat"?: 0..0.9 (a flat top)} | {"ridge": [[x, z], ...], "width": w, "height": h} | {"slope": {"from": [x, z], "to": [x, z]}, "height": h} (rises by h from one point to the other) | {"noise": amplitude, "scale": wavelength} (gentle rolling). A negative height makes a hollow or valley. Real land is rarely flat: give most places some shape (land rising from a shore, a hill behind a village, a valley for a river) and a little noise; keep where buildings stand fairly gentle. Water stays level and the land under it is lowered, so a coast is where rising ground meets a water area; a lake may set "level": its surface height. Everything placed stands on the ground at its spot, and floats at the water level on water.',
     'Units are metres; y is up and the ground is y = 0; north is -z. A person is 1.7 tall, a door 2.1, a house 5 to 9, a tree 4 to 15, a car 1.5 tall and 4.5 long.',
     '"areas" are the flat ground of the place, drawn in order on top of the ground: the sea, a lake, a river, a beach, roads and paths, fields, a market square. ANYTHING FLAT AND LARGE IS AN AREA, NEVER A TYPE (a type scales the same in every direction, so it cannot be a sea or a long road). An area: {"name": string, "color": "#rrggbb", and one shape: "rect": [x0, z0, x1, z1] | "center": [x, z], "radius": r | "polygon": [[x, z], ...] | "path": [[x, z], ...], "width": metres; plus "water": true for sea, lakes, rivers and ponds, or "blocks": true for roads, paths and squares}. Scatters and grids never put land things in water or on blocked areas; a rule aimed at a water area keeps its copies in the water. A coast is a large water area covering part of the ground, with a beach area along its edge.',
-    '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0.',
+    '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0, the hull mostly above it (about a third below), so the boat reads from above and from the side.',
     '"place" puts copies of the types in the world. The code does the repetition; NEVER list objects one by one where a rule can do it. Rules, applied in order:',
     '  {"type": name, "at": [x, z], "rot"?: degrees}   one copy: a landmark, a well, a statue, a road segment',
     '  {"type": name, "row": {"from": [x, z], "to": [x, z]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   houses down a street, fence posts, street lamps, a hedge',
     '  {"type": name, "ring": {"center": [x, z], "radius": r}, "count": n, "rot"?: "out"|"in"|"along"|degrees}   standing stones, chairs round a table, towers on a wall',
     '  {"type": name, "grid": "area name" or {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops in a field, an orchard, market stalls, gravestones',
     '  {"type": name, "scatter": "area name" or {"center": [x, z], "radius": r} or {"rect": [x0, z0, x1, z1]}, "count": n}   forests, rocks, bushes, a crowd, boats in a harbour ("scatter": "harbour"); copies keep apart and avoid everything placed before them',
-    '  Any rule may add "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "tint": 0..0.4 (lightness variation), "y": base height. Scatter rot is random unless given.',
+    '  Any rule may add "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "elevation": [min, max] (scatters and grids only where the ground is that high: pines above 5 m, reeds below 1 m), "tint": 0..0.4 (lightness variation), "y": height above the ground. Scatter rot is random unless given.',
     'Place landmarks first, then rows and rings, and scatters last so they flow around everything else. Rows and single copies go exactly where you put them, so keep them out of water and off roads yourself (a row of houses runs BESIDE a road, a pier reaches INTO the water).',
     'Make it rich and believable: real places hold hundreds or thousands of things. Use the counts a real place would have (a forest is hundreds of trees, a field rows of crops), up to 20000 copies in all, spread over the ground size you give.',
-    'When asked to CHANGE a scene you are given its areas, its types (name, height, width, copies) and its rules. Return "areas" and "place" IN FULL (the new lists), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
+    'When asked to CHANGE a scene you are given its terrain, areas, types (name, height, width, copies) and rules. Return "terrain", "areas" and "place" IN FULL (the new lists), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
   ].join('\n');
   // The scene as Claude sees it when asked to change or check it.
   function describeSceneAI(){ const d=SCN.data(), b=SCN.built();
-    return JSON.stringify({name:d.name,seed:d.seed,ground:d.ground,areas:d.areas||[],types:d.types.map((t,i)=>{ const T=b&&b.types[i]; return {name:t.name,height:T?+T.h.toFixed(2):null,width:T?+(T.r/0.8*2).toFixed(2):null,copies:T?T.count:0}; }),place:d.place}); }
+    return JSON.stringify({name:d.name,seed:d.seed,ground:d.ground,terrain:d.terrain||[],areas:d.areas||[],types:d.types.map((t,i)=>{ const T=b&&b.types[i]; return {name:t.name,height:T?+T.h.toFixed(2):null,width:T?+(T.r/0.8*2).toFixed(2):null,copies:T?T.count:0}; }),place:d.place}); }
   // A scene reply, checked: types become parts through the same clamping as any object.
   function sceneTypes(list){ return (Array.isArray(list)?list:[]).filter(t=>t&&typeof t.name==='string'&&Array.isArray(t.parts)&&t.parts.length).slice(0,30)
     .map(t=>({name:t.name.slice(0,40),parts:t.parts.filter(q=>q&&typeof q==='object').slice(0,16).map(q=>partData(makePart(q)))})); }
@@ -4104,9 +4231,11 @@ window.__scene=SCN;
     const d={name:String(spec.name||(old&&old.name)||'scene').slice(0,60),
       seed:Number.isFinite(+spec.seed)&&spec.seed!==null?(+spec.seed>>>0):(old?old.seed:1+Math.floor(Math.random()*1e6)),
       ground:{color:typeof g.color==='string'&&/^#[0-9a-f]{6}$/i.test(g.color)?g.color:'#5b7a46',size:Math.min(5000,Math.max(10,+g.size||200))},
+      terrain:(Array.isArray(spec.terrain)?spec.terrain:old&&old.terrain?old.terrain:[]).filter(f=>f&&typeof f==='object').slice(0,40)
+        .map(f=>({hill:f.hill,ridge:f.ridge,slope:f.slope,noise:f.noise,radius:f.radius,width:f.width,height:f.height,flat:f.flat,scale:f.scale})),
       areas:(Array.isArray(spec.areas)?spec.areas:old&&old.areas?old.areas:[]).filter(a=>a&&typeof a==='object'&&typeof a.name==='string').slice(0,60)
         .map(a=>({name:a.name.slice(0,40),color:typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:undefined,water:!!a.water,blocks:!!a.blocks,
-          rect:a.rect,center:a.center,radius:a.radius,polygon:a.polygon,path:a.path,width:a.width})),types,place};
+          rect:a.rect,center:a.center,radius:a.radius,polygon:a.polygon,path:a.path,width:a.width,level:a.level})),types,place};
     SCN.set(d,'describe: '+d.name); if(!sceneOn) SCN.setView(true); else SCN.frame(); return d; }
 
   // The object as Claude sees it when asked to change it: the same fields it writes.
@@ -4236,7 +4365,7 @@ window.__scene=SCN;
     const content=[
       {type:'text',text:'What was asked for: '+(ask||'(not known: judge it as a believable place)')+(note&&note!==ask?'\nThe user adds: '+note:'')+'\n\nThe scene now:\n'+describeSceneAI()},
       {type:'image',source:{type:'base64',media_type:'image/png',data:SCN.viewsPng()}},
-      {type:'text',text:'These are renders of it from above and from two sides. Compare them with what was asked for. Say in "notes" what is wrong (things floating or buried, wrong scale between types, empty or crowded places, boats on land or houses in water, objects on roads, missing ground like a sea or a road, a type that does not read as what it is), then return the corrected scene as a change.'}];
+      {type:'text',text:'These are renders of it from above and from two sides. Compare them with what was asked for. Say in "notes" what is wrong (ground flat where it should rise, things floating or buried, wrong scale between types, empty or crowded places, boats on land or houses in water, objects on roads, missing ground like a sea or a road, a type that does not read as what it is), then return the corrected scene as a change.'}];
     try{
       const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content}]}));
       const spec=parseJSON(data); applyScene(spec,'scene-edit'); const b=SCN.built();
@@ -4302,9 +4431,9 @@ window.__scene=SCN;
 /* ══ GO ══ */
 function loop(){ requestAnimationFrame(loop);
   if(camAnim){ camAnim.t=Math.min(1,camAnim.t+0.06); const e=1-Math.pow(1-camAnim.t,3); cam.position.lerpVectors(camAnim.fromP,camAnim.toP,e); orbit.target.lerpVectors(camAnim.fromT,camAnim.toT,e); if(camAnim.t>=1) camAnim=null; }
-  orbit.update(); SCN.update(); renderer.render(scene,cam); }
+  SCN.tick(); if(!SCN.nav) orbit.update(); SCN.update(); renderer.render(scene,cam); }
 resize(); renderGallery(); loadExample('lighthouse'); loop();
-window.__studio={S,buildChessSet,exportChessSet,pieceOf,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
+window.__studio={S,cam:()=>cam,orbit:()=>orbit,buildChessSet,exportChessSet,pieceOf,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
   useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D};
 
 </script>

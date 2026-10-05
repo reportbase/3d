@@ -12,7 +12,8 @@
 //     export (relative heights kept), and error replies, from a stand-in gateway
 //   · scenes: a village from the stand-in gateway (rule counts, rows, rings, spacing, exclusions,
 //     a lake and a lane as areas: boats only on water, nothing scattered into either),
-//     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix
+//     detail by distance, shuffle and undo, editing a type, save and open, change and look & fix,
+//     terrain (heights, copies on the ground, a raised lake, elevation), walking and flying
 //     .stl export, an old assemble-mode .3da
 // Fails on any uncaught error, or when an action has no effect.
 //
@@ -414,7 +415,7 @@ try {
       { type: 'rock', scatter: { center: [0, 0], radius: 100 }, count: 80, exclude: [{ rect: [-4, -95, 4, 95] }, { rect: [28, -42, 72, 42] }] }, // 7
       { type: 'unicorn', at: [0, 0] },                                                                    // 8: no such type, skipped
       { type: 'boat', scatter: 'lake', count: 6 }] };                                                     // 9: on the water, by name
-  const inst = () => ev(() => __scene.built().inst.map(o => ({ t: __scene.built().types[o.t].name, x: o.x, z: o.z, s: o.s, rule: o.rule, lv: o.lv, r: __scene.built().types[o.t].r * o.s })));
+  const inst = () => ev(() => __scene.built().inst.map(o => ({ t: __scene.built().types[o.t].name, x: o.x, y: o.y, z: o.z, s: o.s, rule: o.rule, lv: o.lv, r: __scene.built().types[o.t].r * o.s })));
   let keepObject;
   await step('scene: build one from a description', async () => {
     keepObject = await ev(() => __studio.sceneData());
@@ -522,6 +523,48 @@ try {
     const sent = aiSent[aiSent.length - 1].messages[0].content;
     if (!Array.isArray(sent) || sent[1].type !== 'image' || sent[1].source.data.length < 20000 || !/The scene now/.test(sent[0].text)) throw new Error('the scene pictures were not sent');
     if (!(await inst()).some(o => o.t === 'bush')) throw new Error('the fix was not applied');
+  });
+  await step('scene: terrain, and copies standing on it', async () => {
+    const HILLS = { name: 'hills', seed: 5, ground: { color: '#6b8a4e', size: 200 },
+      terrain: [{ hill: [-40, 0], radius: 35, height: 20 }, { ridge: [[30, -80], [30, 80]], width: 30, height: 8 }],
+      areas: [{ name: 'tarn', water: true, level: 2, center: [40, 60], radius: 12 }],
+      types: [{ name: 'pine', parts: [{ name: 'crown', shape: 'cone', pos: [0, 0, 0], scale: [3, 7, 3], color: '#2f5d3a' }] },
+              { name: 'boat', parts: [{ name: 'hull', shape: 'bowl', pos: [0, -0.3, 0], scale: [1.4, 0.6, 1.4], color: '#2d5fa8' }] },
+              { name: 'hut', parts: [{ name: 'walls', shape: 'box', pos: [0, 0, 0], scale: [5, 3, 4], color: '#e8dcc4' }] }],
+      place: [{ type: 'hut', at: [-40, 0] }, { type: 'pine', scatter: { center: [0, 0], radius: 95 }, count: 250, elevation: [8, 100] },
+              { type: 'boat', scatter: 'tarn', count: 4 }, { type: 'hut', row: { from: [30, -60], to: [30, 0] }, count: 5 }] };
+    await ev(h => __describe.applyScene(h, 'scene'), HILLS);
+    const top = await ev(() => __scene.heightAt(-40, 0)), side = await ev(() => __scene.heightAt(-40, 30)), flat = await ev(() => __scene.heightAt(-90, 80)), under = await ev(() => __scene.heightAt(40, 60));
+    if (Math.abs(top - 20) > 0.01 || !(side > 0 && side < 10) || Math.abs(flat) > 0.01) throw new Error('heights: top ' + top + ', side ' + side + ', flat ' + flat);
+    if (!(under <= 0.5)) throw new Error('the land under the tarn is not below its surface: ' + under);
+    const all = await inst(), hgt = await ev(pts => pts.map(([x, z]) => __scene.heightAt(x, z)), all.map(o => [o.x, o.z]));
+    all.forEach((o, i) => o.g = hgt[i]);
+    const hut = all.find(o => o.rule === 0); if (Math.abs(hut.y - 20) > 0.6) throw new Error('the hut on the hilltop stands at ' + hut.y);
+    const pines = all.filter(o => o.t === 'pine'); if (pines.length < 50 || pines.some(o => o.g < 8)) throw new Error(pines.length + ' pines, some below 8 m');
+    if (pines.some(o => o.y > o.g + 1e-6 || o.y < o.g - 3)) throw new Error('pines are not standing on the ground');
+    const boats = all.filter(o => o.t === 'boat'); if (boats.length !== 4 || boats.some(o => Math.abs(o.y - 2) > 1e-6)) throw new Error('boats do not float at the tarn level: ' + boats.map(o => o.y).join(','));
+    if (all.filter(o => o.rule === 3).some(o => Math.abs(o.y - o.g) > 3)) throw new Error('the row of huts on the ridge floats');
+    const mesh = await ev(() => { const g = __scene.built().ground.children[0].geometry, P = g.attributes.position.array; let lo = 1e9, hi = -1e9; for (let i = 1; i < P.length; i += 3){ lo = Math.min(lo, P[i]); hi = Math.max(hi, P[i]); } return { n: P.length / 3, lo, hi }; });
+    if (mesh.n < 10000 || mesh.hi < 19 || mesh.lo > 0.6) throw new Error('the terrain mesh: ' + JSON.stringify(mesh));
+    if (!/terrain: 1 hill, 1 ridge/.test(await page.textContent('#scRules'))) throw new Error('the rules panel does not show the terrain');
+  });
+  await step('scene: walk and fly', async () => {
+    await page.click('#navWalk');
+    let c = await ev(() => ({ x: __studio.cam().position.x, y: __studio.cam().position.y, z: __studio.cam().position.z, nav: __scene.nav && __scene.nav.mode }));
+    const g0 = await ev(([x, z]) => __scene.heightAt(x, z), [c.x, c.z]);
+    if (c.nav !== 'walk' || Math.abs(c.y - g0 - 1.7) > 0.05) throw new Error('walk did not start at eye height on land: ' + JSON.stringify(c) + ' ground ' + g0);
+    if (!await ev(() => !document.getElementById('navHint').hidden)) throw new Error('no walking hint');
+    await page.keyboard.down('w'); await page.waitForTimeout(700); await page.keyboard.up('w');
+    const c2 = await ev(() => ({ x: __studio.cam().position.x, y: __studio.cam().position.y, z: __studio.cam().position.z }));
+    const g2 = await ev(([x, z]) => __scene.heightAt(x, z), [c2.x, c2.z]);
+    if (Math.hypot(c2.x - c.x, c2.z - c.z) < 0.5) throw new Error('W did not move');
+    if (Math.abs(c2.y - g2 - 1.7) > 0.05) throw new Error('walking left eye height');
+    await page.click('#navFly');
+    await page.keyboard.down(' '); await page.waitForTimeout(600); await page.keyboard.up(' ');
+    const c3 = await ev(() => __studio.cam().position.y);
+    if (!(c3 > c2.y + 2)) throw new Error('Space did not rise when flying: ' + c2.y + ' → ' + c3);
+    await page.keyboard.press('Escape');
+    if (await ev(() => !!__scene.nav || !__studio.orbit().enabled)) throw new Error('Esc did not return to orbiting');
   });
   await step('scene: back to the object view', async () => {
     await page.click('#vObject');
