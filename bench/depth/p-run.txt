@@ -1,0 +1,33 @@
+## Run 1 with the flattened map (16 octaves of 64)
+P3 (check of the code): doubling, worst on one side 0.0e+0, across the corner 1.9e+0 (recorded): holds
+P4 (known from DEP-F): F's corner error 6.3e-15, worst outer 1.5e-14; per octave -7:1.5e-14 -6:1.5e-14 -5:1.5e-14 -4:1.1e-14 -3:8.9e-15 -2:7.5e-15 -1:6.8e-15 0:6.1e-15 1:6.6e-15 2:7.3e-15 3:9.2e-15 4:9.9e-15 5:1.0e-14 6:1.5e-14 7:1.5e-14 8:1.5e-14
+P5 run 1 (check of the code): a 64-leaf sweep's amplification 3.609; F's per octave 3.170 to 3.170: holds
+K3 (known from DEP-F; DEP-E's measure, J(1e-6)/J(1e-7)): 2^-7: 10.000  2^-6: 10.000  2^-5: 10.000  2^-4: roundoff  2^-3: 10.000  2^-2: 10.000  2^-1: 10.000  2^0: 10.000  2^1: 10.000  2^2: 10.000  2^3: 10.000  2^4: roundoff  2^5: 10.000  2^6: 10.000  2^7: 10.000; largest J(1e-7) 1.1e-7
+
+## Run 2: the busiest-stretch rule (top 256, children of 64, budget 1,024, stop below 1e-9)
+
+P1, the smooth reading alone
+  top T-a: relative error per octave -7:0.328 -6:0.032 -5:7.9e-3 -4:1.7e-3 -3:4.3e-4 -2:1.3e-4 -1:4.8e-5 0:2.5e-5 1:2.5e-5 2:4.8e-5 3:1.3e-4 4:4.3e-4 5:1.7e-3 6:7.9e-3 7:0.032 8:0.328
+  top T-F: relative error per octave -7:2.7e-14 -6:1.8e-14 -5:9.1e-15 -4:1.1e-14 -3:1.6e-14 -2:1.3e-14 -1:1.5e-14 0:2.7e-14 1:3.3e-14 2:1.5e-14 3:1.5e-14 4:1.4e-14 5:2.5e-14 6:2.1e-14 7:2.9e-14 8:3.5e-14
+  T-a + F: entries octave 8 (0.328); octave -7 (0.328); octave -6 (0.032); octave 7 (0.032); octave 6 (7.9e-3); octave -5 (7.9e-3); octave -4 (1.7e-3); octave 5 (1.7e-3); octave -3 (4.3e-4); octave 4 (4.3e-4); octave 3 (1.3e-4); octave -2 (1.3e-4); leaves used 1024
+  T-F + F: entries none; leaves used 256
+  P1 (T-F): top's worst 3.5e-14 (below 1% predicted), children entered above 1%: 0: holds
+
+P2, the smooth swell plus a burst in octaves 3 and -5
+  DEP-B (T-a, §3): entries octave -5 (0.855); octave -5, its ρ-octave -5 (0.393); octave 4 (0.296); octave 3 (0.253); octave 3, its ρ-octave 5 (0.237); octave 8 (0.233); octave 3, its ρ-octave 6 (0.212); octave -6 (0.153); octave 7 (0.134); octave -7 (0.131); octave 6 (0.122); octave 5 (0.117); leaves used 1024
+    depth per octave -7:1 -6:1 -5:2 -4:0 -3:0 -2:0 -1:0 0:0 1:0 2:0 3:2 4:1 5:1 6:1 7:1 8:1
+    final relative error per octave -7:3.0e-5 -6:2.0e-4 -5:0.013 -4:0.013 -3:1.4e-3 -2:1.4e-3 -1:3.4e-3 0:0.013 1:0.028 2:0.075 3:0.015 4:1.0e-3 5:2.1e-4 6:2.3e-4 7:1.3e-4 8:8.5e-5; mean 0.010
+  T-a + F: entries octave -5 (0.855); octave 4 (0.296); octave 3 (0.253); octave 8 (0.233); octave -6 (0.153); octave 7 (0.134); octave -7 (0.131); octave 6 (0.122); octave 5 (0.117); octave 2 (0.075); octave 1 (0.028); octave 1, its ρ-octave -6 (5.643); leaves used 1024
+    depth per octave -7:1 -6:1 -5:1 -4:0 -3:0 -2:0 -1:0 0:0 1:2 2:1 3:1 4:1 5:1 6:1 7:1 8:1
+    final relative error per octave -7:2.3e-15 -6:1.5e-15 -5:1.9e-14 -4:0.013 -3:1.4e-3 -2:1.4e-3 -1:3.4e-3 0:0.013 1:0.030 2:3.4e-4 3:2.7e-14 4:1.6e-14 5:1.2e-14 6:1.3e-14 7:1.8e-14 8:6.3e-14; mean 3.9e-3
+  T-F + F: entries octave 3 (0.909); octave -5 (0.868); octave -6 (0.167); octave 2 (0.109); octave 1 (0.076); octave -4 (0.076); octave 4 (0.062); octave 0 (0.050); octave -7 (0.027); octave -7, its ρ-octave -6 (26.096); octave -7, its ρ-octave -5 (14.852); octave -7, its ρ-octave -4 (1.145); leaves used 1024
+    depth per octave -7:2 -6:1 -5:1 -4:1 -3:0 -2:0 -1:0 0:1 1:1 2:1 3:1 4:1 5:0 6:0 7:0 8:0
+    final relative error per octave -7:9.0e-3 -6:5.2e-15 -5:2.1e-14 -4:3.1e-15 -3:7.2e-3 -2:9.1e-3 -1:0.015 0:1.9e-14 1:1.7e-14 2:7.8e-15 3:1.7e-14 4:5.7e-15 5:0.016 6:0.012 7:0.012 8:0.024; mean 6.6e-3
+  P2 (T-F + F): burst octaves first yes; octaves without the burst deeper: -7: KP2 FIRES
+
+P5 run 2 (T-F + F): alone, top 4.476, a child 3.609. Worst path octave -7: 6.646 against the sum 8.086: holds
+
+Rocks (reported, not predicted): absolute error per octave after run 2's rule
+  DEP-B (T-a, §3): 12 entries, leaves used 1024; -7:0.010 -6:2.9e-3 -5:1.2e-3 -4:4.1e-4 -3:2.0e-4 -2:1.5e-4 -1:1.6e-4 0:2.2e-4 1:6.0e-4 2:0.054 3:0.092 4:0.090 5:0.037 6:0.028 7:3.1e-3 8:1.9e-3; mean 0.020
+  T-a + F: 12 entries, leaves used 1024; -7:0.010 -6:2.9e-3 -5:1.2e-3 -4:4.1e-4 -3:2.0e-4 -2:1.5e-4 -1:1.6e-4 0:2.2e-4 1:6.0e-4 2:0.054 3:0.092 4:4.3e-4 5:3.2e-4 6:1.4e-3 7:4.4e-3 8:1.9e-3; mean 0.011
+  T-F + F: 12 entries, leaves used 1024; -7:3.0e-3 -6:3.4e-3 -5:3.9e-3 -4:4.5e-3 -3:5.3e-3 -2:6.7e-3 -1:7.8e-3 0:0.035 1:0.089 2:0.169 3:1.6e-4 4:0.088 5:1.4e-3 6:1.4e-3 7:4.4e-3 8:4.7e-3; mean 0.027
