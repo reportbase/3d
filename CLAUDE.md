@@ -53,6 +53,9 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   part property, add it to the prompt (`SYS`), `opts` and `describeScene`.
   Requests are streamed (`apiCall` reassembles the reply), because a whole scene
   takes longer than the ~100 s Cloudflare allows a silent request (HTTP 524).
+  Requests ask for `MAX_OUT` (64000) tokens: Claude Opus 5.5's thinking can't be
+  turned off and counts against the same limit, and a big scene ran out at 16000.
+  The login gateway clamps to its `MAX_TOKENS_CAP`, so the two must move together.
   "look & fix" sends `viewsPng()` (front, side and three-quarter renders in one
   PNG) with the request and the current parts. Tune `SYS` from real results the
   owner sends (the first knight came out as a candlestick).

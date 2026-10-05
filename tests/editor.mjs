@@ -817,6 +817,13 @@ try {
     const n = await parts();
     if (await ev(() => document.getElementById('aiPop').hidden)) await page.click('#aiBtn');   // undo, a click outside, closed it
     await page.fill('#aiPrompt', 'a teapot');
+    // a reply cut off at the limit: room was asked for, and the message says what to do
+    aiReply = { status: 200, body: { stop_reason: 'max_tokens', content: [{ type: 'text', text: '{"name":"teapot","parts":[{"name":"body","shape":"ball","pos":[0,0' }] } };
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /ran out of room before it was finished/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
+    if (aiSent[aiSent.length - 1].max_tokens !== 64000) throw new Error('asked for ' + aiSent[aiSent.length - 1].max_tokens + ' tokens, not 64000');
+    if (!/COMPACT/.test(aiSent[aiSent.length - 1].system)) throw new Error('the prompt does not ask for compact JSON');
+    if (await parts() !== n) throw new Error('a cut-off reply changed the object');
     aiReply = claudeSays('Sorry, I can only describe it in words.');
     await page.click('#aiGo');
     await page.waitForFunction(() => /no object came back/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
