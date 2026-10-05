@@ -4270,7 +4270,7 @@ window.__scene=SCN;
   const KINDS=[...Object.keys(LATHE),...CLASSIC_OK()];
   const SYS=[
     'You build 3D objects for a shape studio. Every object is a set of PARTS. Each part is a solid of revolution around its own vertical axis: a profile (the outline) spun around, optionally with a non-round cross-section, then scaled, turned and placed.',
-    'Reply with ONE JSON object and nothing else: no markdown fences, no commentary.',
+    'Reply with ONE JSON object and nothing else: no markdown fences, no commentary. Write it COMPACT, with no indentation or line breaks inside it: a scene is long, and the room for the answer is shared with your thinking.',
     '{"name": string, "parts": [ part, ... ]}, at most 40 parts. A part:',
     '{ "id"?: number            (only when changing an existing object: the id of the part you are keeping)',
     '  "name": string           (short, e.g. "hat brim"; call a chess piece part after the piece, e.g. "knight base")',
@@ -4460,8 +4460,8 @@ window.__scene=SCN;
     const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     lastText=text; $('aiCopy').disabled=!text;
     const a=text.indexOf('{'), z=text.lastIndexOf('}');
-    if(a<0||z<a) throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for something smaller':'no object came back — try rephrasing');
-    try{ return JSON.parse(text.slice(a,z+1)); }catch(e){ throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room — ask for something smaller':'the answer was not readable JSON — try again'); } }
+    if(a<0||z<a) throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room before it was finished — ask for fewer kinds of object, or build it in two steps (the main place first, then \u201cchange scene\u201d to add the rest)':'no object came back — try rephrasing');
+    try{ return JSON.parse(text.slice(a,z+1)); }catch(e){ throw new Error(data.stop_reason==='max_tokens'?'the answer ran out of room before it was finished — ask for fewer kinds of object, or build it in two steps (the main place first, then \u201cchange scene\u201d to add the rest)':'the answer was not readable JSON — try again'); } }
   function parseReply(data){
     const spec=parseJSON(data);
     if(!spec||!Array.isArray(spec.parts)||!spec.parts.length) throw new Error('the answer had no parts');
@@ -4516,6 +4516,13 @@ window.__scene=SCN;
     r.dispose(); sc.traverse(o=>{ if(o.material&&o!==gr) o.material.dispose(); });
     return out.toDataURL('image/png').split(',')[1]; }
 
+  /* Room for the answer (Oct 5: "the answer ran out of room"). On Claude Opus 5.5 the
+     model's thinking, which cannot be turned off, counts against the same limit as the
+     reply, and a scene with windows on every house is long; at 16000 a village from two
+     pictures stopped before its JSON closed. Replies are streamed, so a long one does not
+     time out, and only what is generated is billed. The login gateway clamps to its own
+     MAX_TOKENS_CAP, raised to match. */
+  const MAX_OUT=64000;
   async function lookAndFix(){
     if(busy) return;
     if(sceneOn) return lookAndFixScene();
@@ -4529,7 +4536,7 @@ window.__scene=SCN;
       {type:'image',source:{type:'base64',media_type:'image/png',data:viewsPng()}},
       {type:'text',text:'These are renders of it from the front, the side and above. Compare them with what was asked for. Say in "notes" what is wrong (floating or buried parts, proportions, parts pointing the wrong way, missing features), then return the corrected whole object as a change.'}];
     try{
-      const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content}]}));
+      const data=await callWithFallback(m=>({model:m,max_tokens:MAX_OUT,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content}]}));
       const spec=parseReply(data); apply(spec,'edit');
       setStatus((spec.notes?spec.notes+'\n':'')+'fixed — '+S.parts.length+' parts. Undo takes it back.');
     }catch(e){ setStatus(e.message,true); }
@@ -4546,7 +4553,7 @@ window.__scene=SCN;
       {type:'image',source:{type:'base64',media_type:'image/png',data:SCN.viewsPng()}},
       {type:'text',text:'These are renders of it from above and from two sides. Compare them with what was asked for. Say in "notes" what is wrong (ground flat where it should rise, things floating or buried, wrong scale between types, empty or crowded places, boats on land or houses in water, objects on roads, missing ground like a sea or a road, a type that does not read as what it is), then return the corrected scene as a change.'}];
     try{
-      const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content}]}));
+      const data=await callWithFallback(m=>({model:m,max_tokens:MAX_OUT,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content}]}));
       const spec=parseJSON(data); applyScene(spec,'scene-edit'); const b=SCN.built();
       setStatus((spec.notes?spec.notes+'\n':'')+'fixed — '+b.inst.length.toLocaleString()+' objects of '+b.types.length+' types. Undo takes it back.');
     }catch(e){ setStatus(e.message,true); }
@@ -4600,7 +4607,7 @@ window.__scene=SCN;
     busy=true; goBtn.disabled=fixBtn.disabled=true; setStatus(mode.startsWith('scene')?'building the scene… (a big one can take a minute)':'building…');
     if(mode.startsWith('scene')){
       const ask=text||'the place in the picture', user=withPics(mode==='scene-edit'?'Here is the current scene:\n'+describeSceneAI()+'\n\nChange it: '+ask:'Build a SCENE: '+ask,true);
-      try{ const data=await callWithFallback(m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content:user}]}));
+      try{ const data=await callWithFallback(m=>({model:m,max_tokens:MAX_OUT,output_config:{effort:'medium'},system:SYS+'\n'+SCENE_SYS,messages:[{role:'user',content:user}]}));
         const spec=parseJSON(data), d=applyScene(spec,mode);
         lastAsk=mode==='scene-edit'&&lastAsk?lastAsk+'; then: '+ask:ask;
         const b=SCN.built();
@@ -4610,7 +4617,7 @@ window.__scene=SCN;
       finally{ busy=false; goBtn.disabled=false; fixBtn.disabled=!canFix(); }
       return; }
     const ask=text||'the object in the picture', user=withPics(mode==='edit'?'Here is the current object:\n'+describeScene()+'\n\nChange it: '+ask:mode==='set'?'Build a CHESS SET, all six pieces: '+ask:'Build: '+ask,false);
-    const body=m=>({model:m,max_tokens:16000,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
+    const body=m=>({model:m,max_tokens:MAX_OUT,output_config:{effort:'medium'},system:SYS,messages:[{role:'user',content:user}]});
     try{
       const data=await callWithFallback(body);
       const spec=parseReply(data), n=apply(spec,mode);
