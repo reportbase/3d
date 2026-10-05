@@ -81,7 +81,16 @@ itself out again, turned with it and with its own random details; the forest
 keeps out of its yard. Walls, fences and hedges are **spans**, one copy stretched
 from corner to corner along a line or a path; rows can follow a **path** too, so
 lamps go round the bend of a street. Parts can be given by their **size** in
-metres, and **roof** is a gable roof sitting on its eaves.
+metres, **roof** is a gable roof sitting on its eaves, and doors and windows
+name the wall they go **on**, its face and where on it; the studio sets them
+flush into that face, turned the right way.
+
+The scene panel also has a **prefab library** for building by hand: a
+homestead, a terrace of town houses, a farmstead, a churchyard, a market, a
+windmill, a well, a grove and a campsite. Pick one and click the ground; each
+click places one facing you (R turns the next one, Esc stops). With no scene
+yet, picking one starts an empty place. Placed prefabs are ordinary types and
+rules, so describe ✦ can carry on from them ("add a road between the farms").
 
 **advanced** (top right) shows the engine's own controls: which rung the brush
 writes to, leaf counts, the kernel, aperture and the run.
@@ -169,6 +178,11 @@ error, or when an action has no effect.
   yards kept clear), spans reaching end to end, rows along a path, stretch
 - parts given by size come out exactly that size; a roof sits on its eaves with
   the ridge along its length
+- doors, windows and a chimney set on a turned wall's front, back, sides and top
+  sit flush, slightly proud, where `at` puts them
+- the prefab library: a click places one where it lands, facing the camera, R
+  turns it, a drag places nothing, Esc stops, undo; a scene's own type of the
+  same name is kept and the library's comes in renamed; every prefab builds
 - every starting shape
 - duplicate, delete, undo and redo
 

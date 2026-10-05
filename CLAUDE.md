@@ -85,6 +85,15 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   stretched copy registers a string of small circles, not one big one. Parts may be
   given by `size` (metres, measured by `unitSize`), and `shape:'roof'` (`makeRoof`)
   is a gable roof with its eaves at `pos` and its ridge along its length.
+  A part with `on` (a part named earlier in the same reply, or an existing part when
+  changing), `face` and `at` is placed by `attach()` before it is made: turned to
+  face out of that face, 30% of its depth inside it. Claude's own arithmetic for
+  windows left them floating or buried (Oct 5), so the prompt says always to use it.
+  The **prefab library** (`LIB_TYPES`, `LIBRARY`, `libAdd`, in the DESCRIBE IT block) is
+  written in Claude's reply terms and converted by `sceneTypes` once per type
+  (`libType`), so a type placed twice compares equal and is reused; a clash with a
+  different type of the same name brings the library's in as "name 2". Placing is a
+  click without a drag on the ground (`SCN.pick`), adding an `at` rule facing the camera.
   A new rule goes in `place()`, `SCENE_SYS` (the prompt) and `ruleText`.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
