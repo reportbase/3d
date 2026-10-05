@@ -3034,11 +3034,17 @@ function baseRadius(p,th,h){
   return Math.max(0, env*secAt(p,tw)*m);
 }
 /* call with usePart(p) in force when the part has a cascade */
-function radiusAt(p,th,h){ let r=baseRadius(p,th,h); if(p.cascade && p.sculpted) r+=evalFull(th,h); return Math.max(0,r)/(state.hRun||1); }
+/* rungCap: the finest rung a mesh is built with (Infinity: all of them, -1: none). A scene
+   copy far away is drawn from a prefix of its parts' rungs, the shape's own coarse bands,
+   rather than a sparse sampling of every rung (TVF §5.6: bands are produced by
+   observation, not authored). */
+let rungCap=Infinity;
+const capped=()=>Math.min(rungCap,state.rungs-1);
+function radiusAt(p,th,h){ let r=baseRadius(p,th,h); if(p.cascade && p.sculpted && rungCap>=0) r+=rungCap===Infinity?evalFull(th,h):evalUpTo(th,h,capped()); return Math.max(0,r)/(state.hRun||1); }
 const _c1=new THREE.Color(), _c2=new THREE.Color();
 function baseColor(p,h,out){ _c1.set(p.paint.color); _c2.set(p.paint.color2);
   const c=(p.paint.bands>0 && Math.floor(clamp(h,0,0.9999)*p.paint.bands*2)%2===1)?_c2:_c1; out[0]=c.r; out[1]=c.g; out[2]=c.b; return out; }
-function colorAt(p,th,h,out){ baseColor(p,h,out); if(p.cascade && p.painted){ const c=evalColorUpTo(th,h,state.rungs-1); out[0]+=c[0]; out[1]+=c[1]; out[2]+=c[2]; } return out; }
+function colorAt(p,th,h,out){ baseColor(p,h,out); if(p.cascade && p.painted && rungCap>=0){ const c=evalColorUpTo(th,h,capped()); out[0]+=c[0]; out[1]+=c[1]; out[2]+=c[2]; } return out; }
 /* What the paint brush sees as the colour on screen (the engine's paint converges on it). */
 let _paintPart=null;
 function paintCurrent(th,h){ const o=[0,0,0]; return _paintPart ? colorAt(_paintPart,th,h,o) : evalColorUpTo(th,h,state.rungs-1); }
@@ -3047,9 +3053,10 @@ function paintCurrent(th,h){ const o=[0,0,0]; return _paintPart ? colorAt(_paint
    the outside, over the rim and down the inside to a floor. */
 const DETAIL=[[32,24],[48,36],[72,56],[112,84]];
 let detail=2;
-function buildGeometry(p,dims){
-  const [NT,NH]=dims||DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0];
+function buildGeometry(p,dims,cap){
+  const [NT,NH]=dims||DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0], keepCap=rungCap;
   if(p.cascade) usePart(p);
+  rungCap=cap==null?Infinity:cap;
   const ring=(h,inset)=>{ const pts=[], cols=[]; for(let j=0;j<NT;j++){ const th=j/NT*TAU, r=Math.max(0,radiusAt(p,th,h)-inset);
       pts.push(r*Math.cos(th)+lean*h*h, h, r*Math.sin(th)*sq); colorAt(p,th,h,col); cols.push(col[0],col[1],col[2]); } return {pts,cols}; };
   for(let i=0;i<NH;i++) rings.push(ring(i/(NH-1),0));
@@ -3066,7 +3073,7 @@ function buildGeometry(p,dims){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   g.setAttribute('color',new THREE.Float32BufferAttribute(cl,3));
-  g.setIndex(idx); g.computeVertexNormals(); return g;
+  g.setIndex(idx); g.computeVertexNormals(); rungCap=keepCap; return g;
 }
 
 /* ══ STARTING SHAPES ══ plain lathe shapes, and the classic presets as cores. */
@@ -3764,24 +3771,53 @@ const SCN=(function(){
   /* Distance, in the copy's own size, under which it moves up a level. SIZE, not height:
      a road tile 2 cm tall but 4 m across measured by height would always be "far away". */
   const NEAR=[40,12,5,2];
+  /* DETAIL BY OCTAVES (Oct 5, after "Depth as Recursion" and the TVF spec: the studio's
+     parts already carry a cascade of rungs, each doubling the leaves, but scenes drew
+     every copy from the full surface sampled at five fixed sizes). A type with sculpted or
+     painted parts is drawn instead from PREFIXES of its parts' rungs: level 0 is the base
+     shape alone, on the plain mesh; level l holds the base and rungs 0..l-1, on a mesh with
+     a vertex at every one of rung l-1's leaves (the band's own grid). One rung per octave
+     of distance: rung r's leaves are about 6 pixels apart at 20/2^r of the copy's own
+     sizes, so the levels change at 20, 10, 5 and 2.5, the same rule at every level, and a
+     copy too far for even rung 0 to show costs no more than a plain one. (Measured first
+     at two vertices a leaf and 3-pixel leaves: 1.34 million triangles where the plain
+     levels drew 90 thousand, for detail too fine to see. At one vertex a leaf and 6 pixels
+     the meshes come out at nearly the plain sizes.) And each level also holds the prefix one rung shorter, at the same
+     vertices; the shader blends between the two by how far the copy has come into its
+     octave, so a rung fades in as the camera nears, as evalUpToF does for one object,
+     instead of appearing. Plain types, whose shape is all base and no rungs, keep the
+     sizes and distances above. */
+  const NEAR_OCT=[20,10,5,2.5];
   const MAX_COPIES=20000, MAX_RULE=5000;
   let data=null, built=null, editing=null, stash=null, lastKey='', stats={copies:0,tris:0};
   const group=new THREE.Group(); group.visible=false; scene.add(group);
   const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.62,metalness:0.02,side:THREE.DoubleSide});
+  // the blend: every type mesh carries the shorter prefix (posPrev, nrmPrev) and each copy its fade
+  mat.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader
+    .replace('#include <common>','#include <common>\nattribute vec3 posPrev;\nattribute vec3 nrmPrev;\nattribute float fade;')
+    .replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(mix(nrmPrev, vec3(normal), fade));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3(tangent.xyz);\n#endif')
+    .replace('#include <begin_vertex>','vec3 transformed = mix(posPrev, vec3(position), fade);'); };
+  const detailed=d=>!!(d.cascade&&(d.sculpted||d.painted));
+  // the mesh for one part at one level: plain parts as before, detailed ones fine enough for that level's rung
+  function partDims(p,level){ if(!detailed(p)||level===0) return LODS[level]; const k=1<<Math.min(level-1,(p.eng.rungs||4)-1);
+    return [Math.min(128,Math.ceil(Math.max(LODS[level][0],p.eng.baseT*k)/8)*8),Math.min(96,Math.max(LODS[level][1],p.eng.baseH*k))]; }
   const V=(x,y,z)=>new THREE.Vector3(x,y,z);
 
   // One type at one resolution: its parts built and moved into place, laid into one geometry.
-  function typeGeometry(parts,dims){
-    const pos=[],nor=[],col=[],idx=[], m=new THREE.Matrix4(), q=new THREE.Quaternion();
-    for(const d of parts){ const p=partFromData(d), g=buildGeometry(p,dims);
+  function typeGeometry(parts,level){
+    const pos=[],nor=[],col=[],idx=[],pp=[],np=[], m=new THREE.Matrix4(), q=new THREE.Quaternion();
+    for(const d of parts){ const p=partFromData(d), dims=partDims(p,level), det=detailed(p);
+      // rungs 0..level-1, and (same vertices) 0..level-2 for the fade; a plain part's two are one, as is level 0's
+      const g=buildGeometry(p,dims,det?level-1:Infinity), g0=det&&level>0?buildGeometry(p,dims,level-2):g;
       m.compose(V(...p.pos),q.setFromEuler(new THREE.Euler(p.rot[0]*PI/180,p.rot[1]*PI/180,p.rot[2]*PI/180)),V(...p.scale));
-      g.applyMatrix4(m); const base=pos.length/3, flip=m.determinant()<0;
-      const P=g.attributes.position.array, N=g.attributes.normal.array, C=g.attributes.color.array, I=g.index.array;
-      for(let i=0;i<P.length;i++){ pos.push(P[i]); nor.push(N[i]); col.push(C[i]); }
+      g.applyMatrix4(m); if(g0!==g) g0.applyMatrix4(m); const base=pos.length/3, flip=m.determinant()<0;
+      const P=g.attributes.position.array, N=g.attributes.normal.array, C=g.attributes.color.array, I=g.index.array, P0=g0.attributes.position.array, N0=g0.attributes.normal.array;
+      for(let i=0;i<P.length;i++){ pos.push(P[i]); nor.push(N[i]); col.push(C[i]); pp.push(P0[i]); np.push(N0[i]); }
       for(let i=0;i<I.length;i+=3) flip?idx.push(I[i]+base,I[i+2]+base,I[i+1]+base):idx.push(I[i]+base,I[i+1]+base,I[i+2]+base);
-      g.dispose(); }
+      g.dispose(); if(g0!==g) g0.dispose(); }
     const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+    g.setAttribute('posPrev',new THREE.Float32BufferAttribute(pp,3)); g.setAttribute('nrmPrev',new THREE.Float32BufferAttribute(np,3));
     g.setAttribute('color',new THREE.Float32BufferAttribute(col,3)); g.setIndex(idx); g.computeBoundingBox(); return g; }
 
   /* ── placement ── */
@@ -4091,17 +4127,18 @@ const SCN=(function(){
       if(Array.isArray(ty.group)) return {name:ty.name,group:ty.group,lod:[],h:1,r:1,size:1,len:1,cx:0};
       const key=JSON.stringify(ty.parts), old=keep&&keep.get(key);
       if(old){ keep.delete(key); return Object.assign(old,{name:ty.name}); }
-      const lod=LODS.map(dims=>({geo:typeGeometry(ty.parts,dims),mesh:null,n:0}));
+      const lod=LODS.map((_,l)=>({geo:typeGeometry(ty.parts,l),mesh:null,n:0}));
       const bb=lod[LODS.length-1].geo.boundingBox;
       const h=Math.max(0.05,bb.max.y), r=Math.max(0.05,Math.max(-bb.min.x,bb.max.x,-bb.min.z,bb.max.z)*0.8);
       // len and cx: its length along its own x and where that length is centred, for span
-      return {name:ty.name,key,lod,h,r,size:Math.max(h,r/0.8*2),len:Math.max(0.05,bb.max.x-bb.min.x),cx:(bb.max.x+bb.min.x)/2}; });
+      return {name:ty.name,key,lod,oct:ty.parts.some(detailed),h,r,size:Math.max(h,r/0.8*2),len:Math.max(0.05,bb.max.x-bb.min.x),cx:(bb.max.x+bb.min.x)/2}; });
     if(keep) for(const T of keep.values()) for(const L of T.lod){ if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); } L.geo.dispose(); }
     disposeGround();
     const {inst,short,gCount}=place(data,types);
     for(const [t,T] of types.entries()){ const n=inst.filter(o=>o.t===t).length; T.count=T.group?(gCount.get(t)||0):n;
       for(const L of T.lod){ if(L.mesh&&L.cap>=n&&n>0){ continue; } if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); L.mesh=null; }
         if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
+        L.fade=new THREE.InstancedBufferAttribute(new Float32Array(n).fill(1),1); L.geo.setAttribute('fade',L.fade);
         L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
     /* The ground is a round island; it grows to hold every area and every copy, with a
        margin (Oct 5: the fields east of the stream, the far corners of a wide map, fell
@@ -4122,8 +4159,15 @@ const SCN=(function(){
     let tris=0;
     for(const o of built.inst){ const T=built.types[o.t], d=Math.hypot(c.x-o.x,c.y-o.y,c.z-o.z)/(T.size*o.s);
       let lv=0; while(lv<NEAR.length&&d<NEAR[lv]) lv++;
-      o.lv=lv; const L=T.lod[lv]; if(!L.mesh) continue; L.mesh.setMatrixAt(L.n,o.m); L.mesh.setColorAt(L.n,o.col); L.n++; tris+=L.geo.index.count/3; }
-    for(const T of built.types) for(const L of T.lod) if(L.mesh){ L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true; if(L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate=true; }
+      /* A detailed type needs two things of its level: a fine enough mesh for its outline,
+         which the plain distances give, and its rungs by octave. It takes the higher of the
+         two; where the outline asks for the finer mesh first, the rung waits at fade 0, so
+         that level shows the shorter prefix on the finer mesh (Oct 5: on the octave
+         distances alone, rocks 20 to 40 sizes off were drawn as 8 by 3 diamonds). */
+      let fade=1;
+      if(T.oct){ const x=Math.log2(40/d); lv=Math.max(lv,Math.max(0,Math.min(4,Math.floor(x)))); fade=Math.max(0,Math.min(1,x-lv)); }
+      o.lv=lv; o.fade=fade; const L=T.lod[lv]; if(!L.mesh) continue; L.mesh.setMatrixAt(L.n,o.m); L.mesh.setColorAt(L.n,o.col); L.fade.array[L.n]=fade; L.n++; tris+=L.geo.index.count/3; }
+    for(const T of built.types) for(const L of T.lod) if(L.mesh){ L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true; L.fade.needsUpdate=true; if(L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate=true; }
     stats={copies:built.inst.length,tris}; const el=$('scStats'); if(el) el.textContent=statsText(); }
   const statsText=()=>built?built.inst.length.toLocaleString()+' objects of '+built.types.length+' types · '+Math.round(stats.tris).toLocaleString()+' triangles drawn'+(built.short?' · '+built.short+' did not fit':''):'';
 
@@ -4259,7 +4303,7 @@ const SCN=(function(){
     if(!pt){ const t=-ray.ray.origin.y/ray.ray.direction.y; if(t>0) pt=ray.ray.at(t,V(0,0,0)); }
     if(!pt||!data||Math.hypot(pt.x,pt.z)>(built?built.size:data.ground.size)/2) return null; return [pt.x,pt.z]; }
   function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
-  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR};
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR_OCT,NEAR};
 })();
 window.__scene=SCN;
 

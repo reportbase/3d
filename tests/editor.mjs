@@ -18,6 +18,7 @@
 //     houses along both sides of a street facing it), walking and flying,
 //     prefabs (laid out whole per copy, turned, nested, yards kept clear), span, rows along a
 //     path, stretch; the prefab library (placed by clicking, turned, renamed on a clash, every one built);
+//     detail by octaves (a sculpted rock's levels as prefixes of its rungs, one rung per octave of distance, faded in);
 //     parts given by size, the roof shape, doors and windows set flush into a face;
 //     building from a picture (shrunk, sent first, sent again with look & fix, three at most, a scene)
 //     .stl export, an old assemble-mode .3da
@@ -101,7 +102,8 @@ const claudeSays = text => ({ status: 200, body: { stop_reason: 'end_turn', cont
 let current = 'page load';
 const failures = [];
 page.on('pageerror', e => failures.push(`[${current}] ${e.message}`));
-page.on('console', m => { if (m.type() === 'error') console.log(`  console (${current}): ${m.text().slice(0, 200)}`); });
+const shaderErrors = [];   // a scene material whose shader did not compile shows nothing, and only says so here
+page.on('console', m => { if (m.type() === 'error'){ console.log(`  console (${current}): ${m.text().slice(0, 200)}`); if (/Shader Error|ERROR: 0:/.test(m.text())) shaderErrors.push(m.text().slice(0, 300)); } });
 
 async function step(name, fn){
   current = name; const before = failures.length;
@@ -739,6 +741,54 @@ try {
     for (const n of all) if (!(counts[n] >= 1)) throw new Error(n + ' was not built: ' + JSON.stringify(counts));
     if (counts.stall !== 6 || counts['town house'] !== 5 || counts.tent !== 5 || counts.church !== 1 || counts['oak 2'] < 6 || counts.oak !== 1) throw new Error('counts: ' + JSON.stringify(counts));
     if (await ev(() => __scene.built().short) > 2) throw new Error(await ev(() => __scene.built().short) + ' scattered copies did not fit');
+  });
+  await step('scene: detail by octaves, from prefixes of the rungs', async () => {
+    // a rock: a ball with a sculpted cascade, each rung's detail half the last's (a 1/f surface)
+    const made = await ev(() => { const p = __studio.partFrom('ball', { name: 'rock', pos: [0, 0, 0], scale: [1, 1, 1] }); ensureCascade(p); usePart(p);
+      let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5;
+      p.cascade.forEach((rg, r) => { for (let k = 0; k < rg.v.length; k++) rg.v[k] = 0.12 * Math.pow(0.5, r) * rnd(); });
+      p.sculpted = true;
+      const ring = []; for (let i = 0; i < 25; i++){ const a = i / 25 * Math.PI * 2; ring.push([Math.sin(a) * 2, Math.cos(a) * 2]); }
+      __scene.set({ name: 'rocks', seed: 3, ground: { color: '#6b8a4e', size: 400 }, types: [{ name: 'rock', parts: [partData(p)] }, { name: 'post', parts: [partData(__studio.partFrom('cylinder', { name: 'post' }))] }],
+        place: [{ type: 'rock', row: { from: [0, 0], to: [0, 0] }, count: 1 }, { type: 'rock', row: { from: [1.5, -1], to: [1.5, -150] }, count: 300 }, { type: 'rock', scatter: { center: [0, 0], radius: 190 }, count: 700 }, { type: 'post', row: { from: [-3, -2], to: [-3, -60] }, count: 30 }] }, 'rocks');
+      const b = __scene.built(), T = b.types[0];
+      return { oct: T.oct, plain: b.types[1].oct, near: __scene.NEAR_OCT, n: b.inst.length }; });
+    if (!made.oct || made.plain || JSON.stringify(made.near) !== '[20,10,5,2.5]') throw new Error('thresholds: ' + JSON.stringify(made));
+    // level 0 is the base alone, level l the base and rungs 0..l-1: what each adds over the shorter prefix halves level on level,
+    // and what it lacks of the whole surface shrinks to nothing at the top
+    const lv = await ev(() => __scene.built().types[0].lod.map(L => { const P = L.geo.attributes.position.array, P0 = L.geo.attributes.posPrev.array, n = P.length / 3;
+      let add = 0; for (let i = 0; i < P.length; i++) add += (P[i] - P0[i]) ** 2; return { verts: n, add: Math.sqrt(add / n) }; }));
+    const res = await ev(() => { const T = __scene.built().types[0], p = partFromData(__scene.data().types[0].parts[0]), out = [];
+      for (let l = 0; l < T.lod.length; l++){ const P = T.lod[l].geo.attributes.position.array, n = P.length / 3;
+        const NT = [8, 16, 24, 40, 72][l], NH = [3, 6, 12, 24, 48][l];
+        const g = buildGeometry(p, [NT, NH], Infinity), F = g.attributes.position.array; let e = 0;
+        if (F.length !== P.length){ g.dispose(); return 'level ' + l + ' is ' + n + ' vertices, not ' + F.length / 3; }
+        for (let i = 0; i < P.length; i++) e += (P[i] - F[i]) ** 2; g.dispose(); out.push(Math.sqrt(e / n)); }
+      return out; });
+    if (typeof res === 'string') throw new Error(res);
+    const adds = lv.map(x => x.add);
+    if (lv.map(x => x.verts).some((v, i, a) => i && i < 4 && v <= a[i - 1])) throw new Error('levels do not grow: ' + lv.map(x => x.verts));
+    if (adds[0] !== 0 || !(adds[1] > 0)) throw new Error('level 0 should be the bare base, level 1 add rung 0: ' + adds.map(a => a.toExponential(2)));
+    for (let l = 2; l < 5; l++){ const k = adds[l] / adds[l - 1]; if (!(k > 0.3 && k < 0.75)) throw new Error('rung ' + (l - 1) + ' adds ' + k.toFixed(2) + ' of rung ' + (l - 2) + "'s detail: " + adds.map(a => a.toExponential(2))); }
+    if (!(res[0] > res[1] && res[1] > res[2] && res[2] > res[3] && res[3] > res[4]) || res[4] > 1e-9) throw new Error('what each level lacks of the whole surface: ' + res.map(a => a.toExponential(2)));
+    // copies: one rung per octave of distance, fading in across it
+    await ev(() => __scene.cameraTo([0, 0.9, 1.6], [0, 0.5, -50]));
+    const cp = await ev(() => { const b = __scene.built(), T = b.types[0], c = __studio.cam().position;
+      return b.inst.filter(o => o.t === 0).map(o => ({ d: Math.hypot(c.x - o.x, c.y - o.y, c.z - o.z) / (T.size * o.s), lv: o.lv, fade: o.fade })); });
+    const bad = cp.filter(o => { const x = Math.log2(40 / o.d); let plain = 0; while (plain < 4 && o.d < [40, 12, 5, 2][plain]) plain++; const want = Math.max(plain, Math.max(0, Math.min(4, Math.floor(x)))); return o.lv !== want || Math.abs(o.fade - Math.max(0, Math.min(1, x - want))) > 1e-9; });
+    if (bad.length) throw new Error(bad.length + ' copies off the octave rule, e.g. ' + JSON.stringify(bad[0]));
+    const levels = [0, 1, 2, 3, 4].map(l => cp.filter(o => o.lv === l).length);
+    if (levels.some(n => n === 0)) throw new Error('copies per level: ' + levels);
+    const arriving = cp.filter(o => o.lv > 0 && o.lv < 4 && Math.abs(o.d - 40 / 2 ** o.lv) < 0.02 * o.d);
+    if (arriving.some(o => o.fade > 0.05)) throw new Error('a rung appears at full strength as it arrives');
+    const early = cp.filter(o => o.lv > 0 && o.d >= 40 / 2 ** o.lv);   // a finer mesh for the outline before the rung is due
+    if (early.some(o => o.fade !== 0)) throw new Error('a rung shows before its octave');
+    // the blend reached the GPU: the fade went with every copy, and the shader compiled
+    const fades = await ev(() => __scene.built().types[0].lod.map(L => L.mesh && L.geo.getAttribute('fade') === L.fade && L.fade.array.length >= L.mesh.count));
+    if (fades.some(f => !f)) throw new Error('a level has no fade per copy');
+    await page.waitForTimeout(300);
+    if (shaderErrors.length) throw new Error('shader: ' + shaderErrors[0]);
+    const tri = await ev(() => __scene.stats().tris); console.log('  1,000 rocks and 30 posts, copies per level ' + levels.join('/') + ', ' + Math.round(tri).toLocaleString() + ' triangles drawn');
   });
   await step('scene: back to the object view', async () => {
     await page.click('#vObject');

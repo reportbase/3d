@@ -90,7 +90,13 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   scene always comes out the same. Each type is built at the `LODS` resolutions
   (around-counts multiples of 8, so boxes stay square) and drawn as one
   InstancedMesh per level; `update()` gives each copy the level for its distance
-  in its own size (`NEAR`). Scene data is replaced, never changed in place, so
+  in its own size (`NEAR`). A type with sculpted or painted parts is drawn from **prefixes
+  of its parts' rungs** (TVF §5.6, bands produced by observation): level 0 the base alone,
+  level l the base and rungs 0..l-1 at one vertex per leaf of rung l-1 (`partDims`,
+  `buildGeometry`'s `cap`, the global `rungCap`). A copy takes the higher of the plain
+  level and its octave level (rung r at 20/2^r sizes, `NEAR_OCT`), and the shader blends
+  each level with the one-rung-shorter prefix (`posPrev`, `nrmPrev`, per-copy `fade`), so
+  rungs fade in. Two vertices a leaf at 3-pixel leaves cost 15× the triangles: keep the budget. Scene data is replaced, never changed in place, so
   the undo history keeps references. The `.3da` carries it as `scene` and `view`.
   A type may instead be a **prefab**, `{name, group:[rules]}`: rules in the type's own
   frame (centre 0,0, front +z). `place()` runs every rule in a frame (`toW`, `dirW`);
