@@ -96,7 +96,17 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   `buildGeometry`'s `cap`, the global `rungCap`). A copy takes the higher of the plain
   level and its octave level (rung r at 20/2^r sizes, `NEAR_OCT`), and the shader blends
   each level with the one-rung-shorter prefix (`posPrev`, `nrmPrev`, per-copy `fade`), so
-  rungs fade in. Two vertices a leaf at 3-pixel leaves cost 15× the triangles: keep the budget. Scene data is replaced, never changed in place, so
+  rungs fade in. Two vertices a leaf at 3-pixel leaves cost 15× the triangles: keep the budget.
+  **Surface detail** (`PATTERNS`, `patternAt`, `makeDetail`, `applyDetail`): a part's
+  `detail` {pattern, size, depth, color} is laid onto its own cascade rung by rung, each
+  leaf the pattern averaged over its cell, each rung the residual of the coarser ones, the
+  pattern's mean taken out (relief about the face, so far and near copies agree). The
+  part gets leaves to its proportions and pattern size (`detailEng`, four to a feature,
+  ≤ 384 at the first rung); a roof's rows run across its slope (`across`). Only the
+  numbers are saved (`partData` skips a generated cascade, `_detailGen`); `prepPart`
+  makes it again, cached. Hand sculpting on top makes the cascade the part's own.
+  `rungGrid` reads a rung on a whole grid in two passes (the kernel is separable);
+  `buildGeometry` and `makeDetail` use it, and must agree with `radiusAt`/`colorAt`. Scene data is replaced, never changed in place, so
   the undo history keeps references. The `.3da` carries it as `scene` and `view`.
   A type may instead be a **prefab**, `{name, group:[rules]}`: rules in the type's own
   frame (centre 0,0, front +z). `place()` runs every rule in a frame (`toW`, `dirW`);

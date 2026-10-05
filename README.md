@@ -76,7 +76,10 @@ lets you soar over it (Space and Q for up and down); Esc stops. Each type is bui
 of detail and drawn as instances, so a scene can hold thousands of objects:
 copies near the camera are drawn in full, distant ones with a few dozen
 triangles. A sculpted type is drawn from its own coarse bands as it
-recedes, one rung of detail per doubling of distance, each fading in as you approach. **edit** on a type opens it in the studio; when you're done, every copy
+recedes, one rung of detail per doubling of distance, each fading in as you approach.
+Parts can carry **surface detail**, stones, bricks, shingles, planks, boards, bark
+or rough, which Claude asks for in a few words and the studio lays onto the part's
+own rungs: a far wall is its plain colour, a near one shows its stones. **edit** on a type opens it in the studio; when you're done, every copy
 updates. **shuffle** re-places everything with a new seed; **change scene** and
 **look & fix** work on the whole scene; scenes save in the `.3da` with the object.
 
