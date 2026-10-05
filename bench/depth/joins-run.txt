@@ -1,0 +1,32 @@
+J1's leaves generated from the corner: worst relative difference from the tangent 3.8e-14; 1025 leaves in all (shared walls counted once)
+
+selfSimilar: per octave (k: B / J1 / J2), relative RMS
+-7: 0.010 / 0.015 / 6.4e-4   -6: 0.010 / 0.015 / 5.9e-4   -5: 0.010 / 0.015 / 5.9e-4   -4: 0.010 / 0.015 / 5.9e-4   -3: 0.010 / 0.015 / 5.9e-4   -2: 0.010 / 0.015 / 5.9e-4   -1: 0.010 / 0.015 / 5.9e-4   0: 0.010 / 0.015 / 5.0e-4   1: 0.010 / 0.015 / 5.0e-4   2: 0.010 / 0.015 / 5.9e-4   3: 0.010 / 0.015 / 5.9e-4   4: 0.010 / 0.015 / 5.9e-4   5: 0.010 / 0.015 / 5.9e-4   6: 0.010 / 0.015 / 5.9e-4   7: 0.010 / 0.015 / 5.9e-4   8: 0.010 / 0.015 / 6.4e-4
+  jump at the walls (largest): B 0.214, J1 0, J2 7.2e-8
+  largest error within 1/16 octave of a wall / elsewhere: B 0.119 / 0.098, J1 0.085 / 0.083, J2 1.1e-3 / 1.5e-3
+
+smooth: per octave (k: B / J1 / J2), relative RMS
+-7: 4.9e-4 / 7.3e-4 / 2.7e-5   -6: 1.8e-4 / 2.6e-4 / 8.4e-6   -5: 9.1e-5 / 1.3e-4 / 3.8e-6   -4: 4.1e-5 / 6.0e-5 / 1.4e-6   -3: 1.2e-5 / 2.2e-5 / 1.5e-6   -2: 5.5e-5 / 8.6e-5 / 3.9e-6   -1: 1.4e-4 / 2.2e-4 / 8.5e-6   0: 4.6e-4 / 6.9e-4 / 2.0e-5   1: 4.6e-4 / 6.9e-4 / 2.0e-5   2: 1.4e-4 / 2.2e-4 / 8.5e-6   3: 5.5e-5 / 8.6e-5 / 3.9e-6   4: 1.2e-5 / 2.2e-5 / 1.5e-6   5: 4.1e-5 / 6.0e-5 / 1.4e-6   6: 9.1e-5 / 1.3e-4 / 3.8e-6   7: 1.8e-4 / 2.6e-4 / 8.4e-6   8: 4.9e-4 / 7.3e-4 / 2.7e-5
+  jump at the walls (largest): B 3.1e-3, J1 0, J2 1.1e-9
+  largest error within 1/16 octave of a wall / elsewhere: B 1.7e-3 / 1.5e-3, J1 1.2e-3 / 1.3e-3, J2 1.5e-5 / 2.1e-5
+
+rocks: per octave (k: B / J1 / J2), absolute RMS
+-7: 3.1e-5 / 4.8e-5 / 2.2e-6   -6: 5.6e-5 / 8.6e-5 / 3.7e-6   -5: 8.1e-5 / 1.2e-4 / 3.9e-6   -4: 8.9e-5 / 1.5e-4 / 7.9e-6   -3: 2.7e-4 / 4.1e-4 / 1.3e-5   -2: 3.1e-4 / 4.5e-4 / 1.9e-5   -1: 8.9e-6 / 1.3e-5 / 4.9e-5   0: 2.3e-13 / 3.5e-13 / 4.0e-5   1: 6.4e-5 / 6.2e-5 / 1.8e-4   2: 5.4e-3 / 5.1e-3 / 0.012   3: 0.036 / 0.035 / 0.032   4: 0.051 / 0.063 / 0.034   5: 0.039 / 0.081 / 0.038   6: 0.028 / 0.101 / 0.023   7: 3.1e-3 / 0.064 / 4.2e-3   8: 0 / 0 / 3.6e-5
+  jump at the walls (largest): B 0.462, J1 0, J2 3.6e-8
+  largest error within 1/16 octave of a wall / elsewhere: B 0.926 / 8.0e-3, J1 0.954 / 0.068, J2 0.539 / 0.053
+
+## Verdicts
+
+J1: J-meet, worst jump 0 (below 1e-12 predicted): holds
+  J-walls (smooth): near the walls 1.2e-3, elsewhere 1.3e-3: holds
+  J-cost: worst ratio to DEP-B's nesting 1.759 (smooth, octave 4) against 1.5: KJ2 KILLS J-cost
+  J-flat: corner 0.015, worst outer 0.015: holds
+  J-amp: largest 3.604 against 3.609: holds
+
+J2: J-meet, worst jump 7.2e-8 (below 1e-12 predicted): KJ3 FIRES, the construction is wrong; the rest for this join is void
+  J-walls (smooth): near the walls 1.5e-5, elsewhere 2.1e-5: holds
+  J-cost: worst ratio to DEP-B's nesting 0.118 (smooth, octave 4) against 2: holds
+  J-flat: corner 5.0e-4, worst outer 6.4e-4: holds
+  J-amp: largest 3.169 against 3.645: holds
+
+Not predicted: of the 32 octave-readings (self-similar and smooth), J1 has the lower error in 0, J2 in 32.
