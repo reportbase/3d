@@ -1,0 +1,37 @@
+leaves: generated from the corner, worst relative difference from the tangent 2.5e-12 (n = 64, 256, 1024)
+  !! the generated lattice is off; the run stops here
+
+## Run 1: one sweep of 1,024 against 16 octaves of 64
+
+content selfSimilar: relative RMS error per octave (k: A / B)
+-7: 1.696 / 0.010   -6: 1.428 / 0.010   -5: 0.282 / 0.010   -4: 0.028 / 0.010   -3: 6.7e-3 / 0.010   -2: 1.6e-3 / 0.010   -1: 4.0e-4 / 0.010   0: 8.3e-5 / 0.010   1: 8.3e-5 / 0.010   2: 4.0e-4 / 0.010   3: 1.6e-3 / 0.010   4: 6.7e-3 / 0.010   5: 0.028 / 0.010   6: 0.282 / 0.010   7: 1.428 / 0.010   8: 1.696 / 0.010
+
+content smooth: relative RMS error per octave (k: A / B)
+-7: 0.018 / 4.9e-4   -6: 1.9e-3 / 1.8e-4   -5: 3.2e-4 / 9.1e-5   -4: 7.0e-5 / 4.1e-5   -3: 1.8e-5 / 1.2e-5   -2: 5.2e-6 / 5.5e-5   -1: 1.9e-6 / 1.4e-4   0: 1.0e-6 / 4.6e-4   1: 1.0e-6 / 4.6e-4   2: 1.9e-6 / 1.4e-4   3: 5.2e-6 / 5.5e-5   4: 1.8e-5 / 1.2e-5   5: 7.0e-5 / 4.1e-5   6: 3.2e-4 / 9.1e-5   7: 1.9e-3 / 1.8e-4   8: 0.018 / 4.9e-4
+
+content rocks: relative RMS error per octave (k: A / B)
+-7: 2.8e-4 / 3.1e-5   -6: 8.4e-5 / 5.6e-5   -5: 3.1e-5 / 8.1e-5   -4: 1.8e-5 / 8.9e-5   -3: 1.5e-5 / 2.7e-4   -2: 1.4e-5 / 3.1e-4   -1: 1.6e-5 / 8.9e-6   0: 2.2e-5 / 2.3e-13   1: 4.8e-5 / 6.4e-5   2: 1.8e-4 / 5.4e-3   3: 0.037 / 0.036   4: 0.059 / 0.051   5: 0.056 / 0.039   6: 0.030 / 0.028   7: 3.1e-3 / 3.1e-3   8: 3.7e-5 / 0   (absolute, no prediction)
+
+P3: doubling the scale. Octave k under f against k+1 under f(a/2): worst on one side of the corner 0.0e+0; across the corner (0 to 1) 2.0e+0 (recorded, not predicted)
+  P3 holds (prediction: 1e-12)
+
+P4: B's corner error 0.010, worst outer 0.010 (K1 if above 0.020): holds
+    A's growth per octave out, over octaves with error 1–50%: ratios [9.899, 9.899], median 9.899 (prediction 1.5–3): does not hold
+
+P5: a single 64-leaf sweep's amplification 3.609 (one of 1,024: 5.048); B's per octave from 3.460 to 3.460
+    K2 (above 3.645): does not fire; within 1% in every octave: no, lower in some (the octave's 256 points miss the sweep's worst point)
+
+K3, the walls (smooth reading): worst jump 3.1e-3 at the wall 2^-1, against the neighbouring octaves' largest error 1.4e-3: K3 FIRES
+
+## Run 2: the busiest-stretch rule (top 256, children of 64 to a budget of 1,024)
+
+P1 (smooth reading alone): the top sweep's relative error per octave -7: 0.328  -6: 0.032  -5: 7.9e-3  -4: 1.7e-3  -3: 4.3e-4  -2: 1.3e-4  -1: 4.8e-5  0: 2.5e-5  1: 2.5e-5  2: 4.8e-5  3: 1.3e-4  4: 4.3e-4  5: 1.7e-3  6: 7.9e-3  7: 0.032  8: 0.328
+    children entered (residual at entry): octave 8 (0.328); octave -7 (0.328); octave -6 (0.032); octave 7 (0.032); octave -7, its ρ-octave -6 (0.026); octave 8, its ρ-octave 7 (0.026); octave -7, its ρ-octave -5 (0.015); octave 8, its ρ-octave 6 (0.015); octave 6 (7.9e-3); octave -5 (7.9e-3); octave -7, its ρ-octave -4 (2.0e-3); octave 8, its ρ-octave 5 (2.0e-3)
+    P1 KILLED: top below 1% everywhere no (worst 0.328), children entered above 1%: 8
+
+P2 (smooth swell plus a burst in octaves 3 and -5): entries in order: octave -5 (0.855); octave -5, its ρ-octave -5 (0.393); octave 4 (0.296); octave 3 (0.253); octave 3, its ρ-octave 5 (0.237); octave 8 (0.233); octave 3, its ρ-octave 6 (0.212); octave -6 (0.153); octave 7 (0.134); octave -7 (0.131); octave 6 (0.122); octave 5 (0.117)
+    depth reached per octave: -7:1 -6:1 -5:2 -4:0 -3:0 -2:0 -1:0 0:0 1:0 2:0 3:2 4:1 5:1 6:1 7:1 8:1
+    burst octaves entered first: no (octave -5,octave -5, its ρ-octave -5); octaves without the burst deeper than the burst: none. P2 KILLED
+    final relative error per octave: -7: 3.0e-5  -6: 2.0e-4  -5: 0.013  -4: 0.013  -3: 1.4e-3  -2: 1.4e-3  -1: 3.4e-3  0: 0.013  1: 0.028  2: 0.075  3: 0.015  4: 1.0e-3  5: 2.1e-4  6: 2.3e-4  7: 1.3e-4  8: 8.5e-5
+
+P5 (run 2): amplification alone, top 4.476, a child 3.609. Worst path: octave -5, 3.529 against the sum 8.086 (product 16.157): holds (additive)
