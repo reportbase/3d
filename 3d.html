@@ -4150,18 +4150,36 @@ window.__scene=SCN;
     try{ history.replaceState(null,'',location.pathname+location.search+(rest?'#'+rest:'')); }catch(_){} if(e) setStatus('sign-in failed: '+e,true); })();
   signInEl.onclick=()=>{ session?setSession(null):signIn(); };
 
+  /* STREAMED (Oct 5: a scene request failed with "HTTP 524"). Cloudflare closes any request
+     that sends nothing back for about 100 seconds, and a whole scene, thousands of tokens
+     written in one go, takes longer than that. Asking for the reply as a stream keeps bytes
+     flowing from the first token, so the limit never comes into it, and the status line can
+     show the answer arriving. The gateway passes streams straight through. The pieces are
+     put back together here into the same shape a plain reply has, so nothing downstream
+     changes. */
   async function apiCall(body){
-    const res=await fetch(GATEWAY+'/v1/messages',{method:'POST',headers:{'content-type':'application/json','anthropic-version':'2023-06-01',authorization:'Bearer '+session},body:JSON.stringify(body)});
+    const res=await fetch(GATEWAY+'/v1/messages',{method:'POST',headers:{'content-type':'application/json','anthropic-version':'2023-06-01',authorization:'Bearer '+session},body:JSON.stringify(Object.assign({},body,{stream:true}))});
     const rem=res.headers.get('x-gateway-quota-remaining');
     if(rem!=null){ me=me||{user:{}}; me.quota={remaining:+rem,limit:+(res.headers.get('x-gateway-quota-limit')||0)}; syncAccount(); }
-    const data=await res.json().catch(()=>null);
-    if(!res.ok){ const msg=data&&data.error&&data.error.message, type=data&&data.error&&data.error.type;
+    if(!res.ok){ const data=await res.json().catch(()=>null), msg=data&&data.error&&data.error.message, type=data&&data.error&&data.error.type;
       if(res.status===401){ setSession(null); acct.open=true; throw new Error('signed out — sign in again'); }
       if(type==='quota_exceeded') throw new Error(msg||'daily allowance used up — it resets at midnight UTC');
       if(res.status===429) throw new Error('too many requests — wait a moment and try again');
+      if(res.status===524||res.status===504) throw new Error('the request timed out on the way (HTTP '+res.status+') — try again, or ask for something a little smaller');
+      if(res.status===529||res.status===503) throw new Error('Claude is busy right now (HTTP '+res.status+') — try again in a minute');
       const e=new Error(msg||('request failed — HTTP '+res.status)); e.status=res.status; throw e; }
-    return data;
-  }
+    if(!/event-stream/.test(res.headers.get('content-type')||'')) return await res.json();   // a gateway that answered plainly after all
+    const rd=res.body.getReader(), dec=new TextDecoder(); let buf='', text='', stop=null, errMsg=null, last=0;
+    for(;;){ const {done,value}=await rd.read(); if(done) break; buf+=dec.decode(value,{stream:true});
+      let i; while((i=buf.indexOf('\n\n'))>=0){ const ev=buf.slice(0,i); buf=buf.slice(i+2);
+        const line=ev.split('\n').find(l=>l.startsWith('data:')); if(!line) continue;
+        let d; try{ d=JSON.parse(line.slice(5)); }catch(_){ continue; }
+        if(d.type==='content_block_delta'&&d.delta&&d.delta.type==='text_delta') text+=d.delta.text;
+        else if(d.type==='message_delta'&&d.delta&&d.delta.stop_reason) stop=d.delta.stop_reason;
+        else if(d.type==='error') errMsg=(d.error&&d.error.message)||'the reply broke off'; }
+      const now=performance.now(); if(text&&now-last>400){ last=now; setStatus('writing… '+(text.length/1024).toFixed(1)+' KB so far'); } }
+    if(errMsg) throw new Error(/overload/i.test(errMsg)?'Claude is busy right now — try again in a minute':errMsg);
+    return {content:[{type:'text',text}],stop_reason:stop}; }
 
   /* What Claude is told. Every number here is the studio's own unit, so the answer drops
      straight into partFrom: a part is one unit tall before scaling, its outline radius is in

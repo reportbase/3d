@@ -58,8 +58,18 @@ if (process.env.LIBS_DIR){
 let aiReply = { status: 200, body: {} }; const aiSent = [];
 await page.addInitScript(() => { try { localStorage.setItem('tangent.login.v1', 'test-session'); } catch {} });
 await page.route(/login\.tangent\.workers\.dev\/auth\/me/, r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ user: { email: 'tester@example.com' }, quota: { remaining: 9, limit: 10 } }) }));
-await page.route(/login\.tangent\.workers\.dev\/v1\/messages/, r => { aiSent.push(JSON.parse(r.request().postData() || '{}'));
-  r.fulfill({ status: aiReply.status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'x-gateway-quota-remaining': '8', 'x-gateway-quota-limit': '10' }, body: JSON.stringify(aiReply.body) }); });
+// A successful reply goes back as a stream, the way the gateway relays Claude's, cut into
+// small pieces so the page has to put them together; errors go back as plain JSON (or, for
+// aiReply.raw, exactly as given, like Cloudflare's 524 page).
+const sse = body => { const text = ((body.content || []).find(b => b.type === 'text') || {}).text || '', ev = (t, d) => 'event: ' + t + '\ndata: ' + JSON.stringify(d) + '\n\n';
+  let out = ev('message_start', { type: 'message_start', message: { id: 'm', content: [] } }) + ev('content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+  for (let i = 0; i < text.length; i += 97) out += ev('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text.slice(i, i + 97) } });
+  return out + ev('content_block_stop', { type: 'content_block_stop', index: 0 }) + ev('message_delta', { type: 'message_delta', delta: { stop_reason: body.stop_reason || 'end_turn' } }) + ev('message_stop', { type: 'message_stop' }); };
+await page.route(/login\.tangent\.workers\.dev\/v1\/messages/, r => { const req = JSON.parse(r.request().postData() || '{}'); aiSent.push(req);
+  const headers = { 'access-control-allow-origin': '*', 'x-gateway-quota-remaining': '8', 'x-gateway-quota-limit': '10' };
+  if (aiReply.raw) return r.fulfill({ status: aiReply.status, contentType: 'text/html', headers, body: aiReply.raw });
+  if (aiReply.status === 200 && req.stream) return r.fulfill({ status: 200, contentType: 'text/event-stream', headers, body: sse(aiReply.body) });
+  r.fulfill({ status: aiReply.status, contentType: 'application/json', headers, body: JSON.stringify(aiReply.body) }); });
 // A TVF3D-PARTS file rebuilt the way games does it (each field evaluated, moved by its PART
 // matrix), reduced to the piece's extent: [min x,y,z] and [max x,y,z].
 function partsBounds(text){
@@ -285,6 +295,7 @@ try {
     if (flag.color !== '#d9d4c7' || flag.scale[2] !== 20) throw new Error('bad values were not cleaned up: ' + JSON.stringify(flag));
     const sent = aiSent[aiSent.length - 1];
     if (!sent.model || !/PARTS/.test(sent.system) || !/wooden boat/.test(sent.messages[0].content)) throw new Error('the request was not what the panel should send');
+    if (sent.stream !== true) throw new Error('the request was not streamed');
     if (await ev(() => document.getElementById('aiMode').value) !== 'edit') throw new Error('did not move on to "change it"');
     await ev(k => __studio.loadScene(k), keep);
   });
@@ -580,6 +591,9 @@ try {
     aiReply = claudeSays('Sorry, I can only describe it in words.');
     await page.click('#aiGo');
     await page.waitForFunction(() => /no object came back/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
+    aiReply = { status: 524, raw: '<html><body>A timeout occurred</body></html>' };
+    await page.click('#aiGo');
+    await page.waitForFunction(() => /timed out/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });
     aiReply = { status: 401, body: { error: { type: 'authentication_error', message: 'bad session' } } };
     await page.click('#aiGo');
     await page.waitForFunction(() => /signed out/.test(document.getElementById('aiStatus').textContent), null, { timeout: 5000 });

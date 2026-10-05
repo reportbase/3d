@@ -51,6 +51,8 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   colour). Every field is clamped before `partFrom` sees it; "change it" sends
   the current parts with their ids and updates kept parts in place. If you add a
   part property, add it to the prompt (`SYS`), `opts` and `describeScene`.
+  Requests are streamed (`apiCall` reassembles the reply), because a whole scene
+  takes longer than the ~100 s Cloudflare allows a silent request (HTTP 524).
   "look & fix" sends `viewsPng()` (front, side and three-quarter renders in one
   PNG) with the request and the current parts. Tune `SYS` from real results the
   owner sends (the first knight came out as a candlestick).
