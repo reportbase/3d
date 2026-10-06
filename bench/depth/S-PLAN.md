@@ -36,7 +36,7 @@ what was learned holds on content we didn't choose.
   - and the ground surface, max(`TR.ground`, `waterAt`), within the island's radius.
   - The ground is found by marching the ray with a step of (height above the surface) /
     (sin δ + 2 cos δ), at most 0.5 m. The 2 is a bound on the terrain's slope; δ is the
-    ray's depression. It stops within 10⁻⁴ H of the surface.
+    ray's depression. It stops within 10⁻⁴ H of the surface (amended to 10⁻⁷ H, below).
   - The flat area patches (roads, fields) are paint on the ground and are not met.
 
 ## Holders, 1,024 leaves each
@@ -102,3 +102,9 @@ If a check fails, no verdict stands.
 - `bench/depth/scene.mjs`, `node bench/depth/scene.mjs` (headless Chromium, as `npm
   test`, with `LIBS_DIR` when the CDNs are blocked); output `scene-run.txt`.
 - `bench/depth/S-RESULTS.md`, after the run.
+
+## Amendment before any code (6 October 2026)
+
+The ground march stops within **10⁻⁷ H** of the surface, not 10⁻⁴ H. At 10⁻⁴ the reading
+itself would carry up to 10⁻⁴ of noise, which is the very size S3 tests for: the noise
+would push S3 towards holding. Its smallest step is 10⁻⁹ H. Nothing else changes.
