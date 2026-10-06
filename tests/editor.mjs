@@ -923,6 +923,50 @@ try {
     console.log(`  smooth sculpt near the ends, rung 1: dct ${r.endErr.dct.toExponential(1)}, flat ${r.endErr.flat.toExponential(1)}`);
     await ev(k => __studio.loadScene(k), keep);
   });
+  await step('scene: copies varied, swaying and bobbing', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    const box = (name, size, color, pos = [0, 0, 0]) => ({ name, shape: 'box', size, pos, color });
+    const types = [
+      { name: 'rock', parts: [{ name: 'rock', shape: 'ball', size: [1.2, 0.7, 1], pos: [0, 0, 0], color: '#8a8580' }] },
+      { name: 'pine', parts: [box('trunk', [0.3, 2, 0.3], '#5a4030'), { name: 'crown', shape: 'cone', size: [3, 7, 3], pos: [0, 1.5, 0], color: '#2f5d3a' }] },
+      { name: 'buoy', parts: [{ name: 'buoy', shape: 'ball', size: [1, 1, 1], pos: [0, 0, 0], color: '#d04a2a' }] },
+      { name: 'grove', group: [{ type: 'pine', scatter: { center: [0, 0], radius: 6 }, count: 3 }] }];
+    const scene = (move) => ({ name: 'moving', seed: 3, ground: { color: '#6b8a4e', size: 120 }, types, place: [
+      { type: 'rock', scatter: { rect: [-30, -30, 30, -10] }, count: 60, vary: 0.1 },
+      { type: 'pine', scatter: { rect: [-20, 0, 20, 20] }, count: 25, ...(move ? { sway: 0.3 } : {}) },
+      { type: 'buoy', at: [25, 25], ...(move ? { bob: 0.2 } : {}) },
+      { type: 'grove', at: [-25, 25], ...(move ? { sway: 0.2 } : {}) },
+      { type: 'rock', at: [0, -40] }] });
+    try {
+    await page.click('#vScene');   // applyScene builds the scene but leaves the view as it was
+    await ev(h => __describe.applyScene(h, 'scene'), scene(true));
+    const r = await ev(() => { const b = __scene.built(), by = i => b.inst.filter(o => o.rule === i);
+      const rocks = by(0), seeds = new Set(rocks.map(o => o.anim[0].toFixed(6)));
+      return { rocks: rocks.length, seeds: seeds.size, varied: rocks.every(o => o.anim[1] > 0), sway: by(1).every(o => o.anim[2] === 0.3 && o.anim[1] === 0),
+        bob: by(2).every(o => o.anim[3] === 0.2), grove: by(3).length > 0 && by(3).every(o => o.anim[2] === 0.2), still: by(4).every(o => o.anim[1] === 0 && o.anim[2] === 0 && o.anim[3] === 0),
+        text: document.getElementById('scRules') ? document.getElementById('scRules').textContent : '' }; });
+    if (r.seeds < 0.95 * r.rocks || !r.varied) throw new Error('varied rocks: ' + r.seeds + ' seeds for ' + r.rocks + ' copies, varied ' + r.varied);
+    if (!r.sway || !r.bob) throw new Error('sway or bob not carried to the copies: ' + JSON.stringify(r));
+    if (!r.grove) throw new Error("a prefab's rules did not take the sway of the rule that placed it");
+    if (!r.still) throw new Error('a rule without vary, sway or bob moved its copies');
+    if (!/varied/.test(r.text) || !/swaying/.test(r.text) || !/bobbing/.test(r.text)) throw new Error('rules panel: ' + r.text);
+    // the motion shows: two frames apart differ with sway and bob, and match without
+    // A scene changes for a moment after it is laid out (the levels settle), then holds still: so wait
+    // for the still scene to hold, and give the moving one the same time, before comparing two frames.
+    const canvas = page.locator('canvas').first(), shots = async () => { const a = await canvas.screenshot(); await page.waitForTimeout(700); const b = await canvas.screenshot(); return a.equals(b); };
+    const settle = async () => { await page.waitForTimeout(1500); for (let i = 0; i < 6 && !(await shots()); i++); };
+      await ev(h => __describe.applyScene(h, 'scene'), scene(false)); await settle();
+      if (!(await shots())) throw new Error('the same scene without sway or bob changed between frames');
+      await ev(h => __describe.applyScene(h, 'scene'), scene(true)); await page.waitForTimeout(1500); await shots();
+      const t0 = await ev(() => __scene.uTime.value); await page.waitForTimeout(300);
+      if (!((await ev(() => __scene.uTime.value)) > t0)) throw new Error('the scene clock did not run');
+      if (await shots()) throw new Error('the swaying scene did not move between frames');
+      if (!/"vary": 0 to 0.2/.test(await ev(() => __describe.SCENE_SYS)) || !/"sway"/.test(await ev(() => __describe.SCENE_SYS))) throw new Error('the scene prompt does not offer vary and sway');
+    } finally {   // back to the object view whatever happened, so a failure here does not fail the steps after it
+      await page.click('#vObject'); await ev(() => __scene.set(null));
+      await ev(k => __studio.loadScene(k), keep);
+    }
+  });
   await step('describe it: built from a picture', async () => {
     const keep = await ev(() => __studio.sceneData());
     const png = (w, h, col) => ev(([w, h, col]) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
