@@ -1,0 +1,38 @@
+## Checks of the code
+  4. D and Z with no nodes are one sweep of 16: worst 0; a node holds cos(5u) in (0.25, 0.5]: worst 5.1e-15 over 256 heights; the root's first children (0.25, 0.5] (0.5, 0.75] (0.125, 0.25] (0.75, 0.875] ok
+
+## Smooth profiles: RMS error over 1,024 heights
+  sin(2.3h + 0.4) + 0.5h²: even 8.5e-4  one sweep 3.2e-15  D 3.5e-16  Z 3.0e-16  D √2 4.1e-16  D φ 4.1e-16  D 3 3.8e-16  D 4 3.4e-16
+    D entered (0.25, 0.5] (0.125, 0.25] (0.5, 0.75] (0.0625, 0.125]; Z entered (0, 0.5] (0.5, 1] (0.75, 1] (0.5, 0.75]
+  h³ − h: even 8.0e-4  one sweep 8.5e-16  D 1.0e-16  Z 8.7e-17  D √2 9.5e-17  D φ 9.9e-17  D 3 1.1e-16  D 4 9.6e-17
+    D entered (0.5, 0.75] (0.25, 0.5] (0.125, 0.25] (0.875, 0.9375]; Z entered (0.5, 1] (0, 0.5] (0.75, 1] (0.875, 1]
+  cos(5h): even 1.7e-3  one sweep 2.3e-15  D 8.4e-13  Z 6.9e-13  D √2 1.3e-12  D φ 1.1e-12  D 3 6.0e-13  D 4 5.0e-13
+    D entered (0.5, 0.75] (0.25, 0.5] (0.75, 0.875] (0.125, 0.25]; Z entered (0.5, 1] (0.75, 1] (0, 0.5] (0, 0.25]
+  exp(−3h): even 1.1e-3  one sweep 6.2e-16  D 1.5e-16  Z 1.8e-16  D √2 1.8e-16  D φ 1.7e-16  D 3 1.5e-16  D 4 1.6e-16
+    D entered (0.25, 0.5] (0.0625, 0.125] (0.75, 0.875] (0.5, 0.75]; Z entered (0, 0.5] (0, 0.25] (0.5, 1] (0.125, 0.25]
+  tanh(4(h − 0.3)): even 4.3e-4  one sweep 2.6e-15  D 2.2e-6  Z 2.5e-6  D √2 3.9e-6  D φ 3.2e-6  D 3 1.4e-6  D 4 1.6e-6
+    D entered (0.25, 0.5] (0.125, 0.25] (0.5, 0.75] (0.0625, 0.125]; Z entered (0, 0.5] (0, 0.25] (0.5, 1] (0.25, 0.5]
+
+## Patterns: RMS error over 1,024 heights, RMS over 32 columns
+  stones: even 0.162  one sweep 0.199  D 0.215  Z 0.324  D √2 0.213  D φ 0.192  D 3 0.240  D 4 0.207
+    D's nodes over the columns: (0.25, 0.5] ×32 (0.5, 0.75] ×31 (0.125, 0.25] ×18 (0.75, 0.875] ×13 (0.5625, 0.625] ×11 (0.375, 0.4375] ×9 (0.0625, 0.125] ×6 (0.875, 0.9375] ×4
+  bricks: even 0.233  one sweep 0.220  D 0.228  Z 0.303  D √2 0.224  D φ 0.198  D 3 0.266  D 4 0.213
+    D's nodes over the columns: (0.5, 0.75] ×32 (0.5625, 0.625] ×32 (0.25, 0.5] ×32 (0.375, 0.4375] ×32
+  shingles: even 0.133  one sweep 0.131  D 0.201  Z 0.257  D √2 0.151  D φ 0.150  D 3 0.176  D 4 0.200
+    D's nodes over the columns: (0.5, 0.75] ×31 (0.25, 0.5] ×30 (0.125, 0.25] ×24 (0.75, 0.875] ×24 (0.375, 0.4375] ×7 (0.5625, 0.625] ×7 (0.0625, 0.125] ×3 (0.875, 0.9375] ×1
+  planks: even 0.225  one sweep 0.196  D 0.225  Z 0.274  D √2 0.184  D φ 0.197  D 3 0.236  D 4 0.199
+    D's nodes over the columns: (0.5, 0.75] ×32 (0.5625, 0.625] ×32 (0.25, 0.5] ×32 (0.375, 0.4375] ×32
+  boards: even 6.6e-6  one sweep 1.5e-5  D 5.1e-5  Z 1.2e-4  D √2 7.7e-5  D φ 4.8e-5  D 3 6.1e-5  D 4 7.8e-5
+    D's nodes over the columns: (0.25, 0.5] ×32 (0.5, 0.75] ×32 (0.125, 0.25] ×27 (0.75, 0.875] ×27 (0.5625, 0.625] ×4 (0.375, 0.4375] ×4 (0.0625, 0.125] ×1 (0.875, 0.9375] ×1
+  bark: even 2.0e-3  one sweep 2.3e-3  D 0.013  Z 0.020  D √2 0.023  D φ 0.017  D 3 0.015  D 4 0.017
+    D's nodes over the columns: (0.25, 0.5] ×30 (0.5, 0.75] ×28 (0.125, 0.25] ×22 (0.75, 0.875] ×17 (0.0625, 0.125] ×14 (0.875, 0.9375] ×10 (0.0313, 0.0625] ×3 (0.2813, 0.3125] ×1
+  rough: even 0.030  one sweep 0.037  D 0.051  Z 0.079  D √2 0.061  D φ 0.054  D 3 0.059  D 4 0.061
+    D's nodes over the columns: (0.5, 0.75] ×32 (0.25, 0.5] ×30 (0.125, 0.25] ×28 (0.75, 0.875] ×24 (0.0625, 0.125] ×6 (0.375, 0.4375] ×4 (0.875, 0.9375] ×2 (0.625, 0.6875] ×1
+  5. even and one sweep at 48 are DEP-H's on all twelve ok
+
+## Verdicts (48 leaves)
+  D4: D below one sweep on 0 of 7 patterns (at least 5 predicted): KD4 FIRES  (stones 1.080×, bricks 1.038×, shingles 1.528×, planks 1.150×, boards 3.304×, bark 5.773×, rough 1.384×)
+  D5: D below Z on 7 of 7 patterns (at least 5 predicted): holds  (stones 0.661×, bricks 0.753×, shingles 0.781×, planks 0.822×, boards 0.438×, bark 0.648×, rough 0.655×)
+  D6: smooth profiles where D is above 10 × one sweep + 1e-12: 1 of 5 (none predicted): KD6 FIRES
+  (reported) D against even on the patterns: stones 1.327×, bricks 0.979×, shingles 1.508×, planks 1.001×, boards 7.799×, bark 6.546×, rough 1.744×; Z against even: stones 2.006×, bricks 1.299×, shingles 1.932×, planks 1.217×, boards 17.826×, bark 10.106×, rough 2.661×
+  (reported) the best D ratio per pattern: stones D φ, bricks D φ, shingles D φ, planks D √2, boards D φ, bark D 2, rough D 2
