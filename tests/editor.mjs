@@ -976,6 +976,42 @@ try {
       await ev(k => __studio.loadScene(k), keep);
     }
   });
+  await step('scene: the wander view, octave shells and arrivals', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    const pine = { name: 'pine', parts: [{ name: 'crown', shape: 'cone', size: [3, 7, 3], pos: [0, 0, 0], color: '#2f5d3a' }] };
+    const scene = sway => ({ name: 'wander', seed: 5, ground: { color: '#6b8a4e', size: 160 }, types: [pine], place: [{ type: 'pine', scatter: { rect: [-50, -50, 50, 50] }, count: 80, ...(sway ? { sway: 0.3 } : {}) }] });
+    const canvas = page.locator('canvas').first(), still = async () => { await page.waitForTimeout(1500); let a = await canvas.screenshot();
+      for (let i = 0; i < 6; i++){ await page.waitForTimeout(700); const b = await canvas.screenshot(); if (a.equals(b)) return a; a = b; } return a; };
+    try {
+      await page.click('#vScene'); await ev(h => __describe.applyScene(h, 'scene'), scene(false));
+      if (await ev(() => getComputedStyle(document.getElementById('wanderC')).display) !== 'none') throw new Error('the signals slider shows with the wander view off');
+      const off = await still();
+      await page.click('#wanderBtn');
+      const st = await ev(() => ({ on: __scene.WV.on.value, H: __scene.WV.H.value, eye: __scene.WV.eye.value.distanceTo(__studio.cam().position), shown: getComputedStyle(document.getElementById('wanderC')).display !== 'none', btn: document.getElementById('wanderBtn').classList.contains('on') }));
+      if (!st.on || !st.btn || !st.shown) throw new Error('the wander view did not turn on: ' + JSON.stringify(st));
+      // the reader's h is the eye's height above the flat ground, and its eye is the camera
+      const camY = await ev(() => __studio.cam().position.y);
+      if (Math.abs(st.H - camY) > 0.05 || st.eye > 1e-6) throw new Error(`the reader: h ${st.H} for an eye ${camY} above flat ground, eye ${st.eye} from the camera`);
+      const on = await still();
+      if (on.equals(off)) throw new Error('the octave shells did not change the picture');
+      // the signals' speed, 2 to 400 m/s on the slider
+      await page.locator('#wanderCIn').fill('0'); if (await ev(() => [__scene.WV.C.value, document.getElementById('wanderCVal').textContent].join()) !== '2,2 m/s') throw new Error('the slider at 0 is not 2 m/s');
+      await page.locator('#wanderCIn').fill('1000'); if (Math.abs(await ev(() => __scene.WV.C.value) - 400) > 1e-9) throw new Error('the slider at the top is not 400 m/s');
+      await ev(() => __scene.setC(40));
+      // arrivals: the copies' program reads its sway late by its distance from the eye, at that speed
+      const prog = await ev(() => { const p = renderer.info.programs.find(p => /USE_INSTANCING/.test(p.cacheKey) && p.getUniforms().map.uEye); return p ? { eye: !!p.getUniforms().map.uEye, c: !!p.getUniforms().map.uC } : null; });
+      if (!prog || !prog.eye || !prog.c) throw new Error('the copies are not read by their arrival: ' + JSON.stringify(prog));
+      await ev(h => __describe.applyScene(h, 'scene'), scene(true)); await page.waitForTimeout(1500);
+      const a = await canvas.screenshot(); await page.waitForTimeout(700);
+      if (a.equals(await canvas.screenshot())) throw new Error('the gust does not move in the wander view');
+      // off again, the still scene is drawn exactly as before
+      await page.click('#wanderBtn'); await ev(h => __describe.applyScene(h, 'scene'), scene(false));
+      if (!(await still()).equals(off)) throw new Error('the scene is not drawn as before with the wander view off again');
+    } finally {
+      await ev(() => { __scene.setWander(false); __scene.setC(40); }); await page.click('#vObject'); await ev(() => __scene.set(null));
+      await ev(k => __studio.loadScene(k), keep);
+    }
+  });
   await step('describe it: built from a picture', async () => {
     const keep = await ev(() => __studio.sceneData());
     const png = (w, h, col) => ev(([w, h, col]) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
