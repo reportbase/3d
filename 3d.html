@@ -5255,9 +5255,9 @@ window.__scene=SCN;
     '"terrain" shapes the ground; heights add up. Features: {"hill": [x, z], "radius": r, "height": h, "flat"?: 0..0.9 (a flat top)} | {"ridge": [[x, z], ...], "width": w, "height": h} | {"slope": {"from": [x, z], "to": [x, z]}, "height": h} (rises by h from one point to the other) | {"noise": amplitude, "scale": wavelength} (gentle rolling). A negative height makes a hollow or valley. Real land is rarely flat: give most places some shape (land rising from a shore, a hill behind a village, a valley for a river) and a little noise; keep where buildings stand fairly gentle. Water stays level and the land under it is lowered, so a coast is where rising ground meets a water area; a lake may set "level": its surface height. Everything placed stands on the ground at its spot, and floats at the water level on water.',
     'Units are metres; y is up and the ground is y = 0; north is -z. A person is 1.7 tall, a door 2.1, a house 5 to 9, a tree 4 to 15, a car 1.5 tall and 4.5 long.',
     '"areas" are the flat ground of the place, drawn in order on top of the ground: the sea, a lake, a river, a beach, roads and paths, fields, a market square. ANYTHING FLAT AND LARGE IS AN AREA, NEVER A TYPE (a type scales the same in every direction, so it cannot be a sea or a long road). An area: {"name": string, "color": "#rrggbb", and one shape: "rect": [x0, z0, x1, z1] | "center": [x, z], "radius": r | "polygon": [[x, z], ...] | "path": [[x, z], ...], "width": metres; plus "water": true for sea, lakes, rivers and ponds, or "blocks": true for roads, paths and squares}. Scatters and grids never put land things in water or on blocked areas; a rule aimed at a water area keeps its copies in the water. A coast is a large water area covering part of the ground, with a beach area along its edge.',
-    '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0, the hull mostly above it (about a third below), so the boat reads from above and from the side.',
+    '"types" is the library: 6 to 25 kinds of object, each 2 to 10 parts (up to 24 for the masses of a large building) built exactly as an object is above, at real size, centred on x = 0, z = 0, standing on the ground, front facing +z. Keep each type simple: it will be repeated hundreds of times. Things that float (boats, buoys) are built with their waterline at y = 0, the hull mostly above it (about a third below), so the boat reads from above and from the side.',
     'A type may instead be a PREFAB: {"name": string, "group": [ rule, ... ]}, a little layout of other types written in its own coordinates (centre 0, 0, front +z), using the same rules as below. It is placed by any rule like a single object; every copy re-rolls its scatters, so no two are alike, and its footprint is kept clear of later scatters. BUILD PLACES FROM PREFABS: a cottage with its garden, fence and shed; a farmstead with house, barn, hay and hens; a market stall with its crates; a pier with boats tied along it; a campsite. Then place the prefabs with rows, rings and scatters. Prefabs may contain prefabs, two deep.',
-    'Buildings: walls are boxes with "size", roofs are "roof" parts, doors and windows thin boxes with "on": the walls part, a "face" and "at" (e.g. {"name": "window 2", "shape": "box", "size": [1, 1.2, 0.1], "on": "walls", "face": "left", "at": [-1.5, 1], "color": "#3a4a5a"}), on every side that shows, not only the front. A village or town street is DENSE: houses side by side along it, facing it (a row with "path" naming the road and "side"), gardens and yards behind, not houses dotted about a field; leave space between buildings only where the place really has it. Build a few house types that differ (one and two storeys, different roof colours) rather than one repeated everywhere.',
+    'Buildings: walls are boxes with "size", roofs are "roof" parts, doors and windows thin boxes with "on": the walls part, a "face" and "at" (e.g. {"name": "window 2", "shape": "box", "size": [1, 1.2, 0.1], "on": "walls", "face": "left", "at": [-1.5, 1], "color": "#3a4a5a"}), on every side that shows, not only the front. A village or town street is DENSE: houses side by side along it, facing it (a row with "path" naming the road and "side"), gardens and yards behind, not houses dotted about a field; leave space between buildings only where the place really has it. Build a few house types that differ (one and two storeys, different roof colours) rather than one repeated everywhere. A LARGE BUILDING (a cathedral, a castle, a palace, a station) is a prefab of two kinds of type: one for its great masses (nave, aisles, transept, towers, roofs, spires: boxes, roofs and eight-sided cones, "section": {"type": "polygon", "n": 8, "k": 1}), and one small type for the BAY that repeats along it (a buttress with its pinnacle, a flying buttress, a window and the window above it), placed by rows down each side, facing out. A pointed window head is a thin four-sided cone on top of the window, {"shape": "cone", "section": {"type": "polygon", "n": 4, "k": 1}, "size": [window width, 0.8 × width, 0.2]}; a rose window a flattened ball. Real size: a cathedral is 60 to 150 m long, its nave 20 to 40 m high and its spires 60 to 120 m.',
     '"place" puts copies of the types in the world. The code does the repetition; NEVER list objects one by one where a rule can do it. Rules, applied in order:',
     '  {"type": name, "at": [x, z], "rot"?: degrees}   one copy: a landmark, a well, a statue, a road segment',
     '  {"type": name, "row": {"from": [x, z], "to": [x, z]} or {"path": [[x, z], ...]}, "count": n (or "every": metres), "rot"?: "along"|"across"|degrees}   lamps along a winding road, fence posts, a line of trees',
@@ -5266,7 +5266,7 @@ window.__scene=SCN;
     '  {"type": name, "ring": {"center": [x, z], "radius": r}, "count": n, "rot"?: "out"|"in"|"along"|degrees}   standing stones, chairs round a table, towers on a wall',
     '  {"type": name, "grid": "area name" or {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops in a field, an orchard, market stalls, gravestones',
     '  {"type": name, "scatter": "area name" or {"center": [x, z], "radius": r} or {"rect": [x0, z0, x1, z1]}, "count": n}   forests, rocks, bushes, a crowd, boats in a harbour ("scatter": "harbour"); copies keep apart and avoid everything placed before them',
-    '  Any rule may add "stretch": [sx, sy, sz] (stretch each copy along its own axes: a longer barn, a taller tower), "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "elevation": [min, max] (scatters and grids only where the ground is that high: pines above 5 m, reeds below 1 m), "tint": 0..0.4 (lightness variation), "y": height above the ground. Scatter rot is random unless given., "vary": 0 to 0.2 (each copy a little different in shape: rocks, trees, haystacks, cottages; 0.03 to 0.1 suits most), "sway": 0 to 0.5 (copies lean with the wind, each at its own pace: trees, reeds, grass, flags; 0.05 to 0.15 for trees), "bob": 0 to 0.5 (copies rise, fall and roll: boats, buoys; 0.02 to 0.08). A prefab\'s own rules take the vary, sway and bob of the rule that places it unless they give their own.',
+    '  Any rule may add "stretch": [sx, sy, sz] (stretch each copy along its own axes: a longer barn, a taller tower), "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "elevation": [min, max] (scatters and grids only where the ground is that high: pines above 5 m, reeds below 1 m), "tint": 0..0.4 (lightness variation), "y": height above the ground. Scatter rot is random unless given. "vary": 0 to 0.2 (each copy a little different in shape: rocks, trees, haystacks, cottages; 0.03 to 0.1 suits most), "sway": 0 to 0.5 (copies lean with the wind, each at its own pace: trees, reeds, grass, flags; 0.05 to 0.15 for trees), "bob": 0 to 0.5 (copies rise, fall and roll: boats, buoys; 0.02 to 0.08). A prefab\'s own rules take the vary, sway and bob of the rule that places it unless they give their own.',
     'Place landmarks first, then rows and rings, and scatters last so they flow around everything else. Rows and single copies go exactly where you put them, so keep them out of water and off roads yourself (a row of houses runs BESIDE a road, a pier reaches INTO the water).',
     'Make it rich and believable: real places hold hundreds or thousands of things. Use the counts a real place would have (a forest is hundreds of trees, a field rows of crops), up to 20000 copies in all, spread over the ground size you give.',
     'When asked to CHANGE a scene you are given its terrain, areas, types (name, height, width, copies) and rules. Return "terrain", "areas" and "place" IN FULL (the new lists), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
@@ -5278,7 +5278,7 @@ window.__scene=SCN;
   // A scene reply, checked: types become parts through the same clamping as any object.
   function sceneTypes(list){ return (Array.isArray(list)?list:[]).filter(t=>t&&typeof t.name==='string'&&((Array.isArray(t.parts)&&t.parts.length)||(Array.isArray(t.group)&&t.group.length))).slice(0,40)
     .map(t=>Array.isArray(t.group)?{name:t.name.slice(0,40),group:t.group.filter(r=>r&&typeof r==='object'&&typeof r.type==='string').slice(0,40)}
-      :{name:t.name.slice(0,40),parts:attach(t.parts.filter(q=>q&&typeof q==='object').slice(0,16)).map(q=>partData(makePart(q)))}); }
+      :{name:t.name.slice(0,40),parts:attach(t.parts.filter(q=>q&&typeof q==='object').slice(0,24)).map(q=>partData(makePart(q)))}); }
   function applyScene(spec,mode){
     const old=mode==='scene-edit'?SCN.data():null, fresh=sceneTypes(spec.types), names=new Set(fresh.map(t=>t.name.toLowerCase()));
     const place=(Array.isArray(spec.place)?spec.place:old?old.place:[]).filter(r=>r&&typeof r==='object'&&typeof r.type==='string').slice(0,200);
@@ -5316,7 +5316,10 @@ window.__scene=SCN;
   const hex=(c,d)=>typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c)?c.toLowerCase():d;
   function opts(q){ const o={};
     if(typeof q.name==='string') o.name=q.name.slice(0,40);
-    if('pos' in q) o.pos=vec(q.pos,-20,20,[0,0,0]); if('rot' in q) o.rot=vec(q.rot,-360,360,[0,0,0]); if('scale' in q) o.scale=vec(q.scale,0.005,20,[1,1,1]);
+    /* ±200 m: an object is a few metres, but a scene type may be a cathedral, its spire 40 m
+       up and its towers 30 m along the nave (Oct 6: at ±20 the spires sank into the towers
+       and the nave roof sat 5 m below the tops of its own walls). */
+    if('pos' in q) o.pos=vec(q.pos,-200,200,[0,0,0]); if('rot' in q) o.rot=vec(q.rot,-360,360,[0,0,0]); if('scale' in q) o.scale=vec(q.scale,0.005,20,[1,1,1]);
     if(Array.isArray(q.outline)){ const pts=q.outline.filter(x=>Array.isArray(x)&&x.length>=2).map(([h,r])=>[num(h,0,1,0),num(r,0.005,0.5,0.3)]).sort((a,b)=>a[0]-b[0]);
       if(pts.length>=2){ pts[0][0]=0; pts[pts.length-1][0]=1; o.outline=pts.slice(0,16); } }
     if(q.section&&typeof q.section==='object'){ const t=['round','polygon','star','petal','super'].includes(q.section.type)?q.section.type:'round';
@@ -5634,6 +5637,43 @@ window.__scene=SCN;
       win(1,'nave','front',[-3,2.5],[1,3,0.1]), win(2,'nave','front',[1,2.5],[1,3,0.1]), win(3,'nave','front',[5,2.5],[1,3,0.1]),
       win(4,'nave','back',[-5,2.5],[1,3,0.1]), win(5,'nave','back',[-1,2.5],[1,3,0.1]), win(6,'nave','back',[3,2.5],[1,3,0.1]),
       win(7,'nave','right',[0,2],[2,4,0.1])] },
+    /* A CATHEDRAL (Oct 6: "what about more interesting detailed buildings like a cathedral").
+       Built the way a real one is: a few great masses (nave, aisles, transept, crossing
+       tower, apse, two west towers) and one BAY repeated down both sides, each bay a
+       buttress with its pinnacle, a flying buttress up to the nave wall, an aisle window
+       and a clerestory window above it. The bay is its own small type, so it is instanced
+       and takes its own level of detail near the camera, and changing it changes all
+       twelve. Nave along z, the west front facing +z, about 75 m long and 70 m to the
+       crossing spire's tip. Only shapes the studio already has: pointed window heads are
+       thin four-sided cones, the rose windows squashed balls. The bay's frame: the aisle's
+       outer wall at z = 0, the nave wall 7 m in (z = -7), +z facing out. */
+    { name: 'cathedral', parts: [
+      box('nave',[12,25,66],'#cbc3b0'), { name: 'nave roof', shape: 'roof', size: [67,8,13], pos: [0,25,0], rot: [0,90,0], color: '#5d646a' },
+      box('north aisle',[7,12,54],'#c4bba7',{pos:[9.5,0,0]}), box('south aisle',[7,12,54],'#c4bba7',{pos:[-9.5,0,0]}),
+      // lean-to aisle roofs: gables centred on the nave walls, their inner halves inside the nave
+      { name: 'north aisle roof', shape: 'roof', size: [55,2.8,14.6], pos: [6,12,0], rot: [0,90,0], color: '#5d646a' },
+      { name: 'south aisle roof', shape: 'roof', size: [55,2.8,14.6], pos: [-6,12,0], rot: [0,90,0], color: '#5d646a' },
+      box('transept',[44,25,12],'#cbc3b0',{pos:[0,0,-14]}), { name: 'transept roof', shape: 'roof', size: [45,8,13], pos: [0,25,-14], color: '#5d646a' },
+      box('crossing tower',[13,12,13],'#c7bfab',{pos:[0,25,-14]}),
+      { name: 'crossing spire', shape: 'cone', section: { type: 'polygon', n: 8, k: 1 }, size: [11.5,32,11.5], pos: [0,37,-14], color: '#59626a' },
+      { name: 'apse', shape: 'cylinder', size: [12,25,12], pos: [0,0,-33], color: '#cbc3b0' }, { name: 'apse roof', shape: 'cone', size: [12.6,7,12.6], pos: [0,25,-33], color: '#5d646a' },
+      box('north tower',[9,40,9],'#c7bfab',{pos:[10.5,0,31]}), box('south tower',[9,40,9],'#c7bfab',{pos:[-10.5,0,31]}),
+      { name: 'north spire', shape: 'cone', section: { type: 'polygon', n: 8, k: 1 }, size: [8,24,8], pos: [10.5,40,31], color: '#59626a' },
+      { name: 'south spire', shape: 'cone', section: { type: 'polygon', n: 8, k: 1 }, size: [8,24,8], pos: [-10.5,40,31], color: '#59626a' },
+      on('west door','nave','front',[0,0],[4.5,8,0.3],'#3a2a1c'), { name: 'west rose', shape: 'ball', size: [7,7,0.5], on: 'nave', face: 'front', at: [0,16], color: '#3a3550' },
+      // belfry openings, on the west faces and the outer sides of the towers
+      on('north belfry','north tower','front',[0,28],[2.4,7,0.2],'#2a2f36'), on('south belfry','south tower','front',[0,28],[2.4,7,0.2],'#2a2f36'),
+      { name: 'north belfry head', shape: 'cone', section: { type: 'polygon', n: 4, k: 1 }, size: [2.4,1.9,0.2], on: 'north tower', face: 'front', at: [0,35], color: '#2a2f36' },
+      { name: 'south belfry head', shape: 'cone', section: { type: 'polygon', n: 4, k: 1 }, size: [2.4,1.9,0.2], on: 'south tower', face: 'front', at: [0,35], color: '#2a2f36' },
+      on('north belfry 2','north tower','right',[0,28],[2.4,7,0.2],'#2a2f36'), on('south belfry 2','south tower','left',[0,28],[2.4,7,0.2],'#2a2f36')] },
+    { name: 'cathedral bay', parts: [
+      box('buttress',[1.2,12,1.8],'#bdb4a0',{pos:[3,0,0.6]}),
+      { name: 'pinnacle', shape: 'cone', section: { type: 'polygon', n: 4, k: 1 }, size: [1.1,4,1.1], pos: [3,12,0.6], color: '#bdb4a0' },
+      box('flying buttress',[0.7,12.3,0.9],'#bdb4a0',{pos:[3,11,0.2],rot:[-35.8,0,0]}),
+      box('aisle window',[1.8,6,0.2],'#2f3d4c',{pos:[0,3,0]}),
+      { name: 'aisle window head', shape: 'cone', section: { type: 'polygon', n: 4, k: 1 }, size: [1.8,1.4,0.2], pos: [0,9,0], color: '#2f3d4c' },
+      box('clerestory window',[2,5.5,0.2],'#2f3d4c',{pos:[0,15,-7]}),
+      { name: 'clerestory head', shape: 'cone', section: { type: 'polygon', n: 4, k: 1 }, size: [2,1.5,0.2], pos: [0,20.5,-7], color: '#2f3d4c' }] },
     { name: 'windmill', parts: [{ name: 'tower', shape: 'cylinder', outline: [[0,0.5],[1,0.36]], size: [4,9,4], pos: [0,0,0], color: '#e8e0d0' },
       { name: 'cap', shape: 'cone', size: [3.6,2.6,3.6], pos: [0,9,0], color: '#5b4a42' }, { name: 'hub', shape: 'ball', size: [0.7,0.7,0.7], pos: [0,9.6,1.8], color: '#3a2a1c' },
       ...[45,135,225,315].map((a,i)=>box('sail '+(i+1),[0.8,6,0.1],'#efe9dc',{pos:[0,10,2],rot:[0,0,a]})),
@@ -5676,6 +5716,14 @@ window.__scene=SCN;
       { type: 'hedge', span: { path: [[-15,8],[-15,-14],[15,-14],[15,8]] } },
       { type: 'gravestone', grid: { rect: [3,-12,13,-6] }, every: [2,2], jitter: 0.2, tint: 0.15 },
       { type: 'pine', scatter: { rect: [-13,-12.5,13,-6] }, count: 4, scale: [0.5,0.7] }] },
+    { name: 'cathedral close', group: [
+      { type: 'cathedral', at: [0,0] },
+      // the bays down each side, fronts facing out: five west of the transept, one east of it
+      { type: 'cathedral bay', row: { from: [13,21], to: [13,-3] }, count: 5, rot: 90 },
+      { type: 'cathedral bay', row: { from: [-13,21], to: [-13,-3] }, count: 5, rot: -90 },
+      { type: 'cathedral bay', at: [13,-24], rot: 90 }, { type: 'cathedral bay', at: [-13,-24], rot: -90 },
+      { type: 'gravestone', grid: { rect: [24,-30,40,20] }, every: [2.5,3], jitter: 0.3, tint: 0.15 },
+      { type: 'oak', scatter: { rect: [-45,-45,45,50] }, count: 10, scale: [0.8,1.2], exclude: [{ rect: [-20,-42,20,40] }] }] },
     { name: 'market', group: [
       { type: 'stall', row: { from: [-8,5], to: [8,5] }, count: 3, rot: 180, tint: 0.2 },
       { type: 'stall', row: { from: [-8,-5], to: [8,-5] }, count: 3, rot: 0, tint: 0.2 },
@@ -5689,7 +5737,7 @@ window.__scene=SCN;
       { type: 'campfire', at: [0,0] },
       { type: 'log seat', ring: { center: [0,0], radius: 2.2 }, count: 3 },   // facing out, the log (its x) runs round the fire
       { type: 'tent', ring: { center: [0,0], radius: 7 }, count: 5, rot: 'in', tint: 0.2 }] }];
-  const LIBRARY=['homestead','terrace','farmstead','churchyard','market','windmill','well','grove','campsite'];
+  const LIBRARY=['homestead','terrace','farmstead','churchyard','market','windmill','well','grove','campsite','cathedral close'];
   const libBy=new Map(LIB_TYPES.map(t=>[t.name,t])), libMade=new Map();
   // Each library type made once: the same object every time, so placing a second
   // homestead finds its cottage already in the scene instead of adding "cottage 2".
