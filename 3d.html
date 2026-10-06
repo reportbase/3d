@@ -5007,8 +5007,7 @@ const SCN=(function(){
   function update(force){
     if(!sceneOn||!built) return;
     uTime.value=performance.now()/1000;   // sway and bob run on, even with the camera still
-    if(WV.on.value){ const c=cam.position, g=built.TR.ground(c.x,c.z), w=built.TR.waterAt(c.x,c.z);   // the reader: its eye, and its h, the eye's height above what is under it
-      WV.eye.value.copy(c); WV.H.value=Math.max(0.3,c.y-(w==null?g:Math.max(g,w))); }
+    if(WV.on.value) wanderReader();
     const c=cam.position, k=c.x.toFixed(2)+','+c.y.toFixed(2)+','+c.z.toFixed(2);
     if(!force&&k===lastKey) return; lastKey=k;
     for(const T of built.types) for(const L of T.lod) L.n=0;
@@ -5152,7 +5151,10 @@ const SCN=(function(){
   renderer.domElement.addEventListener('pointerup',()=>{ look=null; });
   $('navOrbit').onclick=()=>setNav('orbit'); $('navWalk').onclick=()=>setNav('walk'); $('navFly').onclick=()=>setNav('fly');
   // the wander view's switch, and the signals' speed from 2 to 400 m/s, even in log
-  function setWander(on){ on=!!on; WV.on.value=on?1:0; document.body.classList.toggle('wander',on); $('wanderBtn').classList.toggle('on',on); }
+  // the reader: its eye, and its h, the eye's height above what is under it (set at once on turning the view on, then every frame)
+  function wanderReader(){ if(!built) return; const c=cam.position, g=built.TR.ground(c.x,c.z), w=built.TR.waterAt(c.x,c.z);
+    WV.eye.value.copy(c); WV.H.value=Math.max(0.3,c.y-(w==null?g:Math.max(g,w))); }
+  function setWander(on){ on=!!on; WV.on.value=on?1:0; document.body.classList.toggle('wander',on); $('wanderBtn').classList.toggle('on',on); if(on) wanderReader(); }
   function setC(c){ WV.C.value=Math.min(400,Math.max(2,+c||40)); $('wanderCIn').value=Math.round(1000*Math.log(WV.C.value/2)/Math.log(200)); $('wanderCVal').textContent=Math.round(WV.C.value)+' m/s'; }
   $('wanderBtn').onclick=()=>setWander(!WV.on.value); $('wanderCIn').oninput=e=>setC(2*Math.pow(200,+e.target.value/1000)); setC(40);
   // Put the camera somewhere and redraw at once (used by the tests; handy from the console).
