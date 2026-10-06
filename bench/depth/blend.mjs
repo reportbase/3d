@@ -181,7 +181,7 @@ function baseOf(fn, SB){ const co = new Map(OCTS.map(k => [k, SB.coef(nodeSites(
   const at = (x, k) => SB.evalU(co.get(k), 2 * Math.atan(MF.rho(placeX(x, k))));
   return { co, sites: OCTS.flatMap(k => nodeSites(SB, [k])), P: x => { const L = log2(x), W = Math.round(L);
     if (Math.abs(L - W) < D && W > -8 && W < 8){ const s = sm((L - W + D) / (2 * D)); return (1 - s) * at(x, W) + s * at(x, W + 1); }
-    return at(x, octOf(x)); } }; }
+    return at(x, Math.max(-7, Math.min(8, octOf(x)))); } }; }   // past the range's ends, the end octave's widened sweep (it reaches D beyond)
 const presentK = (base, nodes) => x => { let s = base.P(x); for (const nd of nodes){ const uw = nodeUW(x, nd.ch); if (uw) s += uw[1] * nd.S.evalU(nd.co, uw[0]); } return s; };
 async function holdK(fn, more, baseN = 8){
   const SB = sweep(baseN); await more(OCTS.flatMap(k => nodeSites(SB, [k]))); const base = baseOf(fn, SB), nodes = [], key = ch => ch.join(',');

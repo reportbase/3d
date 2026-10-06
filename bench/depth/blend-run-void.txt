@@ -1,0 +1,48 @@
+## Checks of the code
+  1. every scoring point lies in its own octave ok
+  2. widened node maps: 0 sites outside, worst angle 1.7e-12, 0 bad weights ok
+  3. the blended base holds a constant: worst 1.1e-15 ok
+
+## The harbour village, viewer on the high street at (6, -25)
+  4. A, B, F on the first view as DEP-S: 6.8e-6 4.0e-5 2.0e-5 ok
+
+H = 1.7 m, direction 0°: view error A 6.8e-6  B 4.0e-5  F 2.0e-5  C′ 2.3e-7  K 3.9e-6; K/C′ 16.668
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 1.3e-5, K 1.2e-8
+  K's nodes: [2] [2,1] [2,0] [3] [2,4] [2,3] [2,1,-2] [2,2] [3,-3] [2,5] [1] [3,-4] [2,-1] [3,-2]
+
+H = 1.7 m, direction 45°: view error A 1.5e-5  B 6.4e-5  F 2.5e-5  C′ 1.2e-6  K 1.5e-5; K/C′ 11.766
+  walls tested 129, K not continuous at 1 (1.969); largest step at ε = 1e-9: C′ 8.6e-5, K 9.2e-8
+  K's nodes: [1] [3] [2] [1,4] [1,3] [2,-3] [1,5] [2,-4] [2,-2] [1,2] [3,2] [0] [4] [1,3,4]
+
+H = 1.7 m, direction 90°: view error A 5.8e-4  B 5.3e-4  F 5.9e-4  C′ 4.6e-5  K 1.1e-4; K/C′ 2.408
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 1.1e-3, K 2.1e-8
+  K's nodes: [4] [2] [4,1] [3] [4,1,-1] [4,0] [2,1] [4,1,0] [3,0] [4,2] [1] [2,4] [5] [4,1,-2]
+
+H = 1.7 m, direction 135°: view error A 2.2e-5  B 1.1e-4  F 7.5e-5  C′ 1.6e-7  K 1.7e-5; K/C′ 106.102
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 3.0e-5, K 9.6e-8
+  K's nodes: [2] [3] [2,1] [2,4] [2,2] [2,3] [3,-3] [2,5] [3,-4] [3,-2] [1] [2,-2] [2,0] [2,1,2]
+
+H = 1.7 m, direction 180°: view error A 7.4e-6  B 3.3e-5  F 1.5e-5  C′ 3.3e-7  K 1.7e-6; K/C′ 5.172
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 4.4e-5, K 2.5e-9
+  K's nodes: [2] [2,0] [1] [2,-1] [2,-2] [1,4] [2,1] [1,3] [1,5] [2,0,-1] [2,2] [2,0,-2] [2,-3] [3]
+
+H = 1.7 m, direction 225°: view error A 4.8e-6  B 3.9e-5  F 1.1e-5  C′ 6.4e-8  K 2.1e-6; K/C′ 33.128
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 2.0e-5, K 1.8e-8
+  K's nodes: [2] [2,2] [3] [2,4] [2,3] [3,-3] [2,5] [1] [3,-4] [3,-2] [2,1] [2,-2] [1,4] [2,3,4]
+file:///home/user/3d/bench/depth/blend.mjs:31
+  const evalU = (a, uq) => { let s = 0; for (let m = 0; m < n; m++) s += a[m] * Math.cos(m * uq); return s; };
+                                                                          ^
+
+TypeError: Cannot read properties of undefined (reading '0')
+    at Object.evalU (file:///home/user/3d/bench/depth/blend.mjs:31:75)
+    at at (file:///home/user/3d/bench/depth/blend.mjs:181:27)
+    at Object.P (file:///home/user/3d/bench/depth/blend.mjs:184:12)
+    at file:///home/user/3d/bench/depth/blend.mjs:185:55
+    at file:///home/user/3d/bench/depth/blend.mjs:195:153
+    at Array.map (<anonymous>)
+    at holdK (file:///home/user/3d/bench/depth/blend.mjs:195:136)
+    at async file:///home/user/3d/bench/depth/blend.mjs:227:68
+
+Node.js v22.22.0
+
+
