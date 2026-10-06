@@ -15,6 +15,11 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   4. **the studio app**: parts, editors, tools, files, examples
 - `classic.html`: the previous editor, kept whole and still linked from the
   studio's advanced panel. Change it only to fix it.
+- `situations.html`: five ways to observe (0 to 4), from wander's papers (SPN §2.1, as the
+  owner regrouped it on 6 Oct): 0 nothing; 1 and 2 the mathematical views, an equation and an
+  array, not pictures; 3 the apple in the hand; 4 a molecule in an endless apple, the others
+  arriving one at a time. A slideshow: each frame has one expression and nothing else; keep it
+  that way. Linked from the advanced panel.
 - `index.html`: forwards `/3d/` to `3d.html`.
 
 ## Rules
@@ -143,7 +148,7 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
-- `npm test` runs `tests/classic.mjs` and `tests/editor.mjs` (headless Chromium).
+- `npm test` runs `tests/classic.mjs`, `tests/editor.mjs` and `tests/situations.mjs` (headless Chromium).
   Run it before every PR. When adding a feature, add steps to
   `tests/editor.mjs` that check it has an effect, not just that nothing throws.
 - `node tests/draw-sync.mjs` checks the draw copies (add

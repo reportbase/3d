@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Five ways to observe</title>
+<!--
+  FIVE WAYS TO OBSERVE (Oct 6: "the task of the 3d repository is try to visualize these six
+  situations … each view needs its own expression, like a different frame or slide show"; then,
+  the same day, the table this page follows, with "leave the approximately situation out. not
+  needed for this visual.").
+
+    new  what's known                          how it's read  standpoint  in SPN now
+    0    nothing: no equation, no information  -              -           situation 4, "impossible"
+    1    a symmetric equation: the circle      all at once    nowhere     situation 1
+    2    an asymmetric equation: shapes        all at once    nowhere     situation 2
+    3    one hemisphere, counted together      parallel       outside     part of situation 3
+    4    one point at a time, projected        serial         inside      part of situation 3
+
+  One apple throughout; only how it is known and read changes. Each frame has its own expression
+  and nothing else on it:
+    0  an even grey: nothing to count in, not even darkness
+    1  the apple as a sphere, as mathematics: one short equation, x² + y² + z² = 1
+    2  the apple as it is, as mathematics: no short equation holds it, so an array of its radius
+       in every direction, shaded faintly by value so its character shows
+    (1 and 2 are mathematical views, an equation or an array, not pictures of the apple: Oct 6)
+    3  the apple in the hand: solid, its whole facing side at once; drag to turn it
+    4  a molecule in an endless apple: the others arrive one at a time, nearest first, each projected
+       as a dot in the reader's sky, the newest bright; it starts again on each visit
+  ←/→ or the buttons step through; 0–4 jump to a frame; #s4 opens on one.
+-->
+<style>
+  :root{ --bg:#141418; --panel:rgba(20,20,26,.82); --line:rgba(255,255,255,.12); --fg:#e6e4dc; --mut:#9a978e; --accent:#d4a052; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  canvas{position:fixed;inset:0;display:block;touch-action:none}
+  .top{position:fixed;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+  .top b{font-weight:600;letter-spacing:.02em} .top a{color:var(--mut);text-decoration:none;pointer-events:auto;font-size:13px}
+  .card{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(640px,calc(100% - 32px));background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:16px 18px 14px;backdrop-filter:blur(8px)}
+  .head{display:flex;align-items:baseline;gap:12px}
+  .num{font-size:30px;font-weight:600;color:var(--accent);line-height:1}
+  .name{font-size:18px;font-weight:600}
+  .tag{margin-left:auto;font-size:12px;color:var(--mut)}
+  .line{margin-top:6px;color:var(--fg)}
+  .how{margin-top:4px;font-size:13px;color:var(--mut);min-height:1.2em}
+  .nav{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .nav button{background:none;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:5px 12px;font:inherit;cursor:pointer}
+  .nav button:hover{border-color:var(--accent)}
+  .dots{display:flex;gap:6px;margin:0 auto}
+  .dots button{width:30px;padding:4px 0;font-size:13px;color:var(--mut)}
+  .dots button.on{background:var(--accent);border-color:var(--accent);color:#141418}
+  @media (max-width:520px){ .num{font-size:24px} .name{font-size:16px} .line{font-size:14px} .dots button{width:26px} }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="top"><b>Five ways to observe</b><a href="3d.html">← the studio</a></div>
+<div class="card" id="card">
+  <div class="head"><span class="num" id="num"></span><span class="name" id="name"></span><span class="tag" id="tag"></span></div>
+  <div class="line" id="line"></div>
+  <div class="how" id="how"></div>
+  <div class="nav"><button id="prev" aria-label="previous">←</button><div class="dots" id="dots"></div><button id="next" aria-label="next">→</button></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+const PI = Math.PI, TAU = 2 * PI, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+
+/* ── the apple: one shape for every frame ──
+   A sphere, then an apple: five soft lobes round its waist, a dimple at the stem and a smaller
+   one underneath, a little broader at the top than the bottom, a little flatter than tall. */
+function appleR(t, p){ let r = 1 + 0.045 * Math.cos(5 * p) * Math.sin(t) ** 2;
+  r *= 1 + 0.07 * Math.cos(t);
+  r *= 1 - 0.33 * Math.exp(-(t * t) / 0.09) - 0.22 * Math.exp(-((PI - t) ** 2) / 0.12);
+  return r; }
+const applePt = (t, p, s = 1) => { const r = appleR(t, p) * s; return [r * Math.sin(t) * Math.cos(p), 0.9 * r * Math.cos(t), r * Math.sin(t) * Math.sin(p)]; };
+function appleGeometry(s = 1, nt = 96, np = 128){ const pos = [], idx = [];
+  for (let i = 0; i <= nt; i++) for (let j = 0; j <= np; j++) pos.push(...applePt(i / nt * PI, j / np * TAU, s));
+  for (let i = 0; i < nt; i++) for (let j = 0; j < np; j++){ const a = i * (np + 1) + j, b = a + np + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g; }
+/* ── a seeded hash, so the molecules of frame 4 are laid the same way every time ── */
+const hash = (i, j, k, s) => { let h = Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(k, 1442695041) + Math.imul(s, 2246822519) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+// molecules: one per cell of a unit lattice, nudged within it; the nudge repeats every P cells
+// so that the endless apple can wrap without a seam
+const P = 8, NUDGE = 0.45;   // large enough that the lattice's rows don't read as stripes
+const cellPos = (i, j, k) => { const a = ((i % P) + P) % P, b = ((j % P) + P) % P, c = ((k % P) + P) % P;
+  return [i + NUDGE * (hash(a, b, c, 1) - 0.5) * 2, j + NUDGE * (hash(a, b, c, 2) - 0.5) * 2, k + NUDGE * (hash(a, b, c, 3) - 0.5) * 2]; };
+/* ── the frames, 0 to 4 ── */
+const FRAMES = [];
+const lit = sc => { sc.add(new THREE.HemisphereLight(0xfff6e8, 0x404048, 0.75)); const d = new THREE.DirectionalLight(0xffffff, 0.7); d.position.set(3, 5, 4); sc.add(d); };
+const looker = (cam) => { let yaw = 0, pitch = 0; const set = () => { cam.rotation.set(pitch, yaw, 0, 'YXZ'); }; set();
+  return { drag: (dx, dy) => { yaw += dx * 0.004; pitch = Math.max(-1.4, Math.min(1.4, pitch + dy * 0.004)); set(); } }; };
+
+// 0: nothing. No equation and no information: nothing to count in and no home to lay from.
+{ const sc = new THREE.Scene(); sc.background = new THREE.Color(0x77767a);
+  FRAMES.push({ sit: 0, name: 'nothing', tag: 'SPN’s situation 4',
+    line: 'No equation, no information. Nothing to count in and no home to lay from, so there is nothing here to see, not even darkness.',
+    how: '', scene: sc, camera: new THREE.PerspectiveCamera(50, 1, 0.1, 10), tick: () => {} }); }
+
+// 1 and 2: the mathematical views (Oct 6: "1 and 2 are mathmatical views, can be an equation or an
+// array or similar"). Not a picture of the apple: what is known is the mathematics itself, read
+// all at once, from nowhere. The symmetric apple, the sphere, is one short equation; the
+// asymmetric one has no short equation, so it is an array, its radius in every direction. Each is
+// drawn flat on the page, a 2D canvas laid over the whole view, and redrawn at the view's size.
+function flatFrame(draw){ const sc = new THREE.Scene(), c = document.createElement('canvas'), tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter; sc.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: tex })));
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 2); cam.position.z = 1; cam.userData.flat = (w, h) => {
+    const k = renderer.getPixelRatio(); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, 0, 0); x.fillStyle = '#141418'; x.fillRect(0, 0, w, h);
+    // the caption card covers the bottom; the mathematics sits in what is left above it
+    const card = document.getElementById('card').getBoundingClientRect(), room = Math.max(160, card.top - 40);
+    draw(x, w, room); tex.needsUpdate = true; };
+  return { scene: sc, camera: cam, tick: () => {} }; }
+const SERIF = '"Cambria Math","STIX Two Math","Times New Roman",serif', MONO = 'ui-monospace,"SF Mono",Menlo,Consolas,monospace';
+FRAMES.push({ sit: 1, name: 'a symmetric equation', tag: 'nowhere · SPN’s situation 1',
+  line: 'The circle: the apple as a sphere, one short equation. It holds every point at once, from nowhere, and every direction is alike.',
+  how: '', ...flatFrame((x, w, h) => { const f = Math.min(w / 9, h / 3, 110); x.fillStyle = '#e6e4dc'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = `italic ${f}px ${SERIF}`; x.fillText('x² + y² + z² = 1', w / 2, h / 2 + 20); }) });
+// the array: the apple's radius at 12 polar angles (rows) by 16 azimuths (columns), each cell
+// shaded faintly by its value so the shape's character (the lobes, the two dimples) shows in it
+const ROWS = 12;   // and 16 columns, or 8 on a narrow screen so the numbers don't overlap
+FRAMES.push({ sit: 2, name: 'an asymmetric equation', tag: 'nowhere · SPN’s situation 2',
+  line: 'Every other shape: the apple as it is, its radius in every direction. No short equation holds it, so it is an array, still all at once, from nowhere.',
+  how: '', ...flatFrame((x, w, h) => { const COLS = w < 760 ? 8 : 16, top = 60, cw = Math.min((w - 140) / COLS, 64), ch = Math.min((h - top - 10) / ROWS, cw * 0.6);
+    const fs = Math.max(8, Math.min(cw * 0.3, ch * 0.62)), gw = cw * COLS, gh = ch * ROWS, x0 = (w - gw) / 2 + fs, y0 = top + (h - top - gh) / 2;
+    x.textBaseline = 'middle'; x.fillStyle = '#e6e4dc'; x.textAlign = 'right'; x.font = `italic ${fs * 1.5}px ${SERIF}`; x.fillText('r =', x0 - fs * 0.9, y0 + gh / 2);
+    x.strokeStyle = '#9a978e'; x.lineWidth = 1.5; const br = (sx, s) => { x.beginPath(); x.moveTo(sx + s * 8, y0 - 4); x.lineTo(sx, y0 - 4); x.lineTo(sx, y0 + gh + 4); x.lineTo(sx + s * 8, y0 + gh + 4); x.stroke(); };
+    br(x0 - 6, 1); br(x0 + gw + 6, -1);
+    x.textAlign = 'center'; x.font = `${fs}px ${MONO}`;
+    for (let i = 0; i < ROWS; i++) for (let j = 0; j < COLS; j++){ const r = appleR((i + 0.5) / ROWS * PI, j / COLS * TAU), cx = x0 + j * cw, cy = y0 + i * ch;
+      x.fillStyle = `rgba(212,160,82,${Math.max(0, Math.min(1, (1.1 - r) / 0.45)) * 0.38})`; x.fillRect(cx + 1, cy + 1, cw - 2, ch - 2);
+      x.fillStyle = '#e6e4dc'; x.fillText(r.toFixed(3), cx + cw / 2, cy + ch / 2); } }) });
+
+// 3: one hemisphere, counted together. The parallel reader, outside: the apple in the hand,
+// solid, its whole facing side at once; the other side is a turn of the wrist away.
+{ const sc = new THREE.Scene(); sc.background = new THREE.Color(0x1d1c22); lit(sc);
+  const g = new THREE.Group(), apple = new THREE.Mesh(appleGeometry(), new THREE.MeshStandardMaterial({ color: 0xb3352b, roughness: 0.42, metalness: 0.02 }));
+  const top = 0.9 * appleR(0, 0), stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.32, 10), new THREE.MeshStandardMaterial({ color: 0x5a3d22, roughness: 0.8 }));
+  stem.position.set(0.02, top + 0.1, 0); stem.rotation.z = -0.18; g.add(apple, stem); g.rotation.x = 0.25; sc.add(g);
+  const fill = new THREE.DirectionalLight(0xffe8dc, 0.45); fill.position.set(-2, 1, 5); sc.add(fill);
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50); cam.position.set(0, 0.1, 6.2); cam.lookAt(0, -0.45, 0);
+  let vy = 0, vx = 0;
+  FRAMES.push({ sit: 3, name: 'one hemisphere, counted together', tag: 'outside, parallel · part of SPN’s situation 3',
+    line: 'The apple in your hand: its whole facing side at once, solid and complete in outline. The other side is not far away, only turned away.',
+    how: 'Drag to turn it.', scene: sc, camera: cam,
+    drag: (dx, dy) => { vy = dx * 0.008; vx = dy * 0.008; g.rotation.y += vy; g.rotation.x = Math.max(-1.2, Math.min(1.2, g.rotation.x + vx)); },
+    tick: (dt, held) => { if (!held){ g.rotation.y += vy; vy *= 0.94; if (Math.abs(vy) < 1e-4 && !still) g.rotation.y += dt * 0.08; } } }); }
+
+// 4: one point at a time, projected. The serial reader, inside: a molecule in an endless apple.
+// Nothing has arrived yet; then the others arrive one at a time, nearest first, each projected as
+// a dot where it lies in the reader's sky, the newest bright. At first they come singly; then
+// more at once, the arrivals spreading outward toward a wall that is never reached.
+{ const R = 14, night = 0x141418, sc = new THREE.Scene(); sc.background = new THREE.Color(night); sc.fog = new THREE.FogExp2(night, 0.11);
+  const eye = [0.5, 0.5, 0], list = [];   // the eye sits between the lattice's points
+  for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) for (let k = -R; k <= R; k++){ const p = cellPos(i, j, k), d = Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]); if (d <= R) list.push([d, p]); }
+  list.sort((a, b) => a[0] - b[0]);
+  const n = list.length, D = new Float32Array(n), pos = new Float32Array(3 * n), col = new Float32Array(3 * n);
+  const CREAM = [0.93, 0.89, 0.79], NEW = [1.0, 0.78, 0.4];
+  list.forEach(([d, p], i) => { D[i] = d; pos.set(p, 3 * i); col.set(CREAM, 3 * i); });
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); const ca = new THREE.BufferAttribute(col, 3); geo.setAttribute('color', ca);
+  const disc = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.beginPath(); x.arc(32, 32, 30, 0, TAU); x.fill(); return new THREE.CanvasTexture(c); })();
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.2, sizeAttenuation: true, vertexColors: true, map: disc, alphaTest: 0.5 })); sc.add(pts);
+  const cam = new THREE.PerspectiveCamera(70, 1, 0.05, 200); cam.position.set(...eye); const L = looker(cam);
+  const C = 0.6, GLOW = 0.35;   // the signals' speed, in cells a second; the newest are those within GLOW of the front
+  let t = 0, shown = 0, lit0 = 0;
+  const paint = (a, b, c) => { for (let i = a; i < b; i++) col.set(c, 3 * i); };
+  const reset = () => { t = 0; shown = still ? n : 0; lit0 = shown; paint(0, n, CREAM); ca.needsUpdate = true; geo.setDrawRange(0, shown); };
+  FRAMES.push({ sit: 4, name: 'one point at a time, projected', tag: 'inside, serial · part of SPN’s situation 3',
+    line: 'A molecule in an endless apple. Nothing has arrived yet; then the others arrive one at a time, nearest first, each a point in your sky. It never finishes.',
+    how: 'Drag to look around. It starts again each time you come to this frame.', scene: sc, camera: cam, drag: L.drag, enter: reset,
+    count: () => shown,
+    tick: (dt) => { if (still || shown >= n) return; t += dt; const r = C * t;
+      let k = shown; while (k < n && D[k] <= r) k++;
+      let a = lit0; while (a < k && D[a] < r - GLOW) a++;              // the front: arrivals no older than GLOW
+      paint(lit0, a, CREAM); paint(Math.max(a, shown), k, NEW); lit0 = a; shown = k;
+      ca.needsUpdate = true; geo.setDrawRange(0, shown); } }); }
+
+/* ── the slideshow ── */
+let at = 0;
+const $ = id => document.getElementById(id);
+FRAMES.forEach((f, i) => { const b = document.createElement('button'); b.textContent = f.sit; b.title = 'situation ' + f.sit + ': ' + f.name; b.onclick = () => show(i); $('dots').appendChild(b); });
+function show(i){ at = (i + FRAMES.length) % FRAMES.length; const f = FRAMES[at];
+  $('num').textContent = f.sit; $('name').textContent = f.name; $('tag').textContent = f.tag; $('line').textContent = f.line; $('how').textContent = f.how;
+  [...$('dots').children].forEach((b, k) => b.classList.toggle('on', k === at));
+  canvas.style.cursor = f.drag ? 'grab' : 'default'; history.replaceState(null, '', '#s' + f.sit); if (f.enter) f.enter(); resize(); }
+$('prev').onclick = () => show(at - 1); $('next').onclick = () => show(at + 1);
+addEventListener('keydown', e => { if (e.key === 'ArrowRight') show(at + 1); else if (e.key === 'ArrowLeft') show(at - 1);
+  else if (/^[0-4]$/.test(e.key)){ const k = FRAMES.findIndex(f => f.sit === +e.key); if (k >= 0) show(k); } });
+let held = null;
+canvas.addEventListener('pointerdown', e => { if (!FRAMES[at].drag) return; held = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; });
+canvas.addEventListener('pointermove', e => { if (!held) return; FRAMES[at].drag(e.clientX - held[0], e.clientY - held[1]); held = [e.clientX, e.clientY]; });
+const release = () => { if (held){ held = null; canvas.style.cursor = FRAMES[at].drag ? 'grab' : 'default'; } };
+canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
+function resize(){ const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false);
+  for (const f of FRAMES){ const c = f.camera; if (c.userData.flat) c.userData.flat(w, h); else { c.aspect = w / h; c.updateProjectionMatrix(); } } }
+addEventListener('resize', resize);
+let last = performance.now();
+function loop(now){ requestAnimationFrame(loop); const dt = Math.min(0.1, (now - last) / 1000); last = now; const f = FRAMES[at]; f.tick(dt, !!held); renderer.render(f.scene, f.camera); }
+const start = FRAMES.findIndex(f => '#s' + f.sit === location.hash);
+show(start >= 0 ? start : 0); requestAnimationFrame(loop);
+addEventListener('hashchange', () => { const k = FRAMES.findIndex(f => '#s' + f.sit === location.hash); if (k >= 0 && k !== at) show(k); });
+window.__situations = { FRAMES, show, at: () => at };   // for the tests
+</script>
+</body>
+</html>
