@@ -44,7 +44,9 @@ And one in the studio's own terms:
 As SPN and *v and h*: **home**, the **corner** (v = h), the **far wall**, **breadth** (octaves side
 by side, adding), **depth** (sweeps nested inside sweeps, R180), the **ratio between rungs** (R176:
 "grain" is retired). In this bench, a sweep's **place** f runs from 0 at one wall to 1 at the other,
-its corner at f = ½, read as ρ = 2f before the corner and 1/(2(1 − f)) past it (DEP-F's map).
+its corner at f = ½. Part 1 reads the place as ρ by DEP-F's flattened map, ρ = √(f/(1 − f)) (the
+place of a leaf at angle θ is sin²θ, which is the studio's `'flat'` kernel). Part 2 defines its
+regions directly in place, below. (Amended before any code; see the end.)
 
 ## Part 1: the ratio between rungs, on two scenes
 
@@ -189,3 +191,12 @@ verdicts are on D1–D6 as written.
   CDNs are blocked); output `ratio-run.txt`.
 - `bench/depth/nest.mjs`: Part 2, `node bench/depth/nest.mjs`; output `nest-run.txt`.
 - `bench/depth/D-RESULTS.md`, after the runs.
+
+## Amendment before any code (6 October 2026)
+
+The first version of *Terms* gave DEP-F's map as ρ = 2f before the corner and 1/(2(1 − f)) past it.
+That is §3's map (M3, DEP-B), not DEP-F's. X reads ρ with DEP-F's flattened map, ρ = √(f/(1 − f)),
+and Part 1 keeps it unchanged, as the plan says elsewhere. Part 2's regions were always given
+directly in place (its children of [a, b]), which is item 381's placement: v in proportion in the
+front half, so ρ = 2f there. Its node sweeps are flattened (leaves at sin²θ of their region's place),
+the studio's `'flat'` kernel and DEP-H's flat. No prediction, threshold or holder changes.
