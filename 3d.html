@@ -4582,7 +4582,11 @@ const SCN=(function(){
      so no two copies share a shape and no mesh is built per copy. sway leans the copy by
      sway·h² of its height (the parts' own lean term), at its own phase. bob lifts and rolls
      it, for things afloat. All zero, the copy is drawn exactly as before. */
-  mat.onBeforeCompile=sh=>{ sh.uniforms.uTime={value:0}; mat.userData.sh=sh; sh.vertexShader=sh.vertexShader
+  /* One uTime for every program the material is compiled into: it is compiled again for each
+     lighting and fog state it meets, and a uniform made per compile left the older programs'
+     clocks stopped (the swaying scene stood still after a trip to another view). */
+  const uTime={value:0};
+  mat.onBeforeCompile=sh=>{ sh.uniforms.uTime=uTime; sh.vertexShader=sh.vertexShader
     .replace('#include <common>','#include <common>\nattribute vec3 posPrev;\nattribute vec3 nrmPrev;\nattribute float fade;\nattribute vec4 anim;\nattribute vec2 asize;\nuniform float uTime;\nfloat hh(float n){ return fract(sin(n)*43758.5453); }')
     .replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(mix(nrmPrev, vec3(normal), fade));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3(tangent.xyz);\n#endif')
     .replace('#include <begin_vertex>',[
@@ -4965,7 +4969,7 @@ const SCN=(function(){
   const _m=new THREE.Matrix4();
   function update(force){
     if(!sceneOn||!built) return;
-    if(mat.userData.sh) mat.userData.sh.uniforms.uTime.value=performance.now()/1000;   // sway and bob run on, even with the camera still
+    uTime.value=performance.now()/1000;   // sway and bob run on, even with the camera still
     const c=cam.position, k=c.x.toFixed(2)+','+c.y.toFixed(2)+','+c.z.toFixed(2);
     if(!force&&k===lastKey) return; lastKey=k;
     for(const T of built.types) for(const L of T.lod) L.n=0;
@@ -5117,7 +5121,7 @@ const SCN=(function(){
     if(!pt){ const t=-ray.ray.origin.y/ray.ray.direction.y; if(t>0) pt=ray.ray.at(t,V(0,0,0)); }
     if(!pt||!data||Math.hypot(pt.x,pt.z)>(built?built.size:data.ground.size)/2) return null; return [pt.x,pt.z]; }
   function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
-  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR_OCT,NEAR};
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR_OCT,NEAR,uTime};
 })();
 window.__scene=SCN;
 
