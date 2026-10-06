@@ -5761,6 +5761,18 @@ window.__scene=SCN;
       { type: 'cathedral bay', at: [13,-24], rot: 90 }, { type: 'cathedral bay', at: [-13,-24], rot: -90 },
       { type: 'gravestone', grid: { rect: [24,-30,40,20] }, every: [2.5,3], jitter: 0.3, tint: 0.15 },
       { type: 'oak', scatter: { rect: [-45,-45,45,50] }, count: 10, scale: [0.8,1.2], exclude: [{ rect: [-20,-42,20,40] }] }] },
+    /* ONE HOUSE IN EACH OCTAVE (Oct 6: "it might be interesting to put one house in each
+       octive all the way to the horizon"). Stand at the prefab's centre at walking height
+       (h = 1.7 m) and look along it (toward −z): house k sits at the middle of octave k of that
+       reader's distance, √2·2^k·h, for k = 2 to 9, from 9.6 m to 1.2 km, the last octave the
+       ground holds. Turn on the wander view and each house stands in its own band. Two rows:
+       on the left every house is the same size, so each octave's reads half as large as the
+       last (the far side's share halving per doubling); on the right each is scaled with its
+       distance, 2^(k−4), and every one reads the same in its own octave, SPN §3.8's "no rung
+       is preferred". The scaled row keeps its houses as far off the line of sight as they are
+       large. Houses face the street. */
+    { name: 'octave rows', group: [2, 3, 4, 5, 6, 7, 8, 9].flatMap(k => { const d = +(Math.SQRT2 * 2 ** k * 1.7).toFixed(2), s = 2 ** (k - 4);
+      return [{ type: 'cottage', at: [-7, -d], rot: 90 }, { type: 'cottage', at: [+(7 * s).toFixed(2), -d], rot: -90, scale: s }]; }) },
     { name: 'market', group: [
       { type: 'stall', row: { from: [-8,5], to: [8,5] }, count: 3, rot: 180, tint: 0.2 },
       { type: 'stall', row: { from: [-8,-5], to: [8,-5] }, count: 3, rot: 0, tint: 0.2 },
@@ -5774,7 +5786,7 @@ window.__scene=SCN;
       { type: 'campfire', at: [0,0] },
       { type: 'log seat', ring: { center: [0,0], radius: 2.2 }, count: 3 },   // facing out, the log (its x) runs round the fire
       { type: 'tent', ring: { center: [0,0], radius: 7 }, count: 5, rot: 'in', tint: 0.2 }] }];
-  const LIBRARY=['homestead','terrace','farmstead','churchyard','market','windmill','well','grove','campsite','cathedral close'];
+  const LIBRARY=['homestead','terrace','farmstead','churchyard','market','windmill','well','grove','campsite','cathedral close','octave rows'];
   const libBy=new Map(LIB_TYPES.map(t=>[t.name,t])), libMade=new Map();
   // Each library type made once: the same object every time, so placing a second
   // homestead finds its cottage already in the scene instead of adding "cottage 2".

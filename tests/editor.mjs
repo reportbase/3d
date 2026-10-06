@@ -703,7 +703,7 @@ try {
     await ev(() => __scene.set(null));
     if (!/place a prefab/.test(await page.textContent('#scStats'))) throw new Error('the empty scene does not point to the prefabs');
     const names = await ev(() => [...document.querySelectorAll('#scLib button')].map(b => b.dataset.lib).join(','));
-    if (names !== 'homestead,terrace,farmstead,churchyard,market,windmill,well,grove,campsite,cathedral close') throw new Error('library: ' + names);
+    if (names !== 'homestead,terrace,farmstead,churchyard,market,windmill,well,grove,campsite,cathedral close,octave rows') throw new Error('library: ' + names);
     await page.click('#scLib button[data-lib="homestead"]');
     if (!await ev(() => __scene.data() && __scene.data().place.length === 0)) throw new Error('picking a prefab with no scene did not start one');
     if (!/place a homestead/.test(await page.textContent('#placeHint')) || await ev(() => document.getElementById('placeHint').hidden)) throw new Error('no placing hint');
@@ -751,6 +751,12 @@ try {
     if (!(cath.h > 66 && cath.h < 72)) throw new Error('the cathedral stands ' + cath.h + ' m, not 69');
     if (cath.parts !== 24) throw new Error('the cathedral kept ' + cath.parts + ' of its 24 parts');
     if (cath.bays.some(([dx, out]) => Math.abs(Math.abs(dx) - 13) > 0.01 || Math.sign(dx) !== out) || cath.bays.filter(b => b[0] > 0).length !== 6) throw new Error('bays: ' + JSON.stringify(cath.bays));
+    // one house in each octave of a walking reader's distance (h = 1.7 m), octaves 2 to 9: the left row all one size,
+    // the right row scaled with distance, each house at the same bearing and so reading the same in its own octave
+    await ev(() => __scene.set(null)); await ev(() => __library.add('octave rows', [0, 0], 0));
+    const oc = await ev(() => __scene.built().inst.map(o => [o.x, -o.z, o.s])), L = oc.filter(o => o[0] < 0).sort((a, b) => a[1] - b[1]), Rr = oc.filter(o => o[0] > 0).sort((a, b) => a[1] - b[1]);
+    const okRow = (row, scaled) => row.length === 8 && row.every((o, k) => Math.abs(o[1] - Math.SQRT2 * 2 ** (k + 2) * 1.7) < 0.01 && Math.abs(o[2] - (scaled ? 2 ** (k - 2) : 1)) < 1e-9 && (!scaled || Math.abs(o[0] / o[1] - Rr[0][0] / Rr[0][1]) < 1e-3));
+    if (!okRow(L, false) || !okRow(Rr, true)) throw new Error('octave rows: ' + JSON.stringify(oc));
   });
   await step('scene: detail by octaves, from prefixes of the rungs', async () => {
     // a rock: a ball with a sculpted cascade, each rung's detail half the last's (a 1/f surface)
