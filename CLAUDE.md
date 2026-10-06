@@ -14,9 +14,11 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   4. **the studio app**: parts, editors, tools, files, examples
 - `classic.html`: the previous editor, kept whole and still linked from the
   studio's advanced panel. Change it only to fix it.
-- `situations.html`: the six ways to observe, from wander's papers (SPN §2.1, and a sixth,
-  the holder, proposed 6 Oct): one apple, a frame each, as a slideshow. Each frame has one
-  expression and nothing else; keep it that way. Linked from the advanced panel.
+- `situations.html`: five ways to observe (0 to 4), from wander's papers (SPN §2.1, as the
+  owner regrouped it on 6 Oct): 0 nothing; 1 and 2 the mathematical views, an equation and an
+  array, not pictures; 3 the apple in the hand; 4 a molecule in an endless apple, the others
+  arriving one at a time. A slideshow: each frame has one expression and nothing else; keep it
+  that way. Linked from the advanced panel.
 - `index.html`: forwards `/3d/` to `3d.html`.
 
 ## Rules

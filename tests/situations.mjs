@@ -1,7 +1,8 @@
-// Smoke test for situations.html, the six ways to observe. In headless Chromium it steps
-// through every frame, by the buttons, the arrow keys and the number keys, and checks that each
-// shows its own caption and its own picture: the holder's apple turns when dragged, the endless
-// apple drifts, the impossible frame is one even grey. Fails on any uncaught error.
+// Smoke test for situations.html, the five ways to observe (0 to 4). In headless Chromium it
+// steps through every frame, by the buttons, the arrow keys and the number keys, and checks that
+// each shows its own caption and its own picture: 0 is one even grey, 1 and 2 are flat
+// mathematics (an equation, an array), the apple in the hand turns when dragged, and in 4 the
+// arrivals grow and start again on each visit. Fails on any uncaught error.
 //
 //   node tests/situations.mjs
 //   LIBS_DIR=path/node_modules node tests/situations.mjs    three.js from a local three@0.128.0
@@ -39,8 +40,9 @@ const settle = async () => { await ev(() => new Promise(r => requestAnimationFra
 await page.goto(base + 'situations.html');
 await page.waitForFunction(() => window.__situations);
 
-const ORDER = [1, 2, 6, 5, 3, 4];
-await step('the frames, in story order, one per situation', async () => {
+const ORDER = [0, 1, 2, 3, 4];
+const num = () => ev(() => document.getElementById('num').textContent);
+await step('the frames, in order, one per situation', async () => {
   const sits = await ev(() => __situations.FRAMES.map(f => f.sit).join(','));
   if (sits !== ORDER.join(',')) throw new Error('order: ' + sits);
   const dots = await ev(() => [...document.querySelectorAll('#dots button')].map(b => b.textContent).join(','));
@@ -57,54 +59,63 @@ await step('each frame its own caption and its own picture (the next button)', a
     seen.set(sit, await pix());
   }
   const pics = new Set(seen.values()); if (pics.size !== ORDER.length) throw new Error(pics.size + ' different pictures for ' + ORDER.length + ' frames');
-  await page.click('#next'); if (await ev(() => document.getElementById('num').textContent) !== '1') throw new Error('next from the last did not wrap to the first');
+  await page.click('#next'); if (await num() !== '0') throw new Error('next from the last did not wrap to the first');
 });
 
 await step('the arrow and number keys', async () => {
-  await page.keyboard.press('ArrowLeft'); if (await ev(() => document.getElementById('num').textContent) !== '4') throw new Error('← from the first is not the last');
-  await page.keyboard.press('6'); if (await ev(() => document.getElementById('num').textContent) !== '6') throw new Error('the 6 key did not open the holder');
-  await page.keyboard.press('ArrowRight'); if (await ev(() => document.getElementById('num').textContent) !== '5') throw new Error('→ from the holder is not 5');
+  await page.keyboard.press('ArrowLeft'); if (await num() !== '4') throw new Error('← from the first is not the last');
+  await page.keyboard.press('2'); if (await num() !== '2') throw new Error('the 2 key did not open 2');
+  await page.keyboard.press('ArrowRight'); if (await num() !== '3') throw new Error('→ from 2 is not 3');
+  await page.keyboard.press('0'); if (await num() !== '0') throw new Error('the 0 key did not open 0');
 });
 
-await step('6, the holder: dragging turns the apple', async () => {
-  await page.keyboard.press('6'); await settle();
+await step('1 and 2 are mathematics: flat on the page, still, the array shaded by its values', async () => {
+  for (const k of ['1', '2']){
+    await page.keyboard.press(k); await settle(); const a = await pix(); await page.waitForTimeout(300); await settle();
+    if (await pix() !== a) throw new Error(k + ' moves; an equation or an array is read all at once');
+    const flat = await ev(() => !!__situations.FRAMES[__situations.at()].camera.userData.flat); if (!flat) throw new Error(k + ' is not drawn flat');
+  }
+  // the array's cells are tinted by value: the dimpled top row differs from the waist
+  const r = await ev(() => { const c = document.getElementById('view'), g = document.createElement('canvas'); g.width = c.width; g.height = c.height; const x = g.getContext('2d'); x.drawImage(c, 0, 0);
+    const d = x.getImageData(0, 0, g.width, g.height).data; let warm = 0; for (let i = 0; i < d.length; i += 4) if (d[i] - d[i + 2] > 25) warm++; return warm; });
+  if (r < 500) throw new Error('the array has no shading by value: ' + r + ' warm pixels');
+});
+
+await step('3, the apple in the hand: dragging turns it', async () => {
+  await page.keyboard.press('3'); await settle();
   const before = await ev(() => __situations.FRAMES[__situations.at()].scene.children.find(c => c.type === 'Group').rotation.y);
   await page.mouse.move(480, 260); await page.mouse.down(); await page.mouse.move(600, 270, { steps: 6 }); await page.mouse.up();
   const after = await ev(() => __situations.FRAMES[__situations.at()].scene.children.find(c => c.type === 'Group').rotation.y);
   if (!(after - before > 0.5)) throw new Error(`turned by ${after - before}`);
 });
 
-await step('3, the endless apple: it drifts, and wraps without a seam', async () => {
-  await page.keyboard.press('3');
-  // a frame of this one takes seconds in a software renderer: wait for the drift itself
-  const z0 = await ev(() => __situations.FRAMES[__situations.at()].scene.children.find(c => c.type === 'Group').position.z);
-  await page.waitForFunction(z0 => __situations.FRAMES[__situations.at()].scene.children.find(c => c.type === 'Group').position.z !== z0, z0, { timeout: 90000 }).catch(() => {});
-  const z1 = await ev(() => __situations.FRAMES[__situations.at()].scene.children.find(c => c.type === 'Group').position.z);
-  if (z1 === z0) throw new Error('it did not drift');
-  if (!(z1 >= 0 && z1 < 8)) throw new Error('the drift did not wrap within the repeat: ' + z1);
-  const lights = await ev(() => __situations.FRAMES[__situations.at()].scene.children.filter(c => c.isLight).length);
-  if (lights < 2) throw new Error('the endless apple has ' + lights + ' lights');
+await step('4, one point at a time: nothing at first, then arrivals, nearest first; it starts again on each visit', async () => {
+  await page.keyboard.press('4');
+  const c0 = await ev(() => __situations.FRAMES[__situations.at()].count());
+  if (c0 > 2) throw new Error('already ' + c0 + ' arrived on entering');
+  await page.waitForFunction(() => __situations.FRAMES[__situations.at()].count() > 20, null, { timeout: 60000 }).catch(() => {});
+  const c1 = await ev(() => __situations.FRAMES[__situations.at()].count());
+  if (!(c1 > 20)) throw new Error('only ' + c1 + ' arrived');
+  const sorted = await ev(() => { const f = __situations.FRAMES[__situations.at()], p = f.scene.children.find(c => c.isPoints).geometry.attributes.position.array, n = f.count();
+    let last = -1; for (let i = 0; i < n; i++){ const d = Math.hypot(p[3 * i] - 0.5, p[3 * i + 1] - 0.5, p[3 * i + 2]); if (d < last - 1e-6) return false; last = d; } return true; });
+  if (!sorted) throw new Error('the arrivals are not nearest first');
+  await page.keyboard.press('3'); await page.keyboard.press('4');
+  const c2 = await ev(() => __situations.FRAMES[__situations.at()].count());
+  if (c2 > 2) throw new Error('coming back did not start again: ' + c2);
 });
 
-await step('5 and 3 differ in what lies beyond: light outside, or only more apple', async () => {
-  const bg = await ev(() => __situations.FRAMES.filter(f => f.sit === 5 || f.sit === 3).map(f => [f.sit, f.scene.background.getHexString(), f.scene.fog ? f.scene.fog.color.getHexString() : null]));
-  const five = bg.find(b => b[0] === 5), three = bg.find(b => b[0] === 3);
-  if (five[1] === five[2]) throw new Error('5: the outside is the same colour as the fog, so no light comes through the gaps');
-  if (three[1] !== three[2]) throw new Error('3: the wall and the fog differ, so the packing\'s edge would show');
-});
-
-await step('4, impossible: one even grey, nothing in it', async () => {
-  await page.keyboard.press('4'); await settle();
+await step('0, nothing: one even grey, nothing in it', async () => {
+  await page.keyboard.press('0'); await settle();
   const r = await ev(() => { const c = document.getElementById('view'), g = document.createElement('canvas'); g.width = 64; g.height = 64; const x = g.getContext('2d'); x.drawImage(c, 0, 0, 64, 64);
     const d = x.getImageData(0, 0, 64, 64).data; let lo = 255, hi = 0; for (let i = 0; i < d.length; i += 4){ lo = Math.min(lo, d[i]); hi = Math.max(hi, d[i]); } return { lo, hi, n: __situations.FRAMES[__situations.at()].scene.children.length }; });
   if (r.n !== 0 || r.hi - r.lo > 2) throw new Error('not empty: ' + JSON.stringify(r));
 });
 
 await step('a link opens on its situation (#s3), and the hash switches it', async () => {
-  await page.keyboard.press('1'); await ev(() => { location.hash = '#s5'; }); await page.waitForTimeout(200);
-  if (await ev(() => document.getElementById('num').textContent) !== '5') throw new Error('changing the hash to #s5 did not show 5');
+  await page.keyboard.press('1'); await ev(() => { location.hash = '#s4'; }); await page.waitForTimeout(200);
+  if (await num() !== '4') throw new Error('changing the hash to #s4 did not show 4');
   await page.goto('about:blank'); await page.goto(base + 'situations.html#s3'); await page.waitForFunction(() => window.__situations);
-  if (await ev(() => document.getElementById('num').textContent) !== '3') throw new Error('#s3 did not open on 3');
+  if (await num() !== '3') throw new Error('#s3 did not open on 3');
 });
 
 if (errors.length){ failures++; console.log('FAIL uncaught errors:\n     ' + errors.join('\n     ')); }
