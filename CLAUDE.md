@@ -26,6 +26,12 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   part's cascade before any engine call (`evalFull`, `sculptOnce`,
   `drawStrokeTo` and so on). Engine code needing per-part data goes through that,
   not new globals.
+- **The height kernel** (`eng.hkernel`, per part): `'flat'` (the default for new parts) lays
+  the leaves up a part at h = sin²(π(i + ½)/(2N)) and reads the cosine series in
+  x = (2/π) asin √h, so smooth sculpts are held exactly at the top and bottom; `'dct'` (even
+  leaves) is set by `detailEng` for patterned parts, which it holds better; `'rbf'` is the old
+  smooth kernel. Old files keep whatever they saved. Code that places or reads leaves in h
+  goes through `leafH` and `hX`, never `(i + 0.5)/Nh`. See `bench/depth/H-RESULTS.md`.
 - **A part's radius** is
   `core · outline · section(θ + twist·h) · taper·bulge + sculpt`. See
   `baseRadius` and `radiusAt`. For a core (preset, `.tvf3d`, image), the outline

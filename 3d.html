@@ -3186,7 +3186,15 @@ const curve={active:false,target:'envelope',pts:[]};          // the classic pro
 function curveVal(){ return 0.5; }
 function rungDims(r){ return {Nt: state.baseT*(1<<r), Nh: state.baseH*(1<<r)}; }
 function leafTheta(j,Nt){ return (j+0.5)*TAU/Nt; }
-function leafH(i,Nh){ return (i+0.5)/Nh; }
+/* The height axis is an open sweep: a cosine series in x, with leaves at x = (i + ½)/N.
+   'dct' takes x = h, leaves evenly up the part. 'flat' takes x = (2/π) asin √h, so
+   h = sin²(πx/2) and the leaves gather at the top and bottom (Oct 6, the depth bench's
+   DEP-F/DEP-H: any smooth profile then has no slope at the ends in x, and is held to
+   roundoff there instead of ~10⁻³; patterns, uniform up a wall, are held better by 'dct',
+   so patterned parts keep it). The owner chose a per-part choice (Oct 6: "Per-part choice"). */
+function leafX(i,Nh){ return (i+0.5)/Nh; }
+function leafH(i,Nh){ const x=(i+0.5)/Nh; return state.hkernel==='flat' ? Math.sin(PI*x/2)**2 : x; }
+function hX(h){ return state.hkernel==='flat' ? (2/PI)*Math.asin(Math.sqrt(Math.min(1,Math.max(0,h)))) : h; }
 // REFERENCE (angle-chart) form of the even-N shifted bridge kernel, TB §4.1 —
 // kept for documentation and tests; the operation runs the slope-chart rows below (§11).
 function kernTheta(dphi,N){ let p=dphi; while(p>PI)p-=TAU; while(p<=-PI)p+=TAU;
@@ -3198,7 +3206,7 @@ function kernH(dh,N){ const u=dh*N; return Math.exp(-u*u*0.5); }
 // (a cardinal kernel, not a smoother) — so it is NOT early-outed like the RBF.
 function dDir(x,N){ const sx=Math.sin(PI*x/2); if(Math.abs(sx)<1e-9)return 2*N-1; return Math.sin((N-0.5)*PI*x)/sx; }
 function kernHdct(h,hi,N){ return (dDir(h-hi,N)+dDir(h+hi,N))/(2*N); }
-function whFor(h,i,Nh){ return state.hkernel==='dct' ? kernHdct(h,leafH(i,Nh),Nh) : kernH(h-leafH(i,Nh),Nh); }   // reference-only; loops use the rows below
+function whFor(h,i,Nh){ return state.hkernel!=='rbf' ? kernHdct(hX(h),leafX(i,Nh),Nh) : kernH(h-leafH(i,Nh),Nh); }   // reference-only; loops use the rows below
 
 // ── slope-chart evaluation (TB §11; §15.3 record standard: zero trig in the leaf loop) ──
 // Angles are held as unit pairs z=(cos,sin) advanced by complex multiplication; trig
@@ -3229,7 +3237,7 @@ function thetaRow(theta,Nt,j0,len,out){
 // DCT-II cardinal row over a contiguous h window: dDir(x)=sin((N−½)πx)/sin(πx/2),
 // both arguments advanced as pairs; the mirror term dDir(h+h_i) likewise.
 function dctRow(h,Nh,i0,len,out){
-  const x0=h-leafH(i0,Nh), y0=h+leafH(i0,Nh), c=(Nh-0.5)*PI;
+  const x0=h-leafX(i0,Nh), y0=h+leafX(i0,Nh), c=(Nh-0.5)*PI;   // h here is already x (hX)
   let aMr=Math.cos(c*x0), aMi=Math.sin(c*x0), bMr=Math.cos(PI*x0/2), bMi=Math.sin(PI*x0/2);
   let aPr=Math.cos(c*y0), aPi=Math.sin(c*y0), bPr=Math.cos(PI*y0/2), bPi=Math.sin(PI*y0/2);
   const s=_hSteps(Nh), lim=2*Nh-1;
@@ -3276,14 +3284,14 @@ function initCascade(){ const a=newCascade(); state.sheets[state.activeSheet]=a;
 // and the taper is 1 there, so the fit stays exact at the finest rung's leaves
 // (DCT-h); only the between-node interpolation tightens. Cost is O(aperture²) per
 // query — the held set, not the projected system's extent.
-function rungEval(rg,theta,h){ const {Nt,Nh,v}=rg; let num=0,den=0; const dct=state.hkernel==='dct';
+function rungEval(rg,theta,h){ const {Nt,Nh,v}=rg; let num=0,den=0; const dct=state.hkernel!=='rbf', hx=dct?hX(h):h;
   const HW=state.aperture, fullT=(2*HW+1>=Nt), fullH=(2*HW+1>=Nh);
-  const ct=theta*Nt/TAU-0.5, ch=h*Nh-0.5;
+  const ct=theta*Nt/TAU-0.5, ch=hx*Nh-0.5;
   const i0=fullH?0:Math.max(0,Math.floor(ch-HW)), i1=fullH?Nh-1:Math.min(Nh-1,Math.ceil(ch+HW));
   const j0=fullT?0:Math.floor(ct-HW), j1=fullT?Nt-1:Math.ceil(ct+HW);
   const lenT=j1-j0+1, lenH=i1-i0+1; _ensure(Math.max(lenT,lenH));
   thetaRow(theta,Nt,j0,lenT,_rowT);
-  if(dct) dctRow(h,Nh,i0,lenH,_rowH);
+  if(dct) dctRow(hx,Nh,i0,lenH,_rowH);
   if(!fullT) hannRow(ct,j0,lenT,HW,_rowWT);
   if(!fullH) hannRow(ch,i0,lenH,HW,_rowWH);
   for(let i=i0;i<=i1;i++){ const thh=fullH?1:_rowWH[i-i0]; if(thh===0)continue;
@@ -3295,14 +3303,14 @@ function rungEval(rg,theta,h){ const {Nt,Nh,v}=rg; let num=0,den=0; const dct=st
   return Math.abs(den)<1e-12?0:num/den; }
 // color reconstruction: same bridge × h-kernel × taper as radius, per channel — the
 // separable extension of TB §12 (color by channel: three scalar fields on one leaf set)
-function rungEvalColor(rg,theta,h){ const {Nt,Nh,cR,cG,cB}=rg; let nR=0,nG=0,nB=0,den=0; const dct=state.hkernel==='dct';
+function rungEvalColor(rg,theta,h){ const {Nt,Nh,cR,cG,cB}=rg; let nR=0,nG=0,nB=0,den=0; const dct=state.hkernel!=='rbf', hx=dct?hX(h):h;
   const HW=state.aperture, fullT=(2*HW+1>=Nt), fullH=(2*HW+1>=Nh);
-  const ct=theta*Nt/TAU-0.5, ch=h*Nh-0.5;
+  const ct=theta*Nt/TAU-0.5, ch=hx*Nh-0.5;
   const i0=fullH?0:Math.max(0,Math.floor(ch-HW)), i1=fullH?Nh-1:Math.min(Nh-1,Math.ceil(ch+HW));
   const j0=fullT?0:Math.floor(ct-HW), j1=fullT?Nt-1:Math.ceil(ct+HW);
   const lenT=j1-j0+1, lenH=i1-i0+1; _ensure(Math.max(lenT,lenH));
   thetaRow(theta,Nt,j0,lenT,_rowT);
-  if(dct) dctRow(h,Nh,i0,lenH,_rowH);
+  if(dct) dctRow(hx,Nh,i0,lenH,_rowH);
   if(!fullT) hannRow(ct,j0,lenT,HW,_rowWT);
   if(!fullH) hannRow(ch,i0,lenH,HW,_rowWH);
   for(let i=i0;i<=i1;i++){ const thh=fullH?1:_rowWH[i-i0]; if(thh===0)continue;
@@ -3606,7 +3614,7 @@ function newPart(o={}){
     paint:{color:'#d9d4c7', bands:0, color2:'#c8402e'},
     hollow:{on:false, wall:0.06, floor:0.12},
     pos:[0,0,0], rot:[0,0,0], scale:[1,1,1],
-    eng:{baseT:8, baseH:6, rungs:4, hkernel:'dct'},
+    eng:{baseT:8, baseH:6, rungs:4, hkernel:'flat'},   // 'flat' for new parts (Oct 6); a patterned part takes 'dct' (detailEng)
     cascade:null, sculpted:false, painted:false,
   }, o);
   if(o.id) _pid=Math.max(_pid,o.id);
@@ -3657,13 +3665,13 @@ function patternAt(kind,u,v,S,seed){
    costs two passes instead of a window per point. Laying a pattern rung on rung needs
    every coarser rung at every finer leaf; point by point that took seconds a scene. */
 function rungGrid(rg,ths,hs,chans){
-  const Nt=rg.Nt, Nh=rg.Nh, dct=state.hkernel==='dct', HW=state.aperture, fullT=(2*HW+1>=Nt), fullH=(2*HW+1>=Nh);
+  const Nt=rg.Nt, Nh=rg.Nh, dct=state.hkernel!=='rbf', HW=state.aperture, fullT=(2*HW+1>=Nt), fullH=(2*HW+1>=Nh);
   const colT=ths.map(theta=>{ const ct=theta*Nt/TAU-0.5, j0=fullT?0:Math.floor(ct-HW), j1=fullT?Nt-1:Math.ceil(ct+HW), len=j1-j0+1; _ensure(len);
     thetaRow(theta,Nt,j0,len,_rowT); if(!fullT) hannRow(ct,j0,len,HW,_rowWT);
     const idx=[], w=[]; let sw=0; for(let j=j0;j<=j1;j++){ const tt=fullT?1:_rowWT[j-j0]; if(tt===0) continue; const ww=_rowT[j-j0]*tt; idx.push(fullT?j:((j%Nt)+Nt)%Nt); w.push(ww); sw+=ww; }
     return {idx,w,sw}; });
-  const rowH=hs.map(h=>{ const ch=h*Nh-0.5, i0=fullH?0:Math.max(0,Math.floor(ch-HW)), i1=fullH?Nh-1:Math.min(Nh-1,Math.ceil(ch+HW)), len=i1-i0+1; _ensure(len);
-    if(dct) dctRow(h,Nh,i0,len,_rowH); if(!fullH) hannRow(ch,i0,len,HW,_rowWH);
+  const rowH=hs.map(h=>{ const hx=dct?hX(h):h, ch=hx*Nh-0.5, i0=fullH?0:Math.max(0,Math.floor(ch-HW)), i1=fullH?Nh-1:Math.min(Nh-1,Math.ceil(ch+HW)), len=i1-i0+1; _ensure(len);
+    if(dct) dctRow(hx,Nh,i0,len,_rowH); if(!fullH) hannRow(ch,i0,len,HW,_rowWH);
     const idx=[], w=[]; let sw=0; for(let i=i0;i<=i1;i++){ const thh=fullH?1:_rowWH[i-i0]; if(thh===0) continue; const wh=(dct?_rowH[i-i0]:kernH(h-leafH(i,Nh),Nh))*thh; if(!dct&&wh<1e-4) continue; idx.push(i); w.push(wh); sw+=wh; }
     return {idx,w,sw}; });
   const nT=ths.length, out=chans.map(()=>new Float64Array(hs.length*nT)), tmp=new Float64Array(Nt);
@@ -3682,7 +3690,7 @@ function girth(p){ const sx=Math.abs(p.scale[0]), sz=Math.abs(p.scale[2]); let P
    detailed part gets leaves to its own proportions and its pattern's size instead: four
    to a stone or a shingle row at the finest rung, up to 32 round and 24 up at the first
    (384 in all). */
-function detailEng(p){ const [P,H]=girth(p), e=Object.assign({},p.eng), f=p.detail.size/4;   // four leaves to a feature at the finest rung (8 times the first)
+function detailEng(p){ const [P,H]=girth(p), e=Object.assign({},p.eng,{hkernel:'dct'}), f=p.detail.size/4;   // patterns are uniform up a wall: evenly spaced leaves hold them better (DEP-H)   // four leaves to a feature at the finest rung (8 times the first)
   let T=Math.min(32,Math.max(8,Math.round(P/f/8/8)*8)), U=Math.min(24,Math.max(6,Math.round(H/f/8)));
   while(T*U>384){ if(T>8&&T/P>=U/H) T-=8; else if(U>6) U--; else break; }   // and no more than 384 at the first rung
   e.baseT=T; e.baseH=U; return e; }
@@ -3701,9 +3709,9 @@ function makeDetail(p){ const q=p.detail;
   mD/=M*M; mR/=M*M; mG/=M*M; mB/=M*M;
   for(let r=0;r<p.cascade.length;r++){ const rg=p.cascade[r], Nt=rg.Nt, Nh=rg.Nh, dT=TAU/Nt, dH=1/Nh;
     // what the coarser rungs already hold at this rung's leaves
-    const ths=Array.from({length:Nt},(_,j)=>(j+0.5)*dT), hs=Array.from({length:Nh},(_,i)=>(i+0.5)*dH), low=[0,1,2,3].map(()=>new Float64Array(Nt*Nh));
+    const ths=Array.from({length:Nt},(_,j)=>(j+0.5)*dT), hs=Array.from({length:Nh},(_,i)=>leafH(i,Nh)), low=[0,1,2,3].map(()=>new Float64Array(Nt*Nh));
     for(let s=0;s<r;s++){ const c=p.cascade[s], g=rungGrid(c,ths,hs,[c.v,c.cR,c.cG,c.cB]); for(let ch=0;ch<4;ch++) for(let k=0;k<g[ch].length;k++) low[ch][k]+=g[ch][k]; }
-    for(let i=0;i<Nh;i++) for(let j=0;j<Nt;j++){ const th=(j+0.5)*dT, h=(i+0.5)*dH; let dd=0,gg=0,tt=0;
+    for(let i=0;i<Nh;i++) for(let j=0;j<Nt;j++){ const th=(j+0.5)*dT, h=leafH(i,Nh); let dd=0,gg=0,tt=0;
       for(let a=0;a<K;a++) for(let b=0;b<K;b++){ const [u,v]=uv(th+((a+0.5)/K-0.5)*dT,h+((b+0.5)/K-0.5)*dH), s=patternAt(q.pattern,u,v,S,seed); dd+=s.d; gg+=s.g; tt+=s.t; }
       dd/=K*K; gg/=K*K; tt/=K*K;
       const k=i*Nt+j, tint=0.1*tt*(1-gg), lv=low[0][k], lc=[low[1][k],low[2][k],low[3][k]];
@@ -4296,7 +4304,7 @@ function drawAdvanced(){ const el=$('advPanel'), p=selPart();
   let h=`<div class="h">advanced</div>`;
   if(p){ h+=`<div class="field">brush rung<select id="advRung"><option value="auto">auto</option>${Array.from({length:p.eng.rungs},(_,r)=>`<option ${brushRungMode==r?'selected':''}>${r}</option>`).join('')}</select><span></span></div>
       ${slider('advT','θ leaves',4,24,2,p.eng.baseT,v=>v)}${slider('advH','h leaves',3,16,1,p.eng.baseH,v=>v)}
-      <div class="row" style="font-size:12px;color:var(--dim)"><label><input type="checkbox" id="advDct" ${p.eng.hkernel==='dct'?'checked':''}> cosine h-kernel (DCT)</label></div>
+      <div class="field">h-kernel<select id="advKern">${[['flat','cosine, flattened ends'],['dct','cosine, even (DCT)'],['rbf','smooth (RBF)']].map(([v,t])=>`<option value="${v}" ${p.eng.hkernel===v?'selected':''}>${t}</option>`).join('')}</select><span></span></div>
       ${slider('advAp','aperture',2,16,1,state.aperture,v=>v)}${slider('advRun','run',-2,2,0.01,Math.log2(state.hRun),v=>Math.pow(2,v).toFixed(2))}
       <div class="note">Changing the leaf counts clears this part's sculpting. Core: ${p.core.kind}${p.core.name?' ('+p.core.name+')':''}.</div>`; }
   h+=`<div class="note">The previous editor, with sheets, booleans, the profile curve and the leaf registers: <a href="classic.html">classic.html</a>.</div>`;
@@ -4305,7 +4313,7 @@ function drawAdvanced(){ const el=$('advPanel'), p=selPart();
   $('advRung').onchange=e=>{ brushRungMode=e.target.value; drawTool(); };
   const reLeaf=()=>{ p.cascade=null; p.sculpted=false; p.painted=false; rebuild(p); };
   bindSlider('advT',v=>{ p.eng.baseT=v; reLeaf(); },'leaves'); bindSlider('advH',v=>{ p.eng.baseH=v; reLeaf(); },'leaves');
-  $('advDct').onchange=e=>{ p.eng.hkernel=e.target.checked?'dct':'rbf'; rebuild(p); commit('kernel'); };
+  $('advKern').onchange=e=>{ p.eng.hkernel=e.target.value; rebuild(p); commit('kernel'); };
   bindSlider('advAp',v=>{ state.aperture=v; for(const q of S.parts) rebuild(q); });
   bindSlider('advRun',v=>{ state.hRun=Math.pow(2,v); for(const q of S.parts) rebuild(q); },'run');
 }
