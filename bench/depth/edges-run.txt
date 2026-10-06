@@ -1,0 +1,95 @@
+## Checks of the code
+  1. the edge finder: step → 1 edge at 3.70000000000005; ramp → 0 edges, 1 steep ok
+  2. a split sweep holds the step: worst 1.1e-15 ok
+
+## The harbour village, viewer on the high street at (6, -25)
+  4. A, B, F on the first view as DEP-S: 6.8e-6 4.0e-5 2.0e-5 ok
+  3. no edge, no change: 0 edges; X 2.3e-7, C′ 2.3e-7 ok
+
+H = 1.7 m, direction 0°: view error A 6.8e-6  B 4.0e-5  F 2.0e-5  C′ 2.3e-7  X 2.3e-7; X/C′ 1.000
+  edges 0; steep slopes 0
+  largest seam: C′ 1.3e-5, X 1.3e-5; edges kept within 1%: C′ 0 of 0, X 0 of 0
+  X's nodes: [2] [2,1] [2,0] [2,2] [2,-1] [2,1,-1] [2,3] [2,-2] [2,4] [2,5] [2,-3] [2,1,-2] [2,1,0] [2,1,1]
+
+H = 1.7 m, direction 45°: view error A 1.5e-5  B 6.4e-5  F 2.5e-5  C′ 1.2e-6  X 1.2e-6; X/C′ 1.000
+  edges 0; steep slopes 0
+  largest seam: C′ 8.6e-5, X 8.6e-5; edges kept within 1%: C′ 0 of 0, X 0 of 0
+  X's nodes: [1] [3] [1,3] [3,2] [3,3] [3,1] [1,4] [1,2] [1,3,0] [3,4] [1,5] [3,0] [1,1] [3,5]
+
+H = 1.7 m, direction 90°: view error A 5.8e-4  B 5.3e-4  F 5.9e-4  C′ 4.6e-5  X 5.7e-6; X/C′ 0.123
+  edges 1 (10.993: 0.058); steep slopes 0
+  largest seam: C′ 1.1e-3, X 1.2e-4; edges kept within 1%: C′ 0 of 1, X 1 of 1
+  X's nodes: [2] [3] [2,1] [3,0] [2,0] [3,1] [2,1,1] [3,0,1] [3,-1] [3,2] [2,1,0] [2,1,-1] [3,3] [3,-2]
+
+H = 1.7 m, direction 135°: view error A 2.2e-5  B 1.1e-4  F 7.5e-5  C′ 1.6e-7  X 1.6e-7; X/C′ 1.000
+  edges 0; steep slopes 0
+  largest seam: C′ 3.0e-5, X 3.0e-5; edges kept within 1%: C′ 0 of 0, X 0 of 0
+  X's nodes: [2] [2,1] [2,2] [2,1,2] [2,1,3] [2,0] [2,1,4] [2,-1] [2,1,1] [2,3] [2,-2] [1] [2,1,0] [2,1,-1]
+
+H = 1.7 m, direction 180°: view error A 7.4e-6  B 3.3e-5  F 1.5e-5  C′ 3.3e-7  X 3.3e-7; X/C′ 1.000
+  edges 0; steep slopes 0
+  largest seam: C′ 4.4e-5, X 4.4e-5; edges kept within 1%: C′ 0 of 0, X 0 of 0
+  X's nodes: [2] [2,0] [2,-1] [2,1] [2,0,-1] [2,-2] [2,2] [2,3] [2,-3] [2,4] [2,5] [2,0,0] [2,0,-2] [2,0,1]
+
+H = 1.7 m, direction 225°: view error A 4.8e-6  B 3.9e-5  F 1.1e-5  C′ 6.4e-8  X 6.4e-8; X/C′ 1.000
+  edges 0; steep slopes 0
+  largest seam: C′ 2.0e-5, X 2.0e-5; edges kept within 1%: C′ 0 of 0, X 0 of 0
+  X's nodes: [2] [2,2] [2,1] [2,2,-1] [2,3] [2,0] [2,4] [2,-1] [2,5] [2,-2] [2,2,-2] [2,2,0] [2,2,1] [2,-3]
+
+H = 1.7 m, direction 270°: view error A 6.2e-6  B 3.1e-5  F 8.5e-9  C′ 7.3e-9  X 7.3e-9; X/C′ 1.000
+  edges 0; steep slopes 0
+  largest seam: C′ 4.1e-8, X 4.1e-8; edges kept within 1%: C′ 0 of 0, X 0 of 0
+  X's nodes: [1] [-2] [-1] [-3] [-7] [0] [-4] [-5] [2] [-3,0] [-1,0] [-4,-1] [0,0] [-2,1]
+
+H = 1.7 m, direction 315°: view error A 6.9e-4  B 3.7e-4  F 4.4e-4  C′ 2.1e-4  X 7.5e-9; X/C′ 3.6e-5
+  edges 1 (18.496: 0.054); steep slopes 0
+  largest seam: C′ 1.9e-3, X 2.5e-8; edges kept within 1%: C′ 0 of 1, X 1 of 1
+  X's nodes: [1] [-2] [-3] [-1] [-5] [-4] [0] [-7] [2] [-2,0] [-1,0] [-3,2] [-1,-1] [-2,1]
+
+H = 30 m, direction 0°: view error A 8.7e-3  B 5.2e-3  F 4.5e-3  C′ 3.8e-4  X 2.4e-5; X/C′ 0.063
+  edges 3 (0.134: 0.073, 0.241: 0.136, 7.904: 1.008); steep slopes 0
+  largest seam: C′ 0.079, X 6.8e-5; edges kept within 1%: C′ 0 of 3, X 3 of 3
+  X's nodes: [3] [2] [-2] [2,0] [2,0,0] [2,0,1] [1] [3,2] [2,1] [2,0,-1] [2,-1] [2,0,-2] [3,3] [2,0,2]
+
+H = 30 m, direction 45°: view error A 8.9e-3  B 6.2e-3  F 6.9e-3  C′ 2.9e-3  X 6.8e-5; X/C′ 0.024
+  edges 5 (0.135: 0.088, 0.363: 0.119, 1.695: 0.048, 1.941: 0.227, 8.572: 0.706); steep slopes 0
+  largest seam: C′ 0.024, X 9.6e-4; edges kept within 1%: C′ 0 of 5, X 5 of 5
+  X's nodes: [1] [2] [1,2] [1,2,0] [-1] [3] [1,1] [2,0] [1,2,-1] [3,1] [-2] [2,0,1] [1,3] [1,0]
+
+H = 30 m, direction 90°: view error A 5.6e-3  B 9.2e-3  F 0.011  C′ 1.9e-3  X 1.3e-4; X/C′ 0.070
+  edges 5 (0.318: 0.090, 0.779: 0.157, 0.889: 0.088, 1.566: 0.203, 6.818: 0.698); steep slopes 0
+  largest seam: C′ 0.061, X 5.4e-3; edges kept within 1%: C′ 0 of 5, X 5 of 5
+  X's nodes: [0] [1] [0,-2] [3] [1,-1] [2] [1,1] [2,3] [1,1,-1] [0,-1] [1,0] [1,-1,2] [0,-2,3] [3,0]
+
+H = 30 m, direction 135°: view error A 8.4e-3  B 6.7e-3  F 9.1e-3  C′ 3.0e-3  X 1.5e-4; X/C′ 0.049
+  edges 4 (0.309: 0.099, 0.793: 0.133, 1.942: 0.227, 9.072: 0.715); steep slopes 0
+  largest seam: C′ 0.038, X 2.2e-3; edges kept within 1%: C′ 0 of 4, X 4 of 4
+  X's nodes: [1] [0] [3] [2] [0,-1] [0,-1,0] [2,1] [1,1] [1,2] [2,2] [4] [2,0] [0,0] [0,-2]
+
+H = 30 m, direction 180°: view error A 0.014  B 8.5e-3  F 0.010  C′ 8.1e-3  X 7.7e-5; X/C′ 9.5e-3
+  edges 6 (0.137: 0.087, 0.368: 0.101, 3.972: 0.174, 4.476: 0.116, 5.519: 0.243, 8.366: 1.015); steep slopes 0
+  largest seam: C′ 0.160, X 1.3e-3; edges kept within 1%: C′ 0 of 6, X 6 of 6
+  X's nodes: [2] [2,1] [3] [2,2] [-1] [2,1,0] [2,0] [2,3] [-2] [2,2,2] [2,2,1] [2,1,1] [2,4] [-1,-1]
+
+H = 30 m, direction 225°: view error A 0.034  B 0.014  F 0.016  C′ 2.6e-3  X 8.3e-5; X/C′ 0.032
+  edges 4 (0.138: 0.083, 0.229: 0.130, 0.708: 0.091, 28.026: 1.853); steep slopes 0
+  largest seam: C′ 0.038, X 6.9e-3; edges kept within 1%: C′ 0 of 4, X 4 of 4
+  X's nodes: [0] [5] [-1] [4] [5,0] [0,-2] [5,0,1] [-1,2] [-1,2,0] [-2] [5,1] [4,1] [0,-1] [0,-3]
+
+H = 30 m, direction 270°: view error A 0.012  B 8.4e-3  F 9.2e-3  C′ 1.3e-3  X 3.8e-5; X/C′ 0.030
+  edges 4 (0.614: 0.093, 1.360: 0.063, 1.574: 0.080, 10.343: 1.303); steep slopes 0
+  largest seam: C′ 0.026, X 7.3e-4; edges kept within 1%: C′ 0 of 4, X 4 of 4
+  X's nodes: [0] [1] [0,1] [0,1,1] [1,1] [0,1,0] [4] [1,1,0] [1,1,1] [0,0] [2] [1,1,-1] [0,1,2] [0,2]
+
+H = 30 m, direction 315°: view error A 0.019  B 9.2e-3  F 8.8e-3  C′ 1.6e-3  X 5.4e-5; X/C′ 0.033
+  edges 4 (0.212: 0.090, 0.426: 0.088, 8.805: 0.231, 14.579: 1.301); steep slopes 0
+  largest seam: C′ 0.035, X 1.5e-3; edges kept within 1%: C′ 0 of 4, X 4 of 4
+  X's nodes: [4] [-1] [-2] [4,-3] [-2,1] [4,1] [4,0] [4,-2] [4,2] [-2,1,1] [4,-1] [2] [-1,0] [4,-4]
+
+## Verdicts
+  10 views with edges, 37 edges
+  X1: X's largest seam at most 1/10 of C′'s in 8 of 10 (at least 80% predicted): holds
+  X2: edges kept within 1% by X: 37 of 37 (at least 90% predicted): holds
+  X3: X below C′ in 10 of 10 (at least 80% predicted): holds
+  X4: views where X is not below the best of A, B, F: 0 (none predicted): holds
+  (reported) median view error C′ 2.9e-4, X 1.5e-5; on views with edges C′ 1.7e-3, X 6.1e-5; median largest seam there C′ 0.036, X 1.1e-3; edges kept by C′ 0 of 37
