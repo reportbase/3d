@@ -73,6 +73,8 @@
   .seg button{border:none;border-radius:0;padding:5px 11px}
   .seg button.on{background:var(--accent);color:#141418}
   .scene-only{display:none!important}
+  body:not(.wander) #wanderC{display:none!important}
+  #wanderC{align-items:center;gap:6px;font-size:12px} #wanderCIn{width:90px}
   body.scene-mode .scene-only{display:flex!important}
   body.scene-mode .obj-only, body.scene-mode .tool{display:none!important}
   .rules{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
@@ -290,6 +292,8 @@
       <button id="snap" class="on obj-only" title="snap to a grid, and onto parts below when you let go">snap</button>
       <button id="frameAll" title="frame everything">frame all</button>
       <span class="seg scene-only"><button id="navOrbit" class="on" title="turn around the scene and zoom">orbit</button><button id="navWalk" title="walk through the scene at eye height: W A S D or arrows, drag to look, Shift to run, Esc to stop">walk</button><button id="navFly" title="fly over the scene: W A S D or arrows, drag to look, Space and Q up and down, Shift for speed, Esc to stop">fly</button></span>
+      <button id="wanderBtn" class="scene-only" title="the wander view: every surface banded by octaves of its distance in your own eye height (the corner, one eye height away, in gold; nearer bands mirror farther ones), and motion seen as it arrives, late by its distance over the signals' speed">wander</button>
+      <label class="scene-only" id="wanderC" title="the signals' speed: how fast what happens reaches you">signals <input id="wanderCIn" type="range" min="0" max="1000"> <span id="wanderCVal"></span></label>
       <button id="wire" class="obj-only" title="show the wireframe of the part you are shaping">wire</button>
     </div>
     <div class="crumb obj-only" id="crumb"></div>
@@ -4594,8 +4598,30 @@ const SCN=(function(){
      lighting and fog state it meets, and a uniform made per compile left the older programs'
      clocks stopped (the swaying scene stood still after a trip to another view). */
   const uTime={value:0};
-  mat.onBeforeCompile=sh=>{ sh.uniforms.uTime=uTime; sh.vertexShader=sh.vertexShader
-    .replace('#include <common>','#include <common>\nattribute vec3 posPrev;\nattribute vec3 nrmPrev;\nattribute float fade;\nattribute vec4 anim;\nattribute vec2 asize;\nuniform float uTime;\nfloat hh(float n){ return fract(sin(n)*43758.5453); }')
+  /* THE WANDER VIEW (Oct 6: "is there a way to try some of the ideas of wander in the 3d
+     project, such as the corner and octaves … the 3d project could give that project some
+     nice visuals"). Two of wander's ideas, drawn on the scene, from the reader's standpoint:
+     - octave shells: every surface is banded by its distance from the eye in the reader's own
+       length, h (its eye height above the ground), one band per doubling. The corner, distance
+       one h, is drawn gold; bands nearer than h mirror those beyond it (the flip, s ↔ 1/s), so
+       the pattern is even in log₂(d/h);
+     - arrivals: what is seen is what has arrived. Sway and bob are read late by the copy's
+       distance over the signals' speed C (wander's arrival rule, SPN §9). In this view the
+       wind is one gust everywhere at once (no per-copy phase), so the only thing that differs
+       from copy to copy is when its signal left: the gust is seen rolling out from the reader
+       at C.
+     One set of uniforms for every program the scene's materials compile into (as uTime). */
+  const WV={on:{value:0},H:{value:1.7},C:{value:40},eye:{value:new THREE.Vector3()}};
+  function wanderFrag(sh){ sh.uniforms.uWv=WV.on; sh.uniforms.uH=WV.H;
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uWv;\nuniform float uH;')
+      .replace('#include <dithering_fragment>',[
+        'if(uWv>0.5){ float o=log2(max(length(vViewPosition),1e-4)/uH), a=abs(o), e=abs(fract(a+0.5)-0.5);',   // octaves counted out from the corner, the same both sides
+        '  gl_FragColor.rgb*=mod(floor(a),2.0)>0.5?0.8:1.0;',
+        '  gl_FragColor.rgb*=1.0-0.45*exp(-e*e/0.0004);',
+        '  gl_FragColor.rgb=mix(gl_FragColor.rgb,vec3(0.83,0.63,0.32),0.9*exp(-o*o/0.0016)); }',
+        '#include <dithering_fragment>'].join('\n')); }
+  mat.onBeforeCompile=sh=>{ sh.uniforms.uTime=uTime; sh.uniforms.uWv=WV.on; sh.uniforms.uC=WV.C; sh.uniforms.uEye=WV.eye; wanderFrag(sh); sh.vertexShader=sh.vertexShader
+    .replace('#include <common>','#include <common>\nattribute vec3 posPrev;\nattribute vec3 nrmPrev;\nattribute float fade;\nattribute vec4 anim;\nattribute vec2 asize;\nuniform float uTime;\nuniform float uWv;\nuniform float uC;\nuniform vec3 uEye;\nfloat hh(float n){ return fract(sin(n)*43758.5453); }')
     .replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(mix(nrmPrev, vec3(normal), fade));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3(tangent.xyz);\n#endif')
     .replace('#include <begin_vertex>',[
       'vec3 transformed = mix(posPrev, vec3(position), fade);',
@@ -4603,10 +4629,13 @@ const SCN=(function(){
       '  for(int k=0;k<4;k++){ float fk=float(k); vec3 dv=vec3(hh(anim.x*91.7+fk*1.7),hh(anim.x*37.3+fk*2.3),hh(anim.x*53.1+fk*3.1))-0.5;',
       '    f+=cos(6.2831853*(dot(normalize(dv+1e-4),q)*(1.0+0.5*fk)+hh(anim.x*17.9+fk*5.3))); }',
       '  transformed+=objectNormal*anim.y*0.25*f; }',
-      'float ph=6.2831853*fract(anim.x*7.31);',
-      'if(anim.z>0.0){ float hy=clamp(transformed.y*asize.y,0.0,1.0), w=sin(uTime*1.3+ph)+0.35*sin(uTime*2.9+ph*1.7), lean=anim.z*hy*hy/asize.y*w;',
+      'float ph=6.2831853*fract(anim.x*7.31)*(1.0-uWv), tt=uTime;',   // the wander view: one gust, seen as it arrives
+      '#ifdef USE_INSTANCING',
+      'tt-=uWv*distance((modelMatrix*instanceMatrix*vec4(0.0,0.0,0.0,1.0)).xyz,uEye)/uC;',
+      '#endif',
+      'if(anim.z>0.0){ float hy=clamp(transformed.y*asize.y,0.0,1.0), w=sin(tt*1.3+ph)+0.35*sin(tt*2.9+ph*1.7), lean=anim.z*hy*hy/asize.y*w;',
       '  transformed.x+=lean*cos(ph*0.5); transformed.z+=lean*sin(ph*0.5); }',
-      'if(anim.w>0.0){ transformed.y+=anim.w/asize.y*sin(uTime*1.1+ph)+anim.w*0.6*transformed.x*sin(uTime*0.9+ph*1.3); }'].join('\n')); };
+      'if(anim.w>0.0){ transformed.y+=anim.w/asize.y*sin(tt*1.1+ph)+anim.w*0.6*transformed.x*sin(tt*0.9+ph*1.3); }'].join('\n')); };
   const detailed=d=>!!((d.cascade&&(d.sculpted||d.painted))||(d.detail&&d.detail.pattern));
   // the mesh for one part at one level: plain parts as before, detailed ones fine enough for that level's rung
   function partDims(p,level){ if(!detailed(p)||level===0) return LODS[level]; const k=1<<Math.min(level-1,(p.eng.rungs||4)-1);
@@ -4906,13 +4935,13 @@ const SCN=(function(){
     geo.setIndex(idx); geo.computeVertexNormals();
     const nr=geo.attributes.normal.array; for(let k=0;k<col.length;k+=3){ const steep=smooth((0.86-nr[k+1])/0.25)*0.65;
       if(steep>0){ col[k]+=(rock.r-col[k])*steep; col[k+1]+=(rock.g-col[k+1])*steep; col[k+2]+=(rock.b-col[k+2])*steep; } }
-    return new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95})); }
+    const m=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95}); m.onBeforeCompile=wanderFrag; return new THREE.Mesh(geo,m); }
   function groundOf(d,S){
     const TR=terrainOf(d);
     const g=new THREE.Group(), flat=(geo,y)=>{ geo.rotateX(-PI/2); geo.translate(0,y,0); return geo; };
     if(TR.any){ g.add(terrainMesh(d,TR,S));
       [...namedAreas(d).values()].filter(a=>a.water).forEach((a,i)=>{ const lv=num(a.level,-500,1000,0), col=typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:'#3b6e94';
-        const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.25,metalness:0.08,polygonOffset:true,polygonOffsetFactor:-(i+1),polygonOffsetUnits:-4*(i+1)});
+        const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.25,metalness:0.08,polygonOffset:true,polygonOffsetFactor:-(i+1),polygonOffsetUnits:-4*(i+1)}); mat.onBeforeCompile=wanderFrag;
         // a stream is a ribbon lying on its own sloping surface, a sample every two metres
         if(a.path){ const sf=TR.surfOf(a.name), P=a.path, w=a.width/2, v=[], ix=[];
           for(let k=0;k<P.length-1;k++){ const [x0,z0]=P[k],[x1,z1]=P[k+1], L=Math.hypot(x1-x0,z1-z0); if(!L) continue; const nx=-(z1-z0)/L*w, nz=(x1-x0)/L*w, n=Math.max(1,Math.ceil(L/2));
@@ -4929,11 +4958,11 @@ const SCN=(function(){
             const nx=-(z1-z0)/L*a.width/2, nz=(x1-x0)/L*a.width/2; add(shape([[x0+nx,z0+nz],[x1+nx,z1+nz],[x1-nx,z1-nz],[x0-nx,z0-nz]])); }
           for(const [x,z] of a.path){ const c=new THREE.CircleGeometry(a.width/2,24); c.translate(x,-z,0); add(c); } } });
       return g; }
-    const gm=new THREE.Mesh(flat(new THREE.CircleGeometry(S/2,96),-0.01),new THREE.MeshStandardMaterial({color:d.ground.color,roughness:0.95})); g.add(gm);
+    const gm=new THREE.Mesh(flat(new THREE.CircleGeometry(S/2,96),-0.01),new THREE.MeshStandardMaterial({color:d.ground.color,roughness:0.95})); gm.material.onBeforeCompile=wanderFrag; g.add(gm);
     [...namedAreas(d).values()].forEach((a,i)=>{ const y=0.03*(i+1), col=typeof a.color==='string'&&/^#[0-9a-f]{6}$/i.test(a.color)?a.color:(a.water?'#3b6e94':'#9b8b70');
       // each layer also pulled toward the camera in depth, so from far off it still wins over the one beneath
       const mat=new THREE.MeshStandardMaterial({color:col,roughness:a.water?0.25:0.95,metalness:a.water?0.08:0,polygonOffset:true,polygonOffsetFactor:-(i+1),polygonOffsetUnits:-4*(i+1)}),
-        add=geo=>g.add(new THREE.Mesh(flat(geo,y),mat));
+        add=geo=>g.add(new THREE.Mesh(flat(geo,y),mat)); mat.onBeforeCompile=wanderFrag;
       const shape=pts=>{ const sh=new THREE.Shape(); pts.forEach(([x,z],k)=>k?sh.lineTo(x,-z):sh.moveTo(x,-z)); return new THREE.ShapeGeometry(sh); };   // after the turn flat, shape y becomes -z
       if(a.rect) add(shape([[a.rect[0],a.rect[1]],[a.rect[2],a.rect[1]],[a.rect[2],a.rect[3]],[a.rect[0],a.rect[3]]]));
       else if(a.polygon) add(shape(a.polygon));
@@ -4978,6 +5007,7 @@ const SCN=(function(){
   function update(force){
     if(!sceneOn||!built) return;
     uTime.value=performance.now()/1000;   // sway and bob run on, even with the camera still
+    if(WV.on.value) wanderReader();
     const c=cam.position, k=c.x.toFixed(2)+','+c.y.toFixed(2)+','+c.z.toFixed(2);
     if(!force&&k===lastKey) return; lastKey=k;
     for(const T of built.types) for(const L of T.lod) L.n=0;
@@ -5120,6 +5150,13 @@ const SCN=(function(){
   renderer.domElement.addEventListener('pointermove',e=>{ if(!look||!nav) return; nav.yaw-=(e.clientX-look.x)*0.004; nav.pitch=Math.max(-1.45,Math.min(1.45,nav.pitch-(e.clientY-look.y)*0.004)); look={x:e.clientX,y:e.clientY}; });
   renderer.domElement.addEventListener('pointerup',()=>{ look=null; });
   $('navOrbit').onclick=()=>setNav('orbit'); $('navWalk').onclick=()=>setNav('walk'); $('navFly').onclick=()=>setNav('fly');
+  // the wander view's switch, and the signals' speed from 2 to 400 m/s, even in log
+  // the reader: its eye, and its h, the eye's height above what is under it (set at once on turning the view on, then every frame)
+  function wanderReader(){ if(!built) return; const c=cam.position, g=built.TR.ground(c.x,c.z), w=built.TR.waterAt(c.x,c.z);
+    WV.eye.value.copy(c); WV.H.value=Math.max(0.3,c.y-(w==null?g:Math.max(g,w))); }
+  function setWander(on){ on=!!on; WV.on.value=on?1:0; document.body.classList.toggle('wander',on); $('wanderBtn').classList.toggle('on',on); if(on) wanderReader(); }
+  function setC(c){ WV.C.value=Math.min(400,Math.max(2,+c||40)); $('wanderCIn').value=Math.round(1000*Math.log(WV.C.value/2)/Math.log(200)); $('wanderCVal').textContent=Math.round(WV.C.value)+' m/s'; }
+  $('wanderBtn').onclick=()=>setWander(!WV.on.value); $('wanderCIn').oninput=e=>setC(2*Math.pow(200,+e.target.value/1000)); setC(40);
   // Put the camera somewhere and redraw at once (used by the tests; handy from the console).
   /* Where on the ground a click lands, as [x, z], or null off the ground: the terrain and
      water when there are any, else the flat ground plane, within the ground's circle. */
@@ -5129,7 +5166,7 @@ const SCN=(function(){
     if(!pt){ const t=-ray.ray.origin.y/ray.ray.direction.y; if(t>0) pt=ray.ray.at(t,V(0,0,0)); }
     if(!pt||!data||Math.hypot(pt.x,pt.z)>(built?built.size:data.ground.size)/2) return null; return [pt.x,pt.z]; }
   function cameraTo(p,t){ camAnim=null; cam.position.set(...p); orbit.target.set(...t); cam.lookAt(orbit.target); update(true); }
-  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR_OCT,NEAR,uTime};
+  return {setView,set,restore,update,frame,viewsPng,cameraTo,pick,setNav,tick,get nav(){ return nav; },heightAt:(x,z)=>built?built.TR.ground(x,z):0,waterAt:(x,z)=>built?built.TR.waterAt(x,z):null,data:()=>data,built:()=>built,editType,finishEdit,stats:()=>stats,get on(){ return sceneOn; },LODS,NEAR_OCT,NEAR,uTime,setWander,setC,WV};
 })();
 window.__scene=SCN;
 
@@ -5724,6 +5761,18 @@ window.__scene=SCN;
       { type: 'cathedral bay', at: [13,-24], rot: 90 }, { type: 'cathedral bay', at: [-13,-24], rot: -90 },
       { type: 'gravestone', grid: { rect: [24,-30,40,20] }, every: [2.5,3], jitter: 0.3, tint: 0.15 },
       { type: 'oak', scatter: { rect: [-45,-45,45,50] }, count: 10, scale: [0.8,1.2], exclude: [{ rect: [-20,-42,20,40] }] }] },
+    /* ONE HOUSE IN EACH OCTAVE (Oct 6: "it might be interesting to put one house in each
+       octive all the way to the horizon"). Stand at the prefab's centre at walking height
+       (h = 1.7 m) and look along it (toward −z): house k sits at the middle of octave k of that
+       reader's distance, √2·2^k·h, for k = 2 to 9, from 9.6 m to 1.2 km, the last octave the
+       ground holds. Turn on the wander view and each house stands in its own band. Two rows:
+       on the left every house is the same size, so each octave's reads half as large as the
+       last (the far side's share halving per doubling); on the right each is scaled with its
+       distance, 2^(k−4), and every one reads the same in its own octave, SPN §3.8's "no rung
+       is preferred". The scaled row keeps its houses as far off the line of sight as they are
+       large. Houses face the street. */
+    { name: 'octave rows', group: [2, 3, 4, 5, 6, 7, 8, 9].flatMap(k => { const d = +(Math.SQRT2 * 2 ** k * 1.7).toFixed(2), s = 2 ** (k - 4);
+      return [{ type: 'cottage', at: [-7, -d], rot: 90 }, { type: 'cottage', at: [+(7 * s).toFixed(2), -d], rot: -90, scale: s }]; }) },
     { name: 'market', group: [
       { type: 'stall', row: { from: [-8,5], to: [8,5] }, count: 3, rot: 180, tint: 0.2 },
       { type: 'stall', row: { from: [-8,-5], to: [8,-5] }, count: 3, rot: 0, tint: 0.2 },
@@ -5737,7 +5786,7 @@ window.__scene=SCN;
       { type: 'campfire', at: [0,0] },
       { type: 'log seat', ring: { center: [0,0], radius: 2.2 }, count: 3 },   // facing out, the log (its x) runs round the fire
       { type: 'tent', ring: { center: [0,0], radius: 7 }, count: 5, rot: 'in', tint: 0.2 }] }];
-  const LIBRARY=['homestead','terrace','farmstead','churchyard','market','windmill','well','grove','campsite','cathedral close'];
+  const LIBRARY=['homestead','terrace','farmstead','churchyard','market','windmill','well','grove','campsite','cathedral close','octave rows'];
   const libBy=new Map(LIB_TYPES.map(t=>[t.name,t])), libMade=new Map();
   // Each library type made once: the same object every time, so placing a second
   // homestead finds its cottage already in the scene instead of adding "cottage 2".

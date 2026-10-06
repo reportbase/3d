@@ -703,7 +703,7 @@ try {
     await ev(() => __scene.set(null));
     if (!/place a prefab/.test(await page.textContent('#scStats'))) throw new Error('the empty scene does not point to the prefabs');
     const names = await ev(() => [...document.querySelectorAll('#scLib button')].map(b => b.dataset.lib).join(','));
-    if (names !== 'homestead,terrace,farmstead,churchyard,market,windmill,well,grove,campsite,cathedral close') throw new Error('library: ' + names);
+    if (names !== 'homestead,terrace,farmstead,churchyard,market,windmill,well,grove,campsite,cathedral close,octave rows') throw new Error('library: ' + names);
     await page.click('#scLib button[data-lib="homestead"]');
     if (!await ev(() => __scene.data() && __scene.data().place.length === 0)) throw new Error('picking a prefab with no scene did not start one');
     if (!/place a homestead/.test(await page.textContent('#placeHint')) || await ev(() => document.getElementById('placeHint').hidden)) throw new Error('no placing hint');
@@ -751,6 +751,12 @@ try {
     if (!(cath.h > 66 && cath.h < 72)) throw new Error('the cathedral stands ' + cath.h + ' m, not 69');
     if (cath.parts !== 24) throw new Error('the cathedral kept ' + cath.parts + ' of its 24 parts');
     if (cath.bays.some(([dx, out]) => Math.abs(Math.abs(dx) - 13) > 0.01 || Math.sign(dx) !== out) || cath.bays.filter(b => b[0] > 0).length !== 6) throw new Error('bays: ' + JSON.stringify(cath.bays));
+    // one house in each octave of a walking reader's distance (h = 1.7 m), octaves 2 to 9: the left row all one size,
+    // the right row scaled with distance, each house at the same bearing and so reading the same in its own octave
+    await ev(() => __scene.set(null)); await ev(() => __library.add('octave rows', [0, 0], 0));
+    const oc = await ev(() => __scene.built().inst.map(o => [o.x, -o.z, o.s])), L = oc.filter(o => o[0] < 0).sort((a, b) => a[1] - b[1]), Rr = oc.filter(o => o[0] > 0).sort((a, b) => a[1] - b[1]);
+    const okRow = (row, scaled) => row.length === 8 && row.every((o, k) => Math.abs(o[1] - Math.SQRT2 * 2 ** (k + 2) * 1.7) < 0.01 && Math.abs(o[2] - (scaled ? 2 ** (k - 2) : 1)) < 1e-9 && (!scaled || Math.abs(o[0] / o[1] - Rr[0][0] / Rr[0][1]) < 1e-3));
+    if (!okRow(L, false) || !okRow(Rr, true)) throw new Error('octave rows: ' + JSON.stringify(oc));
   });
   await step('scene: detail by octaves, from prefixes of the rungs', async () => {
     // a rock: a ball with a sculpted cascade, each rung's detail half the last's (a 1/f surface)
@@ -973,6 +979,43 @@ try {
       if (!/"vary": 0 to 0.2/.test(await ev(() => __describe.SCENE_SYS)) || !/"sway"/.test(await ev(() => __describe.SCENE_SYS))) throw new Error('the scene prompt does not offer vary and sway');
     } finally {   // back to the object view whatever happened, so a failure here does not fail the steps after it
       await page.click('#vObject'); await ev(() => __scene.set(null));
+      await ev(k => __studio.loadScene(k), keep);
+    }
+  });
+  await step('scene: the wander view, octave shells and arrivals', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    const pine = { name: 'pine', parts: [{ name: 'crown', shape: 'cone', size: [3, 7, 3], pos: [0, 0, 0], color: '#2f5d3a' }] };
+    const scene = sway => ({ name: 'wander', seed: 5, ground: { color: '#6b8a4e', size: 160 }, types: [pine], place: [{ type: 'pine', scatter: { rect: [-50, -50, 50, 50] }, count: 80, ...(sway ? { sway: 0.3 } : {}) }] });
+    // the picture itself, read from the WebGL canvas (not a screenshot, which would also hold the toolbar over it, and the button's hover)
+    const pix = () => ev(() => renderer.domElement.toDataURL()), still = async () => { await page.waitForTimeout(1500); let a = await pix();
+      for (let i = 0; i < 6; i++){ await page.waitForTimeout(700); const b = await pix(); if (a === b) return a; a = b; } return a; };
+    try {
+      await page.click('#vScene'); await ev(h => __describe.applyScene(h, 'scene'), scene(false));
+      if (await ev(() => getComputedStyle(document.getElementById('wanderC')).display) !== 'none') throw new Error('the signals slider shows with the wander view off');
+      const off = await still();
+      await page.click('#wanderBtn');
+      const st = await ev(() => ({ on: __scene.WV.on.value, H: __scene.WV.H.value, eye: __scene.WV.eye.value.distanceTo(__studio.cam().position), shown: getComputedStyle(document.getElementById('wanderC')).display !== 'none', btn: document.getElementById('wanderBtn').classList.contains('on') }));
+      if (!st.on || !st.btn || !st.shown) throw new Error('the wander view did not turn on: ' + JSON.stringify(st));
+      // the reader's h is the eye's height above the flat ground, and its eye is the camera
+      const camY = await ev(() => __studio.cam().position.y);
+      if (Math.abs(st.H - camY) > 0.05 || st.eye > 1e-6) throw new Error(`the reader: h ${st.H} for an eye ${camY} above flat ground, eye ${st.eye} from the camera`);
+      const on = await still();
+      if (on === off) throw new Error('the octave shells did not change the picture');
+      // the signals' speed, 2 to 400 m/s on the slider
+      await page.locator('#wanderCIn').fill('0'); if (await ev(() => [__scene.WV.C.value, document.getElementById('wanderCVal').textContent].join()) !== '2,2 m/s') throw new Error('the slider at 0 is not 2 m/s');
+      await page.locator('#wanderCIn').fill('1000'); if (Math.abs(await ev(() => __scene.WV.C.value) - 400) > 1e-9) throw new Error('the slider at the top is not 400 m/s');
+      await ev(() => __scene.setC(40));
+      // arrivals: the copies' program reads its sway late by its distance from the eye, at that speed
+      const prog = await ev(() => { const p = renderer.info.programs.find(p => /USE_INSTANCING/.test(p.cacheKey) && p.getUniforms().map.uEye); return p ? { eye: !!p.getUniforms().map.uEye, c: !!p.getUniforms().map.uC } : null; });
+      if (!prog || !prog.eye || !prog.c) throw new Error('the copies are not read by their arrival: ' + JSON.stringify(prog));
+      await ev(h => __describe.applyScene(h, 'scene'), scene(true)); await page.waitForTimeout(1500);
+      const a = await pix(); await page.waitForTimeout(700);
+      if (a === await pix()) throw new Error('the gust does not move in the wander view');
+      // off again, the still scene is drawn exactly as before
+      await page.click('#wanderBtn'); await ev(h => __describe.applyScene(h, 'scene'), scene(false));
+      if ((await still()) !== off) throw new Error('the scene is not drawn as before with the wander view off again');
+    } finally {
+      await ev(() => { __scene.setWander(false); __scene.setC(40); }); await page.click('#vObject'); await ev(() => __scene.set(null));
       await ev(k => __studio.loadScene(k), keep);
     }
   });

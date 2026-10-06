@@ -85,6 +85,12 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   footprint) or float at a water level; `elevation` filters scatters and grids.
   Walk and fly (`setNav`, `tick`) move the camera with W A S D and drag to look;
   the orbit controls stand aside while they run.
+  The **wander view** (`WV`, `wanderFrag`, the scene bar's "wander" button) draws two of
+  wander's ideas on any scene: every scene surface banded by octaves of its distance from the
+  eye in the reader's own h (the eye's height above what is under it), the corner at one h in
+  gold, near bands mirroring far ones; and sway and bob read late by distance over the
+  signals' speed C (2 to 400 m/s), with one gust everywhere so the delay is all that differs.
+  A new scene material needs `onBeforeCompile = wanderFrag` to be banded.
   `areas` are named flat ground (rect, circle, polygon, or path with a width),
   drawn by `groundOf`; `water` and `blocks` flags keep scatters and grids where
   they belong (`allowed`), and rules name areas for `scatter`, `grid` and
