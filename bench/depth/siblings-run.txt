@@ -1,0 +1,78 @@
+## Checks of the code
+  1. weights: 0 band points not summing to 1, 0 outside [0, 1]; lone walls 1 0 1 0 ok
+  2. a constant is held: worst 1.1e-15 ok
+
+## The harbour village, viewer on the high street at (6, -25)
+  4. A, B, F on the first view as DEP-S: 6.8e-6 4.0e-5 2.0e-5 ok
+  3. N's nodes are C′'s, in order (14) ok
+
+H = 1.7 m, direction 0°: view error A 6.8e-6  B 4.0e-5  F 2.0e-5  C′ 2.3e-7  K 3.9e-6  N 2.4e-6  (N, every wall lone: 4.8e-6); N/C′ 10.157, N/K 0.609
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 1.3e-5, K 4.5e-9, N 1.8e-9
+  shared walls: 22 of 28
+
+H = 1.7 m, direction 45°: view error A 1.5e-5  B 6.4e-5  F 2.5e-5  C′ 1.2e-6  K 1.5e-5  N 1.3e-5  (N, every wall lone: 3.2e-5); N/C′ 10.705, N/K 0.910
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 8.6e-5, K 3.8e-8, N 2.6e-9
+  shared walls: 18 of 28
+
+H = 1.7 m, direction 90°: view error A 5.8e-4  B 5.3e-4  F 5.9e-4  C′ 4.6e-5  K 1.1e-4  N 1.4e-4  (N, every wall lone: 3.7e-4); N/C′ 2.955, N/K 1.227
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 1.1e-3, K 4.5e-8, N 9.3e-8
+  shared walls: 18 of 28
+
+H = 1.7 m, direction 135°: view error A 2.2e-5  B 1.1e-4  F 7.5e-5  C′ 1.6e-7  K 1.7e-5  N 1.0e-5  (N, every wall lone: 8.0e-5); N/C′ 64.012, N/K 0.603
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 3.0e-5, K 4.0e-9, N 5.9e-9
+  shared walls: 22 of 28
+
+H = 1.7 m, direction 180°: view error A 7.4e-6  B 3.3e-5  F 1.5e-5  C′ 3.3e-7  K 1.7e-6  N 4.1e-6  (N, every wall lone: 1.0e-5); N/C′ 12.228, N/K 2.364
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 4.4e-5, K 2.1e-9, N 2.1e-9
+  shared walls: 22 of 28
+
+H = 1.7 m, direction 225°: view error A 4.8e-6  B 3.9e-5  F 1.1e-5  C′ 6.4e-8  K 2.1e-6  N 2.8e-6  (N, every wall lone: 1.1e-5); N/C′ 44.109, N/K 1.331
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 2.0e-5, K 9.4e-9, N 1.4e-9
+  shared walls: 22 of 28
+
+H = 1.7 m, direction 270°: view error A 6.2e-6  B 3.1e-5  F 8.5e-9  C′ 7.3e-9  K 8.1e-9  N NaN  (N, every wall lone: NaN); N/C′ NaN, N/K NaN
+  walls tested 154, N not continuous at 8 (7.5e-3, 7.8e-3, 8.2e-3, 4.1e-3); largest step at 1e-9: C′ 4.1e-8, K 5.0e-10, N NaN
+  shared walls: 14 of 28
+
+H = 1.7 m, direction 315°: view error A 6.9e-4  B 3.7e-4  F 4.4e-4  C′ 2.1e-4  K 7.4e-5  N 3.9e-4  (N, every wall lone: 3.5e-4); N/C′ 1.841, N/K 5.196
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 1.9e-3, K 7.2e-8, N 1.1e-7
+  shared walls: 22 of 28
+
+H = 30 m, direction 0°: view error A 8.7e-3  B 5.2e-3  F 4.5e-3  C′ 3.8e-4  K 2.1e-3  N 4.0e-3  (N, every wall lone: 5.6e-3); N/C′ 10.618, N/K 1.899
+  walls tested 157, N not continuous at 1 (7.992); largest step at 1e-9: C′ 0.079, K 6.4e-6, N 1.4e-5
+  shared walls: 14 of 28
+
+H = 30 m, direction 45°: view error A 8.9e-3  B 6.2e-3  F 6.9e-3  C′ 2.9e-3  K 4.6e-3  N 2.9e-3  (N, every wall lone: 5.3e-3); N/C′ 1.025, N/K 0.635
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 0.024, K 2.4e-7, N 3.4e-7
+  shared walls: 12 of 28
+
+H = 30 m, direction 90°: view error A 5.6e-3  B 9.2e-3  F 0.011  C′ 1.9e-3  K 2.9e-3  N 2.9e-3  (N, every wall lone: 3.7e-3); N/C′ 1.551, N/K 0.999
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 0.061, K 2.9e-6, N 2.5e-6
+  shared walls: 8 of 28
+
+H = 30 m, direction 135°: view error A 8.4e-3  B 6.7e-3  F 9.1e-3  C′ 3.0e-3  K 3.0e-3  N 3.2e-3  (N, every wall lone: 5.8e-3); N/C′ 1.063, N/K 1.037
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 0.038, K 1.7e-7, N 1.9e-7
+  shared walls: 12 of 28
+
+H = 30 m, direction 180°: view error A 0.014  B 8.5e-3  F 0.010  C′ 8.1e-3  K 3.7e-3  N 3.7e-3  (N, every wall lone: 6.2e-3); N/C′ 0.460, N/K 1.016
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 0.160, K 9.0e-7, N 1.3e-6
+  shared walls: 12 of 28
+
+H = 30 m, direction 225°: view error A 0.034  B 0.014  F 0.016  C′ 2.6e-3  K 4.5e-3  N 4.7e-3  (N, every wall lone: 5.5e-3); N/C′ 1.816, N/K 1.033
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 0.038, K 2.0e-7, N 2.1e-7
+  shared walls: 8 of 28
+
+H = 30 m, direction 270°: view error A 0.012  B 8.4e-3  F 9.2e-3  C′ 1.3e-3  K 2.1e-3  N 2.3e-3  (N, every wall lone: 3.8e-3); N/C′ 1.813, N/K 1.085
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 0.026, K 1.2e-6, N 1.1e-6
+  shared walls: 14 of 28
+
+H = 30 m, direction 315°: view error A 0.019  B 9.2e-3  F 8.8e-3  C′ 1.6e-3  K 4.2e-3  N 6.6e-3  (N, every wall lone: 6.9e-3); N/C′ 4.093, N/K 1.567
+  walls tested 157, N not continuous at 0; largest step at 1e-9: C′ 0.035, K 1.9e-7, N 1.7e-7
+  shared walls: 12 of 28
+
+## Verdicts
+  N1: walls where N is not continuous, over all views: 9 of 2509 (none predicted): KN1 FIRES
+  N2: N above 2× C′ in 8 of 16 views (at most 2 predicted): KN2 FIRES
+  N3: N below K in 5 of 16 views (at least 14 predicted): KN3 FIRES
+  N4: N below the best of A, B, F in 14 of 16 views (all predicted): KN4 FIRES
+  (reported) median view error A 3.1e-3, F 2.5e-3, C′ 2.9e-4, K 1.1e-3, N 1.3e-3, N every wall lone NaN; median N/C′ 3.524
