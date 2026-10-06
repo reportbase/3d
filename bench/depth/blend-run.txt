@@ -1,0 +1,77 @@
+## Checks of the code
+  1. every scoring point lies in its own octave ok
+  2. widened node maps: 0 sites outside, worst angle 1.7e-12, 0 bad weights ok
+  3. the blended base holds a constant: worst 1.1e-15 ok
+
+## The harbour village, viewer on the high street at (6, -25)
+  4. A, B, F on the first view as DEP-S: 6.8e-6 4.0e-5 2.0e-5 ok
+
+H = 1.7 m, direction 0°: view error A 6.8e-6  B 4.0e-5  F 2.0e-5  C′ 2.3e-7  K 3.9e-6; K/C′ 16.668
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 1.3e-5, K 1.2e-8
+  K's nodes: [2] [2,1] [2,0] [3] [2,4] [2,3] [2,1,-2] [2,2] [3,-3] [2,5] [1] [3,-4] [2,-1] [3,-2]
+
+H = 1.7 m, direction 45°: view error A 1.5e-5  B 6.4e-5  F 2.5e-5  C′ 1.2e-6  K 1.5e-5; K/C′ 11.766
+  walls tested 129, K not continuous at 1 (1.969); largest step at ε = 1e-9: C′ 8.6e-5, K 9.2e-8
+  K's nodes: [1] [3] [2] [1,4] [1,3] [2,-3] [1,5] [2,-4] [2,-2] [1,2] [3,2] [0] [4] [1,3,4]
+
+H = 1.7 m, direction 90°: view error A 5.8e-4  B 5.3e-4  F 5.9e-4  C′ 4.6e-5  K 1.1e-4; K/C′ 2.408
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 1.1e-3, K 2.1e-8
+  K's nodes: [4] [2] [4,1] [3] [4,1,-1] [4,0] [2,1] [4,1,0] [3,0] [4,2] [1] [2,4] [5] [4,1,-2]
+
+H = 1.7 m, direction 135°: view error A 2.2e-5  B 1.1e-4  F 7.5e-5  C′ 1.6e-7  K 1.7e-5; K/C′ 106.102
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 3.0e-5, K 9.6e-8
+  K's nodes: [2] [3] [2,1] [2,4] [2,2] [2,3] [3,-3] [2,5] [3,-4] [3,-2] [1] [2,-2] [2,0] [2,1,2]
+
+H = 1.7 m, direction 180°: view error A 7.4e-6  B 3.3e-5  F 1.5e-5  C′ 3.3e-7  K 1.7e-6; K/C′ 5.172
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 4.4e-5, K 2.5e-9
+  K's nodes: [2] [2,0] [1] [2,-1] [2,-2] [1,4] [2,1] [1,3] [1,5] [2,0,-1] [2,2] [2,0,-2] [2,-3] [3]
+
+H = 1.7 m, direction 225°: view error A 4.8e-6  B 3.9e-5  F 1.1e-5  C′ 6.4e-8  K 2.1e-6; K/C′ 33.128
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 2.0e-5, K 1.8e-8
+  K's nodes: [2] [2,2] [3] [2,4] [2,3] [3,-3] [2,5] [1] [3,-4] [3,-2] [2,1] [2,-2] [1,4] [2,3,4]
+
+H = 1.7 m, direction 270°: view error A 6.2e-6  B 3.1e-5  F 8.5e-9  C′ 7.3e-9  K 8.1e-9; K/C′ 1.119
+  walls tested 127, K not continuous at 0; largest step at ε = 1e-9: C′ 7.4e-4, K 5.0e-10
+  K's nodes: [1] [2] [-1] [-2] [-3] [-4] [-7] [0] [-5] [-2,0] [-5,-1] [0,0] [-1,1] [-4,-1]
+
+H = 1.7 m, direction 315°: view error A 6.9e-4  B 3.7e-4  F 4.4e-4  C′ 2.1e-4  K 7.4e-5; K/C′ 0.354
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 1.9e-3, K 7.2e-8
+  K's nodes: [5] [5,0] [5,0,0] [5,0,-1] [5,-1] [5,1] [4] [5,-2] [5,2] [5,0,-2] [5,0,1] [6] [4,4] [5,3]
+
+H = 30 m, direction 0°: view error A 8.7e-3  B 5.2e-3  F 4.5e-3  C′ 3.8e-4  K 2.1e-3; K/C′ 5.591
+  walls tested 129, K not continuous at 7 (8.017, 8.057, 7.991, 8.057); largest step at ε = 1e-9: C′ 0.079, K 1.2e-6
+  K's nodes: [3] [3,4] [4] [-2] [3,3] [-2,2] [3,2] [-2,2,2] [-2,-1] [4,-3] [3,5] [4,-2] [3,4,-1] [3,1]
+
+H = 30 m, direction 45°: view error A 8.9e-3  B 6.2e-3  F 6.9e-3  C′ 2.9e-3  K 4.6e-3; K/C′ 1.614
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 0.024, K 2.4e-7
+  K's nodes: [4] [4,-1] [1] [-1] [1,3] [-2] [-1,0] [2] [4,-1,1] [4,0] [-2,-1] [1,2] [4,-2] [3]
+
+H = 30 m, direction 90°: view error A 5.6e-3  B 9.2e-3  F 0.011  C′ 1.9e-3  K 2.9e-3; K/C′ 1.552
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 0.061, K 3.0e-7
+  K's nodes: [3] [3,2] [1] [0] [-1] [1,1] [0,1] [0,1,0] [3,1] [-1,0] [1,1,1] [3,2,-1] [2] [-1,0,0]
+
+H = 30 m, direction 135°: view error A 8.4e-3  B 6.7e-3  F 9.1e-3  C′ 3.0e-3  K 3.0e-3; K/C′ 1.025
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 0.038, K 1.7e-7
+  K's nodes: [4] [4,0] [4,0,-1] [1] [0] [-1] [1,3] [2] [0,1] [4,-1] [0,1,0] [-1,0] [0,-1] [3]
+
+H = 30 m, direction 180°: view error A 0.014  B 8.5e-3  F 0.010  C′ 8.1e-3  K 3.7e-3; K/C′ 0.453
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 0.160, K 7.6e-7
+  K's nodes: [4] [4,-1] [3] [3,1] [-1] [4,-1,0] [2] [-2] [2,4] [-2,-1] [4,-2] [3,1,-1] [3,0] [4,-1,-1]
+
+H = 30 m, direction 225°: view error A 0.034  B 0.014  F 0.016  C′ 2.6e-3  K 4.5e-3; K/C′ 1.758
+  walls tested 129, K not continuous at 1 (31.865); largest step at ε = 1e-9: C′ 0.038, K 2.5e-7
+  K's nodes: [5] [5,2] [-2] [5,2,0] [0] [5,1] [5,3] [6] [5,2,1] [-2,2] [5,4] [-2,-1] [0,0] [5,0]
+
+H = 30 m, direction 270°: view error A 0.012  B 8.4e-3  F 9.2e-3  C′ 1.3e-3  K 2.1e-3; K/C′ 1.672
+  walls tested 129, K not continuous at 0; largest step at ε = 1e-9: C′ 0.026, K 1.2e-6
+  K's nodes: [4] [4,0] [4,0,2] [0] [1] [4,1] [4,0,1] [1,1] [0,0] [4,-1] [4,2] [1,1,1] [5] [0,1]
+
+H = 30 m, direction 315°: view error A 0.019  B 9.2e-3  F 8.8e-3  C′ 1.6e-3  K 4.2e-3; K/C′ 2.612
+  walls tested 129, K not continuous at 1 (15.932); largest step at ε = 1e-9: C′ 0.035, K 1.9e-7
+  K's nodes: [4] [4,2] [4,2,1] [-2] [-1] [4,3] [4,-1] [5] [-2,1] [4,1] [-1,1] [-1,1,1] [4,2,2] [4,4]
+
+## Verdicts
+  K1: walls where K is not continuous, over all views: 10 of 2062 (none predicted): KK1 FIRES
+  K2: K above 2× C′ in 8 of 16 views (at most 2 predicted): KK2 FIRES
+  K3: K below the best of A, B, F in 16 of 16 views (at least 14 predicted): holds
+  (reported) median view error A 3.1e-3, B 2.9e-3, F 2.5e-3, C′ 2.9e-4, K 1.1e-3; median K/C′ 2.083

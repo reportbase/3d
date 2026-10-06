@@ -1,0 +1,13 @@
+## Checks of the code
+
+## The harbour village, viewer on the high street at (6, -25)
+check: H = 1.7, 45°, wall 1.969: J(1e-5 … 1e-11) 3.1e-4 3.3e-6 1.5e-7 2.0e-8 2.0e-9 2.0e-10 2.0e-11; the reading's own step at 1e-9 2.5e-9
+check: H = 30, 0°, wall 8.017: J(1e-5 … 1e-11) 8.1e-5 8.2e-7 8.2e-9 8.2e-11 8.2e-13 1.1e-14 4.8e-15; the reading's own step at 1e-9 0
+check: H = 30, 0°, wall 8.057: J(1e-5 … 1e-11) 9.4e-6 9.4e-8 9.4e-10 9.4e-12 9.4e-14 6.7e-16 2.4e-15; the reading's own step at 1e-9 0
+check: H = 30, 0°, wall 7.991: J(1e-5 … 1e-11) 3.4e-4 6.9e-7 4.2e-7 4.5e-8 4.6e-9 4.6e-10 4.6e-11; the reading's own step at 1e-9 0
+check: H = 30, 0°, wall 8.057: J(1e-5 … 1e-11) 9.4e-6 9.4e-8 9.4e-10 9.4e-12 9.4e-14 6.7e-16 2.4e-15; the reading's own step at 1e-9 0
+check: H = 30, 0°, wall 8.223: J(1e-5 … 1e-11) 1.6e-7 1.2e-9 2.3e-11 3.8e-12 3.9e-13 4.0e-14 4.0e-15; the reading's own step at 1e-9 0
+check: H = 30, 0°, wall 7.886: J(1e-5 … 1e-11) 3.2e-4 2.8e-6 1.4e-10 2.7e-9 3.0e-10 3.0e-11 3.0e-12; the reading's own step at 1e-9 5.2e-10
+check: H = 30, 0°, wall 7.900: J(1e-5 … 1e-11) 1.9e-4 2.4e-6 7.9e-8 6.2e-9 6.1e-10 6.0e-11 6.0e-12; the reading's own step at 1e-9 5.8e-10
+check: H = 30, 225°, wall 31.865: J(1e-5 … 1e-11) 3.1e-5 3.4e-7 5.8e-9 3.0e-10 2.7e-11 2.7e-12 2.6e-13; the reading's own step at 1e-9 0
+check: H = 30, 315°, wall 15.932: J(1e-5 … 1e-11) 2.2e-5 2.4e-7 4.5e-9 2.6e-10 2.4e-11 2.4e-12 2.4e-13; the reading's own step at 1e-9 0
