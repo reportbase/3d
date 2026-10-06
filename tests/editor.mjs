@@ -937,6 +937,7 @@ try {
       { type: 'buoy', at: [25, 25], ...(move ? { bob: 0.2 } : {}) },
       { type: 'grove', at: [-25, 25], ...(move ? { sway: 0.2 } : {}) },
       { type: 'rock', at: [0, -40] }] });
+    try {
     await ev(h => __describe.applyScene(h, 'scene'), scene(true));
     const r = await ev(() => { const b = __scene.built(), by = i => b.inst.filter(o => o.rule === i);
       const rocks = by(0), seeds = new Set(rocks.map(o => o.anim[0].toFixed(6)));
@@ -949,13 +950,19 @@ try {
     if (!r.still) throw new Error('a rule without vary, sway or bob moved its copies');
     if (!/varied/.test(r.text) || !/swaying/.test(r.text) || !/bobbing/.test(r.text)) throw new Error('rules panel: ' + r.text);
     // the motion shows: two frames apart differ with sway and bob, and match without
+    // A scene changes for a moment after it is laid out (the levels settle), then holds still: so wait
+    // for the still scene to hold, and give the moving one the same time, before comparing two frames.
     const canvas = page.locator('canvas').first(), shots = async () => { const a = await canvas.screenshot(); await page.waitForTimeout(700); const b = await canvas.screenshot(); return a.equals(b); };
-    if (await shots()) throw new Error('the swaying scene did not move between frames');
-    await ev(h => __describe.applyScene(h, 'scene'), scene(false));
-    if (!(await shots())) throw new Error('the same scene without sway or bob changed between frames');
-    if (!/"vary": 0 to 0.2/.test(await ev(() => __describe.SCENE_SYS)) || !/"sway"/.test(await ev(() => __describe.SCENE_SYS))) throw new Error('the scene prompt does not offer vary and sway');
-    await page.click('#vObject'); await ev(() => __scene.set(null));
-    await ev(k => __studio.loadScene(k), keep);
+    const settle = async () => { await page.waitForTimeout(1500); for (let i = 0; i < 6 && !(await shots()); i++); };
+      await ev(h => __describe.applyScene(h, 'scene'), scene(false)); await settle();
+      if (!(await shots())) throw new Error('the same scene without sway or bob changed between frames');
+      await ev(h => __describe.applyScene(h, 'scene'), scene(true)); await page.waitForTimeout(1500); await shots();
+      if (await shots()) throw new Error('the swaying scene did not move between frames');
+      if (!/"vary": 0 to 0.2/.test(await ev(() => __describe.SCENE_SYS)) || !/"sway"/.test(await ev(() => __describe.SCENE_SYS))) throw new Error('the scene prompt does not offer vary and sway');
+    } finally {   // back to the object view whatever happened, so a failure here does not fail the steps after it
+      await page.click('#vObject'); await ev(() => __scene.set(null));
+      await ev(k => __studio.loadScene(k), keep);
+    }
   });
   await step('describe it: built from a picture', async () => {
     const keep = await ev(() => __studio.sceneData());
