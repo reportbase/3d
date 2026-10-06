@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Six ways to observe</title>
+<!--
+  SIX WAYS TO OBSERVE (Oct 6: "the task of the 3d repository is try to visualize these six
+  situations … each view needs its own expression, like a different frame or slide show").
+
+  The situations of Serial, Parallel and Nowhere §2.1 (wander/papers), set by what an observer
+  knows of the two breadths, h (its own side) and v (the other), with a sixth proposed on 6
+  October and not yet in the papers: the observer outside a bounded whole, an object held in the
+  hand. One apple throughout; only how the observer stands to it changes, so the frames differ
+  in exactly one thing. Each frame has its own expression and nothing else on it:
+    1 the circle        the apple's equation, a perfect sphere, from nowhere: orthographic (no
+                        perspective, so no standpoint), see-through, evenly marked, turning slowly
+    2 every other shape the apple's true shape, the same way: an outline with character, still
+                        nothing facing the observer
+    6 the holder        the apple in the hand: solid, one face at a time; drag to turn it and the
+                        other face comes round (closure by turning)
+    5 v within bounds   a molecule near the apple's skin: neighbours, then the rest blurring
+                        outward, and through the gaps the light outside; the whole ends
+    3 the fisheye       a molecule in an endless apple: neighbours, then a wall in every
+                        direction; it drifts forward and the view never changes
+    4 impossible        nothing: an even grey, with nothing to count in
+  Shown in that order, each frame loses one thing the one before had: the unit, the outside
+  view, the back, the edge, then everything. ←/→ or the buttons step through; 1–6 jump to a
+  situation; #s3 opens on one.
+-->
+<style>
+  :root{ --bg:#141418; --panel:rgba(20,20,26,.82); --line:rgba(255,255,255,.12); --fg:#e6e4dc; --mut:#9a978e; --accent:#d4a052; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  canvas{position:fixed;inset:0;display:block;touch-action:none}
+  .top{position:fixed;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+  .top b{font-weight:600;letter-spacing:.02em} .top a{color:var(--mut);text-decoration:none;pointer-events:auto;font-size:13px}
+  .card{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(640px,calc(100% - 32px));background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:16px 18px 14px;backdrop-filter:blur(8px)}
+  .head{display:flex;align-items:baseline;gap:12px}
+  .num{font-size:30px;font-weight:600;color:var(--accent);line-height:1}
+  .name{font-size:18px;font-weight:600}
+  .tag{margin-left:auto;font-size:12px;color:var(--mut)}
+  .line{margin-top:6px;color:var(--fg)}
+  .how{margin-top:4px;font-size:13px;color:var(--mut);min-height:1.2em}
+  .nav{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .nav button{background:none;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:5px 12px;font:inherit;cursor:pointer}
+  .nav button:hover{border-color:var(--accent)}
+  .dots{display:flex;gap:6px;margin:0 auto}
+  .dots button{width:30px;padding:4px 0;font-size:13px;color:var(--mut)}
+  .dots button.on{background:var(--accent);border-color:var(--accent);color:#141418}
+  @media (max-width:520px){ .num{font-size:24px} .name{font-size:16px} .line{font-size:14px} .dots button{width:26px} }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="top"><b>Six ways to observe</b><a href="3d.html">← the studio</a></div>
+<div class="card" id="card">
+  <div class="head"><span class="num" id="num"></span><span class="name" id="name"></span><span class="tag" id="tag"></span></div>
+  <div class="line" id="line"></div>
+  <div class="how" id="how"></div>
+  <div class="nav"><button id="prev" aria-label="previous">←</button><div class="dots" id="dots"></div><button id="next" aria-label="next">→</button></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+const PI = Math.PI, TAU = 2 * PI, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+
+/* ── the apple: one shape for every frame ──
+   A sphere, then an apple: five soft lobes round its waist, a dimple at the stem and a smaller
+   one underneath, a little broader at the top than the bottom, a little flatter than tall. */
+function appleR(t, p){ let r = 1 + 0.045 * Math.cos(5 * p) * Math.sin(t) ** 2;
+  r *= 1 + 0.07 * Math.cos(t);
+  r *= 1 - 0.33 * Math.exp(-(t * t) / 0.09) - 0.22 * Math.exp(-((PI - t) ** 2) / 0.12);
+  return r; }
+const applePt = (t, p, s = 1) => { const r = appleR(t, p) * s; return [r * Math.sin(t) * Math.cos(p), 0.9 * r * Math.cos(t), r * Math.sin(t) * Math.sin(p)]; };
+const spherePt = (t, p, s = 1) => [s * Math.sin(t) * Math.cos(p), s * Math.cos(t), s * Math.sin(t) * Math.sin(p)];
+// polar angle and azimuth of a point, for "inside the apple"
+const insideApple = (x, y, z, R) => { const yy = y / 0.9, r = Math.hypot(x, yy, z); if (r < 1e-9) return true;
+  return r <= R * appleR(Math.acos(yy / r), Math.atan2(z, x)); };
+function appleGeometry(s = 1, nt = 96, np = 128){ const pos = [], idx = [];
+  for (let i = 0; i <= nt; i++) for (let j = 0; j <= np; j++) pos.push(...applePt(i / nt * PI, j / np * TAU, s));
+  for (let i = 0; i < nt; i++) for (let j = 0; j < np; j++){ const a = i * (np + 1) + j, b = a + np + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g; }
+// evenly marked: the Fibonacci lay, the same count on the sphere and the apple
+function evenDots(pt, n = 1500){ const a = []; const ga = PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++){ const t = Math.acos(1 - 2 * (i + 0.5) / n); a.push(...pt(t, i * ga)); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(a, 3)); return g; }
+
+/* ── a seeded hash, so the molecules are laid the same way every time ── */
+const hash = (i, j, k, s) => { let h = Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(k, 1442695041) + Math.imul(s, 2246822519) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+// molecules: one per cell of a unit lattice, nudged within it; the nudge repeats every P cells
+// so that the endless apple can wrap without a seam
+const P = 8, NUDGE = 0.45;   // large enough that the lattice's rows don't read as stripes
+const cellPos = (i, j, k) => { const a = ((i % P) + P) % P, b = ((j % P) + P) % P, c = ((k % P) + P) % P;
+  return [i + NUDGE * (hash(a, b, c, 1) - 0.5) * 2, j + NUDGE * (hash(a, b, c, 2) - 0.5) * 2, k + NUDGE * (hash(a, b, c, 3) - 0.5) * 2]; };
+function molecules(keep, R, color){ const list = [];
+  for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) for (let k = -R; k <= R; k++){ const p = cellPos(i, j, k); if (keep(...p)) list.push(p); }
+  const geo = new THREE.IcosahedronGeometry(0.085, 1), mat = new THREE.MeshLambertMaterial({ color });
+  const m = new THREE.InstancedMesh(geo, mat, list.length), M = new THREE.Matrix4();
+  list.forEach((p, n) => { M.makeTranslation(...p); m.setMatrixAt(n, M); }); m.instanceMatrix.needsUpdate = true; return m; }
+
+/* ── the frames, in story order ── */
+const FRAMES = [];
+const lit = sc => { sc.add(new THREE.HemisphereLight(0xfff6e8, 0x404048, 0.75)); const d = new THREE.DirectionalLight(0xffffff, 0.7); d.position.set(3, 5, 4); sc.add(d); };
+const ortho = () => { const c = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 20); c.position.set(0, 0.0, 6); c.lookAt(0, -0.42, 0); c.userData.ortho = 1.5; return c; };   // looking a little below, so the shape sits above the caption
+
+// 1 and 2: from nowhere. Orthographic, so nothing is nearer or farther; see-through, so no side
+// faces the observer; evenly marked, so nowhere is special. Turning shows it has no front.
+function nowhereFrame(pt, color, lift = 0){ const sc = new THREE.Scene(); sc.background = new THREE.Color(0x141418);
+  const dots = new THREE.Points(evenDots(pt), new THREE.PointsMaterial({ color, size: 3, sizeAttenuation: false })); sc.add(dots);
+  const cam = ortho(); if (lift){ cam.position.set(0, lift, 6); cam.lookAt(0, -0.42, 0); }   // a little from above, so the apple's dimples show
+  return { scene: sc, camera: cam, tick: (dt) => { if (!still) dots.rotation.y += dt * 0.25; } }; }
+FRAMES.push({ sit: 1, name: 'the circle', tag: 'from nowhere',
+  line: 'Both breadths known and equal. The apple’s equation: all of it at once, every point marked alike. Nothing faces you, and nowhere is special.',
+  how: '', ...nowhereFrame(spherePt, 0xd9d4c7) });
+FRAMES.push({ sit: 2, name: 'every other shape', tag: 'from nowhere',
+  line: 'Both breadths known, varying with direction. The apple’s true shape, still all at once: an outline with character, but still nothing faces you.',
+  how: '', ...nowhereFrame(applePt, 0xd9d4c7, 2.2) });
+
+// 6: the holder. Solid, lit, one face at a time; the far face is a turn of the wrist away.
+{ const sc = new THREE.Scene(); sc.background = new THREE.Color(0x1d1c22); lit(sc);
+  const g = new THREE.Group(), apple = new THREE.Mesh(appleGeometry(), new THREE.MeshStandardMaterial({ color: 0xb3352b, roughness: 0.42, metalness: 0.02 }));
+  const top = 0.9 * appleR(0, 0), stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.32, 10), new THREE.MeshStandardMaterial({ color: 0x5a3d22, roughness: 0.8 }));
+  stem.position.set(0.02, top + 0.1, 0); stem.rotation.z = -0.18; g.add(apple, stem); g.rotation.x = 0.25; sc.add(g);
+  const fill = new THREE.DirectionalLight(0xffe8dc, 0.45); fill.position.set(-2, 1, 5); sc.add(fill);
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50); cam.position.set(0, 0.1, 6.2); cam.lookAt(0, -0.45, 0);
+  let vy = 0, vx = 0;
+  FRAMES.push({ sit: 6, name: 'the holder', tag: 'proposed, 6 October',
+    line: 'Outside a bounded whole. The apple in your hand: solid, one face at a time. Its back is not far away, only turned away.',
+    how: 'Drag to turn it.', scene: sc, camera: cam,
+    drag: (dx, dy) => { vy = dx * 0.008; vx = dy * 0.008; g.rotation.y += vy; g.rotation.x = Math.max(-1.2, Math.min(1.2, g.rotation.x + vx)); },
+    tick: (dt, held) => { if (!held){ g.rotation.y += vy; vy *= 0.94; if (Math.abs(vy) < 1e-4 && !still) g.rotation.y += dt * 0.08; } } }); }
+
+// 5 and 3: inside. A sparse packing of molecules; you are one of them. Look around by dragging.
+const looker = (cam) => { let yaw = 0, pitch = 0; const set = () => { cam.rotation.set(pitch, yaw, 0, 'YXZ'); }; set();
+  return { drag: (dx, dy) => { yaw += dx * 0.004; pitch = Math.max(-1.4, Math.min(1.4, pitch + dy * 0.004)); set(); } }; };
+{ // 5: near the skin. Neighbours, the rest blurring outward, and through the gaps the light outside.
+  const R = 14, sc = new THREE.Scene(), sky = 0xa9c3d8, flesh = 0xece3c9; sc.background = new THREE.Color(sky);
+  sc.fog = new THREE.FogExp2(0xd8d6c8, 0.06); lit(sc);
+  sc.add(molecules((x, y, z) => insideApple(x, y, z, R), R + 2, flesh));
+  const skin = new THREE.Mesh(appleGeometry(R), new THREE.MeshBasicMaterial({ color: 0xc0463a, transparent: true, opacity: 0.18, side: THREE.BackSide, fog: false, depthWrite: false })); sc.add(skin);
+  const cam = new THREE.PerspectiveCamera(70, 1, 0.05, 200); cam.position.set(0.5, 0.5, Math.round(0.68 * R) + 0.5);   // between lattice points
+  const L = looker(cam);
+  FRAMES.push({ sit: 5, name: 'v known within bounds', tag: 'from inside',
+    line: 'Inside, but the whole is bounded. A molecule near the apple’s skin: neighbours, then the rest blurring outward, and through the gaps the light outside. You know it ends.',
+    how: 'Drag to look around.', scene: sc, camera: cam, drag: L.drag, tick: () => {} }); }
+{ // 3: the endless apple. Neighbours, then a wall in every direction, the same wherever you go.
+  const R = 14, wall = 0xcfc7b0, sc = new THREE.Scene(); sc.background = new THREE.Color(wall);
+  sc.fog = new THREE.FogExp2(wall, 0.14); lit(sc);   // the fog is 98% wall by R, so the packing's own edge never shows
+  // the eye sits between the lattice's columns, so drifting along z never passes through a molecule
+  const m = molecules((x, y, z) => Math.hypot(x - 0.5, y - 0.5, z) <= R, R + 1, 0xece3c9), rig = new THREE.Group(); rig.add(m); sc.add(rig);
+  const cam = new THREE.PerspectiveCamera(70, 1, 0.05, 200); cam.position.set(0.5, 0.5, 0); const L = looker(cam);
+  let travelled = 0;   // the molecules repeat every P cells, so drifting P cells and stepping back is seamless
+  FRAMES.push({ sit: 3, name: 'the fisheye', tag: 'the only view from somewhere',
+    line: 'Inside, with the other breadth unknown. A molecule in an endless apple: neighbours, then a wall in every direction. Drifting on, nothing changes. There is no skin to find.',
+    how: 'Drag to look around.', scene: sc, camera: cam, drag: L.drag,
+    tick: (dt) => { if (still) return; travelled = (travelled + dt * 0.7) % P; rig.position.z = travelled; } }); }
+
+// 4: impossible. Neither breadth known: nothing to count in, no home to lay from.
+{ const sc = new THREE.Scene(); sc.background = new THREE.Color(0x77767a);
+  FRAMES.push({ sit: 4, name: 'impossible', tag: 'no observer',
+    line: 'Neither breadth known. Nothing to count in and no home to lay from, so there is nothing here to see, not even darkness.',
+    how: '', scene: sc, camera: new THREE.PerspectiveCamera(50, 1, 0.1, 10), tick: () => {} }); }
+
+/* ── the slideshow ── */
+let at = 0;
+const $ = id => document.getElementById(id);
+FRAMES.forEach((f, i) => { const b = document.createElement('button'); b.textContent = f.sit; b.title = 'situation ' + f.sit + ': ' + f.name; b.onclick = () => show(i); $('dots').appendChild(b); });
+function show(i){ at = (i + FRAMES.length) % FRAMES.length; const f = FRAMES[at];
+  $('num').textContent = f.sit; $('name').textContent = f.name; $('tag').textContent = f.tag; $('line').textContent = f.line; $('how').textContent = f.how;
+  [...$('dots').children].forEach((b, k) => b.classList.toggle('on', k === at));
+  canvas.style.cursor = f.drag ? 'grab' : 'default'; history.replaceState(null, '', '#s' + f.sit); resize(); }
+$('prev').onclick = () => show(at - 1); $('next').onclick = () => show(at + 1);
+addEventListener('keydown', e => { if (e.key === 'ArrowRight') show(at + 1); else if (e.key === 'ArrowLeft') show(at - 1);
+  else if (/^[1-6]$/.test(e.key)){ const k = FRAMES.findIndex(f => f.sit === +e.key); if (k >= 0) show(k); } });
+let held = null;
+canvas.addEventListener('pointerdown', e => { if (!FRAMES[at].drag) return; held = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; });
+canvas.addEventListener('pointermove', e => { if (!held) return; FRAMES[at].drag(e.clientX - held[0], e.clientY - held[1]); held = [e.clientX, e.clientY]; });
+const release = () => { if (held){ held = null; canvas.style.cursor = FRAMES[at].drag ? 'grab' : 'default'; } };
+canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
+function resize(){ const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false);
+  for (const f of FRAMES){ const c = f.camera; if (c.isOrthographicCamera){ const s = c.userData.ortho, a = w / h; c.left = -s * Math.max(a, 1); c.right = s * Math.max(a, 1); c.top = s / Math.min(a, 1); c.bottom = -s / Math.min(a, 1); }
+    else c.aspect = w / h; c.updateProjectionMatrix(); } }
+addEventListener('resize', resize);
+let last = performance.now();
+function loop(now){ requestAnimationFrame(loop); const dt = Math.min(0.1, (now - last) / 1000); last = now; const f = FRAMES[at]; f.tick(dt, !!held); renderer.render(f.scene, f.camera); }
+const start = FRAMES.findIndex(f => '#s' + f.sit === location.hash);
+show(start >= 0 ? start : 0); requestAnimationFrame(loop);
+addEventListener('hashchange', () => { const k = FRAMES.findIndex(f => '#s' + f.sit === location.hash); if (k >= 0 && k !== at) show(k); });
+window.__situations = { FRAMES, show, at: () => at };   // for the tests
+</script>
+</body>
+</html>

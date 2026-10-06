@@ -4320,6 +4320,7 @@ function drawAdvanced(){ const el=$('advPanel'), p=selPart();
       ${slider('advAp','aperture',2,16,1,state.aperture,v=>v)}${slider('advRun','run',-2,2,0.01,Math.log2(state.hRun),v=>Math.pow(2,v).toFixed(2))}
       <div class="note">Changing the leaf counts clears this part's sculpting. Core: ${p.core.kind}${p.core.name?' ('+p.core.name+')':''}.</div>`; }
   h+=`<div class="note">The previous editor, with sheets, booleans, the profile curve and the leaf registers: <a href="classic.html">classic.html</a>.</div>`;
+  h+=`<div class="note">The six ways to observe (from <i>Serial, Parallel and Nowhere</i>), one apple, a frame each: <a href="situations.html">situations.html</a>.</div>`;
   el.innerHTML=h; if(!p) return;
   if(brushRungMode!=='auto') $('advRung').value=brushRungMode;
   $('advRung').onchange=e=>{ brushRungMode=e.target.value; drawTool(); };
