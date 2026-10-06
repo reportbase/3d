@@ -703,7 +703,7 @@ try {
     await ev(() => __scene.set(null));
     if (!/place a prefab/.test(await page.textContent('#scStats'))) throw new Error('the empty scene does not point to the prefabs');
     const names = await ev(() => [...document.querySelectorAll('#scLib button')].map(b => b.dataset.lib).join(','));
-    if (names !== 'homestead,terrace,farmstead,churchyard,market,windmill,well,grove,campsite') throw new Error('library: ' + names);
+    if (names !== 'homestead,terrace,farmstead,churchyard,market,windmill,well,grove,campsite,cathedral close') throw new Error('library: ' + names);
     await page.click('#scLib button[data-lib="homestead"]');
     if (!await ev(() => __scene.data() && __scene.data().place.length === 0)) throw new Error('picking a prefab with no scene did not start one');
     if (!/place a homestead/.test(await page.textContent('#placeHint')) || await ev(() => document.getElementById('placeHint').hidden)) throw new Error('no placing hint');
@@ -742,6 +742,15 @@ try {
     for (const n of all) if (!(counts[n] >= 1)) throw new Error(n + ' was not built: ' + JSON.stringify(counts));
     if (counts.stall !== 6 || counts['town house'] !== 5 || counts.tent !== 5 || counts.church !== 1 || counts['oak 2'] < 6 || counts.oak !== 1) throw new Error('counts: ' + JSON.stringify(counts));
     if (await ev(() => __scene.built().short) > 2) throw new Error(await ev(() => __scene.built().short) + ' scattered copies did not fit');
+    // the cathedral: its masses at full height (the crossing spire's tip 69 m up: parts were once held within 20 m),
+    // and twelve bays standing against the aisles, six a side, facing out
+    if (counts.cathedral !== 1 || counts['cathedral bay'] !== 12) throw new Error('cathedral: ' + JSON.stringify(counts));
+    const cath = await ev(() => { const b = __scene.built(), T = b.types.find(T => T.name === 'cathedral'), c = b.inst.find(o => b.types[o.t] === T), bi = b.types.findIndex(T => T.name === 'cathedral bay');
+      return { h: T.h, parts: __scene.data().types.find(t => t.name === 'cathedral').parts.length,
+        bays: b.inst.filter(o => o.t === bi).map(o => { const e = new THREE.Euler().setFromRotationMatrix(new THREE.Matrix4().extractRotation(o.m)); return [o.x - c.x, Math.round(new THREE.Vector3(0, 0, 1).applyEuler(e).x)]; }) }; });
+    if (!(cath.h > 66 && cath.h < 72)) throw new Error('the cathedral stands ' + cath.h + ' m, not 69');
+    if (cath.parts !== 24) throw new Error('the cathedral kept ' + cath.parts + ' of its 24 parts');
+    if (cath.bays.some(([dx, out]) => Math.abs(Math.abs(dx) - 13) > 0.01 || Math.sign(dx) !== out) || cath.bays.filter(b => b[0] > 0).length !== 6) throw new Error('bays: ' + JSON.stringify(cath.bays));
   });
   await step('scene: detail by octaves, from prefixes of the rungs', async () => {
     // a rock: a ball with a sculpted cascade, each rung's detail half the last's (a 1/f surface)
@@ -938,7 +947,7 @@ try {
       { type: 'grove', at: [-25, 25], ...(move ? { sway: 0.2 } : {}) },
       { type: 'rock', at: [0, -40] }] });
     try {
-    await page.click('#vScene');   // applyScene builds the scene but leaves the view as it was
+    await page.click('#vScene');   // start from the scene view, whatever the steps before left
     await ev(h => __describe.applyScene(h, 'scene'), scene(true));
     const r = await ev(() => { const b = __scene.built(), by = i => b.inst.filter(o => o.rule === i);
       const rocks = by(0), seeds = new Set(rocks.map(o => o.anim[0].toFixed(6)));
