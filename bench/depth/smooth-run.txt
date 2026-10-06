@@ -1,0 +1,64 @@
+## Checks of the code
+  1. ψ: 0 points where ψ(t) + ψ(1 − t) ≠ 1, 0 outside [0, 1]; ψ(0) = 0, ψ(1) = 1 ok
+  2. N_s holds a constant: worst 1.1e-15 ok
+  2. N_psi holds a constant: worst 1.1e-15 ok
+  3. the base reaches every site of nodes [−7] and [8]: 0 non-finite ok
+
+## The harbour village, viewer on the high street at (6, -25)
+  5. A, B, F on the first view as DEP-S: 6.8e-6 4.0e-5 2.0e-5 ok
+  4. N's nodes are C′'s, in order (14) ok
+
+H = 1.7 m, direction 0°: view error A 6.8e-6  B 4.0e-5  F 2.0e-5  C′ 2.3e-7  N_s 3.1e-6  N_ψ 2.0e-6; N_ψ/N_s 0.641, N_ψ/C′ 8.404
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 1.3e-5, N_s 1.8e-9, N_ψ 1.8e-9
+
+H = 1.7 m, direction 45°: view error A 1.5e-5  B 6.4e-5  F 2.5e-5  C′ 1.2e-6  N_s 1.2e-4  N_ψ 1.2e-4; N_ψ/N_s 0.990, N_ψ/C′ 95.671
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 8.6e-5, N_s 2.6e-9, N_ψ 2.5e-9
+
+H = 1.7 m, direction 90°: view error A 5.8e-4  B 5.3e-4  F 5.9e-4  C′ 4.6e-5  N_s 1.4e-4  N_ψ 1.4e-4; N_ψ/N_s 1.000, N_ψ/C′ 2.973
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 1.1e-3, N_s 9.3e-8, N_ψ 9.3e-8
+
+H = 1.7 m, direction 135°: view error A 2.2e-5  B 1.1e-4  F 7.5e-5  C′ 1.6e-7  N_s 1.4e-5  N_ψ 3.0e-6; N_ψ/N_s 0.225, N_ψ/C′ 18.767
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 3.0e-5, N_s 5.9e-9, N_ψ 6.9e-9
+
+H = 1.7 m, direction 180°: view error A 7.4e-6  B 3.3e-5  F 1.5e-5  C′ 3.3e-7  N_s 3.8e-6  N_ψ 4.0e-6; N_ψ/N_s 1.039, N_ψ/C′ 11.864
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 4.4e-5, N_s 2.1e-9, N_ψ 2.1e-9
+
+H = 1.7 m, direction 225°: view error A 4.8e-6  B 3.9e-5  F 1.1e-5  C′ 6.4e-8  N_s 3.5e-6  N_ψ 2.9e-6; N_ψ/N_s 0.828, N_ψ/C′ 45.661
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 2.0e-5, N_s 1.4e-9, N_ψ 1.4e-9
+
+H = 1.7 m, direction 270°: view error A 6.2e-6  B 3.1e-5  F 8.5e-9  C′ 7.3e-9  N_s 9.5e-9  N_ψ 9.6e-9; N_ψ/N_s 1.004, N_ψ/C′ 1.314
+  walls tested 154, N_ψ not continuous at 0; largest step at 1e-9: C′ 4.1e-8, N_s 5.0e-10, N_ψ 5.0e-10
+
+H = 1.7 m, direction 315°: view error A 6.9e-4  B 3.7e-4  F 4.4e-4  C′ 2.1e-4  N_s 3.9e-4  N_ψ 3.9e-4; N_ψ/N_s 1.002, N_ψ/C′ 1.845
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 1.9e-3, N_s 1.1e-7, N_ψ 1.1e-7
+
+H = 30 m, direction 0°: view error A 8.7e-3  B 5.2e-3  F 4.5e-3  C′ 3.8e-4  N_s 7.2e-3  N_ψ 7.1e-3; N_ψ/N_s 0.995, N_ψ/C′ 19.030
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.079, N_s 1.4e-5, N_ψ 1.4e-5
+
+H = 30 m, direction 45°: view error A 8.9e-3  B 6.2e-3  F 6.9e-3  C′ 2.9e-3  N_s 5.7e-3  N_ψ 5.8e-3; N_ψ/N_s 1.009, N_ψ/C′ 2.004
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.024, N_s 3.4e-7, N_ψ 3.4e-7
+
+H = 30 m, direction 90°: view error A 5.6e-3  B 9.2e-3  F 0.011  C′ 1.9e-3  N_s 2.6e-3  N_ψ 2.6e-3; N_ψ/N_s 1.013, N_ψ/C′ 1.410
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.061, N_s 2.5e-6, N_ψ 2.5e-6
+
+H = 30 m, direction 135°: view error A 8.4e-3  B 6.7e-3  F 9.1e-3  C′ 3.0e-3  N_s 3.2e-3  N_ψ 3.2e-3; N_ψ/N_s 1.001, N_ψ/C′ 1.068
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.038, N_s 1.9e-7, N_ψ 1.9e-7
+
+H = 30 m, direction 180°: view error A 0.014  B 8.5e-3  F 0.010  C′ 8.1e-3  N_s 3.8e-3  N_ψ 3.8e-3; N_ψ/N_s 1.007, N_ψ/C′ 0.465
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.160, N_s 1.3e-6, N_ψ 1.3e-6
+
+H = 30 m, direction 225°: view error A 0.034  B 0.014  F 0.016  C′ 2.6e-3  N_s 4.7e-3  N_ψ 4.7e-3; N_ψ/N_s 0.999, N_ψ/C′ 1.828
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.038, N_s 2.1e-7, N_ψ 2.1e-7
+
+H = 30 m, direction 270°: view error A 0.012  B 8.4e-3  F 9.2e-3  C′ 1.3e-3  N_s 2.3e-3  N_ψ 2.3e-3; N_ψ/N_s 1.006, N_ψ/C′ 1.826
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.026, N_s 1.1e-6, N_ψ 1.1e-6
+
+H = 30 m, direction 315°: view error A 0.019  B 9.2e-3  F 8.8e-3  C′ 1.6e-3  N_s 6.6e-3  N_ψ 6.6e-3; N_ψ/N_s 1.000, N_ψ/C′ 4.117
+  walls tested 157, N_ψ not continuous at 0; largest step at 1e-9: C′ 0.035, N_s 1.7e-7, N_ψ 1.7e-7
+
+## Verdicts
+  Q1: smooth walking views where N_ψ is above a third of N_s: 4 of 5 (none predicted): KQ1 FIRES  (ratios 0.641, 0.990, 0.225, 1.039, 0.828)
+  Q2: N_ψ above 2× C′ in 9 of 16 views (at most 4 predicted): KQ2 FIRES
+  Q3: walls where N_ψ is not continuous: 0 of 2509 (none predicted): holds
+  Q4: views where N_ψ is not below the best of A, B, F: 4 (none predicted): KQ4 FIRES
+  (reported) median view error A 3.1e-3, F 2.5e-3, C′ 2.9e-4, N_s 1.3e-3, N_ψ 1.3e-3; median N_ψ/N_s 1.000, N_ψ/C′ 2.489
