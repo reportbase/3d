@@ -938,6 +938,7 @@ try {
       { type: 'grove', at: [-25, 25], ...(move ? { sway: 0.2 } : {}) },
       { type: 'rock', at: [0, -40] }] });
     try {
+    await page.click('#vScene');   // applyScene builds the scene but leaves the view as it was
     await ev(h => __describe.applyScene(h, 'scene'), scene(true));
     const r = await ev(() => { const b = __scene.built(), by = i => b.inst.filter(o => o.rule === i);
       const rocks = by(0), seeds = new Set(rocks.map(o => o.anim[0].toFixed(6)));
