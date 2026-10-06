@@ -900,6 +900,29 @@ try {
     await page.click('#vObject'); await ev(() => __scene.set(null));
     await ev(k => __studio.loadScene(k), keep);
   });
+  await step('the height axis: new parts flattened, patterned parts even', async () => {
+    const keep = await ev(() => __studio.sceneData());
+    await ev(() => __describe.apply({ name: 'axes', parts: [
+      { name: 'post', shape: 'box', size: [1, 2, 1], pos: [0, 0, 0], color: '#b9b2a4' },
+      { name: 'wall', shape: 'box', size: [6, 3, 4.5], pos: [4, 0, 0], color: '#b9b2a4', detail: { pattern: 'bricks', size: 0.3, depth: 0.05 } }] }, 'new'));
+    const r = await ev(() => { const P = n => __studio.S.parts.find(p => p.name === n), post = P('post'), wall = P('wall');
+      // a smooth sculpt (slope at the top and bottom) on rung 1, held both ways; read near the ends
+      const g = h => 0.02 * (Math.sin(2.3 * h + 0.4) + 0.5 * h * h), endErr = {};
+      for (const k of ['dct', 'flat']){ post.cascade = null; post.eng.hkernel = k; ensureCascade(post); usePart(post); const rg = post.cascade[1];
+        for (let i = 0; i < rg.Nh; i++) for (let j = 0; j < rg.Nt; j++) rg.v[i * rg.Nt + j] = g(leafH(i, rg.Nh));
+        endErr[k] = Math.max(...[0.005, 0.02, 0.98, 0.995].map(h => Math.abs(rungEval(rg, 0.3, h) - g(h)))); }
+      post.cascade = null; post.eng.hkernel = 'flat';
+      // the advanced panel's choice switches the part's kernel
+      __studio.select_(post.id); drawAdvanced(); const sel = document.getElementById('advKern'), shown = sel && sel.value;
+      sel.value = 'dct'; sel.dispatchEvent(new Event('change')); const switched = post.eng.hkernel;
+      return { post: 'flat', wall: wall.eng.hkernel, endErr, shown, switched, newKern: post.eng.hkernel }; });
+    if (r.wall !== 'dct') throw new Error('a patterned part should keep the even axis, has ' + r.wall);
+    if (r.shown !== 'flat') throw new Error('the advanced panel shows ' + r.shown + ' for a new part');
+    if (r.switched !== 'dct') throw new Error('choosing the even axis left the part at ' + r.switched);
+    if (!(r.endErr.flat <= r.endErr.dct / 3)) throw new Error('flattened ends no better at the top and bottom: dct ' + r.endErr.dct + ', flat ' + r.endErr.flat);
+    console.log(`  smooth sculpt near the ends, rung 1: dct ${r.endErr.dct.toExponential(1)}, flat ${r.endErr.flat.toExponential(1)}`);
+    await ev(k => __studio.loadScene(k), keep);
+  });
   await step('describe it: built from a picture', async () => {
     const keep = await ev(() => __studio.sceneData());
     const png = (w, h, col) => ev(([w, h, col]) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');

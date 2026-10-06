@@ -1,0 +1,33 @@
+{
+  "name": "valley",
+  "seed": 7,
+  "ground": { "color": "#6f9a4e", "size": 3000 },
+  "terrain": [
+    { "hill": [0, -1200], "radius": 600, "height": 260 },
+    { "hill": [900, -900], "radius": 500, "height": 200 },
+    { "hill": [-1000, -800], "radius": 550, "height": 230 },
+    { "noise": 1.5, "scale": 40 }
+  ],
+  "areas": [],
+  "types": [
+    { "name": "rock", "parts": [{ "name": "rock", "shape": "ball", "size": [0.6, 0.35, 0.5], "pos": [0, 0, 0], "color": "#8a8580" }] },
+    { "name": "post", "parts": [{ "name": "post", "shape": "box", "size": [0.12, 1.1, 0.12], "pos": [0, 0, 0], "color": "#7a5a3a" }] },
+    { "name": "rail", "parts": [{ "name": "rail", "shape": "box", "size": [2, 0.08, 0.06], "pos": [0, 0.9, 0], "color": "#7a5a3a" }] },
+    { "name": "cottage", "parts": [
+      { "name": "walls", "shape": "box", "size": [7, 3.2, 5], "pos": [0, 0, 0], "color": "#f2efe6" },
+      { "name": "roof", "shape": "roof", "size": [7.6, 2.6, 5.8], "pos": [0, 3.2, 0], "color": "#b5562e" },
+      { "name": "door", "shape": "box", "size": [1, 2, 0.1], "on": "walls", "face": "front", "at": [0, 0], "color": "#3a4a5a" }] },
+    { "name": "pine", "parts": [
+      { "name": "trunk", "shape": "box", "size": [0.3, 2, 0.3], "pos": [0, 0, 0], "color": "#5a4030" },
+      { "name": "crown", "shape": "cone", "size": [3, 7, 3], "pos": [0, 1.5, 0], "color": "#2f5d3a" }] }
+  ],
+  "place": [
+    { "type": "rail", "span": { "from": [-12, 4], "to": [12, 4] } },
+    { "type": "post", "row": { "from": [-12, 4], "to": [12, 4] }, "every": 2 },
+    { "type": "rock", "scatter": { "rect": [3, -20, 20, 20] }, "count": 40, "scale": [0.5, 1.6] },
+    { "type": "rock", "scatter": { "rect": [-20, -20, -3, 20] }, "count": 40, "scale": [0.5, 1.6] },
+    { "type": "cottage", "scatter": { "rect": [-150, -260, 150, -60] }, "count": 40 },
+    { "type": "pine", "scatter": { "rect": [-500, -700, 500, -300] }, "count": 600, "scale": [0.8, 1.4] },
+    { "type": "pine", "scatter": { "rect": [-400, 100, 400, 450] }, "count": 300, "scale": [0.8, 1.4] }
+  ]
+}

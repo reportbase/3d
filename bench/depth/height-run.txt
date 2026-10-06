@@ -1,0 +1,51 @@
+## Checks of the code
+  1. both axes reproduce their own leaves: worst 1.1e-14 ok
+  2. each axis reproduces cos(7u) in its own basis: worst 3.0e-15 ok
+  3. patternAt is finite for every pattern on the grid ok
+
+## N_h = 24: RMS error, dct / flat (whole; end bands; middle)
+  smooth sin(2.3h + 0.4) + 0.5h²: whole 2.4e-3 / 1.9e-15; ends 5.4e-3 / 1.5e-15; middle 1.8e-4 / 1.9e-15
+  smooth h³ − h: whole 2.3e-3 / 4.6e-16; ends 5.1e-3 / 3.8e-16; middle 1.7e-4 / 4.7e-16
+  smooth cos(5h): whole 4.9e-3 / 1.0e-15; ends 0.011 / 9.0e-16; middle 3.5e-4 / 1.1e-15
+  smooth exp(−3h): whole 3.0e-3 / 3.1e-16; ends 6.8e-3 / 2.3e-16; middle 2.1e-4 / 3.3e-16
+  smooth tanh(4(h − 0.3)): whole 1.2e-3 / 1.9e-8; ends 2.7e-3 / 1.2e-8; middle 8.6e-5 / 2.0e-8
+  pattern stones: whole 0.234 / 0.301; ends 0.233 / 0.181; middle 0.234 / 0.324
+  pattern bricks: whole 0.255 / 0.344; ends 0.239 / 0.170; middle 0.259 / 0.374
+  pattern shingles: whole 0.172 / 0.229; ends 0.215 / 0.102; middle 0.160 / 0.251
+  pattern planks: whole 0.198 / 0.285; ends 0.184 / 0.141; middle 0.201 / 0.311
+  pattern boards: whole 4.0e-5 / 1.0e-4; ends 3.1e-5 / 5.3e-5; middle 4.2e-5 / 1.1e-4
+  pattern bark: whole 8.8e-3 / 0.022; ends 0.015 / 0.011; middle 6.4e-3 / 0.024
+  pattern rough: whole 0.061 / 0.082; ends 0.068 / 0.046; middle 0.060 / 0.089
+
+## N_h = 48: RMS error, dct / flat (whole; end bands; middle)
+  smooth sin(2.3h + 0.4) + 0.5h²: whole 8.5e-4 / 3.2e-15; ends 1.9e-3 / 3.3e-15; middle 2.7e-5 / 3.1e-15
+  smooth h³ − h: whole 8.0e-4 / 8.5e-16; ends 1.8e-3 / 5.0e-16; middle 2.5e-5 / 9.1e-16
+  smooth cos(5h): whole 1.7e-3 / 2.3e-15; ends 3.8e-3 / 1.3e-15; middle 5.2e-5 / 2.5e-15
+  smooth exp(−3h): whole 1.1e-3 / 6.2e-16; ends 2.4e-3 / 5.8e-16; middle 3.2e-5 / 6.3e-16
+  smooth tanh(4(h − 0.3)): whole 4.3e-4 / 2.6e-15; ends 9.7e-4 / 3.0e-15; middle 1.3e-5 / 2.4e-15
+  pattern stones: whole 0.162 / 0.199; ends 0.151 / 0.110; middle 0.164 / 0.215
+  pattern bricks: whole 0.233 / 0.220; ends 0.218 / 0.138; middle 0.236 / 0.236
+  pattern shingles: whole 0.133 / 0.131; ends 0.038 / 0.068; middle 0.147 / 0.143
+  pattern planks: whole 0.225 / 0.196; ends 0.198 / 0.133; middle 0.231 / 0.208
+  pattern boards: whole 6.6e-6 / 1.5e-5; ends 1.9e-6 / 7.3e-6; middle 7.3e-6 / 1.7e-5
+  pattern bark: whole 2.0e-3 / 2.3e-3; ends 3.9e-3 / 5.9e-4; middle 1.1e-3 / 2.5e-3
+  pattern rough: whole 0.030 / 0.037; ends 0.031 / 0.019; middle 0.029 / 0.040
+
+## N_h = 96: RMS error, dct / flat (whole; end bands; middle)
+  smooth sin(2.3h + 0.4) + 0.5h²: whole 3.0e-4 / 6.6e-15; ends 6.7e-4 / 6.2e-15; middle 3.3e-6 / 6.7e-15
+  smooth h³ − h: whole 2.8e-4 / 1.7e-15; ends 6.3e-4 / 1.2e-15; middle 3.1e-6 / 1.8e-15
+  smooth cos(5h): whole 6.0e-4 / 4.2e-15; ends 1.3e-3 / 2.7e-15; middle 6.4e-6 / 4.5e-15
+  smooth exp(−3h): whole 3.8e-4 / 1.2e-15; ends 8.4e-4 / 7.7e-16; middle 4.0e-6 / 1.3e-15
+  smooth tanh(4(h − 0.3)): whole 1.5e-4 / 5.8e-15; ends 3.4e-4 / 6.1e-15; middle 1.6e-6 / 5.7e-15
+  pattern stones: whole 0.059 / 0.088; ends 0.063 / 0.027; middle 0.058 / 0.098
+  pattern bricks: whole 0.142 / 0.166; ends 0.158 / 0.094; middle 0.137 / 0.179
+  pattern shingles: whole 0.102 / 0.109; ends 0.027 / 0.037; middle 0.113 / 0.120
+  pattern planks: whole 0.175 / 0.186; ends 0.209 / 0.125; middle 0.165 / 0.198
+  pattern boards: whole 1.3e-6 / 2.8e-6; ends 5.0e-7 / 4.0e-7; middle 1.4e-6 / 3.1e-6
+  pattern bark: whole 6.2e-4 / 4.0e-4; ends 1.3e-3 / 1.1e-4; middle 1.9e-4 / 4.4e-4
+  pattern rough: whole 0.013 / 0.017; ends 0.013 / 7.5e-3; middle 0.013 / 0.019
+
+## Verdicts (N_h = 48)
+  H1: smooth profiles where flat's end-band error is above a tenth of dct's: 0 of 5 (none predicted): holds
+  H2: smooth profiles where flat's whole error is not below dct's: 0 of 5 (none predicted): holds
+  H3: patterns where flat's whole error is above dct's: 4 of 7 (at least 5 predicted): KH3 FIRES  (stones 1.229×, bricks 0.943×, shingles 0.987×, planks 0.870×, boards 2.361×, bark 1.134×, rough 1.260×)
