@@ -1019,6 +1019,19 @@ try {
       await ev(k => __studio.loadScene(k), keep);
     }
   });
+  await step('file → new starts over: the object and the scene, from either view', async () => {
+    const keep = await ev(() => __studio.sceneData()), n0 = await parts();
+    try {
+      if (!(n0 > 0)) throw new Error('no parts to start from');
+      await page.click('#vScene'); await ev(() => { __scene.set(null); __library.add('well', [0, 0], 0); });
+      await ev(() => __studio.fileAction('new'));
+      if (await ev(() => __scene.data()) !== null || await parts() !== 0) throw new Error('"new" in the scene view did not clear both: ' + (await parts()) + ' parts, scene ' + !!(await ev(() => __scene.data())));
+      await page.click('#undo');
+      if (!(await ev(() => __scene.data() && __scene.data().place.length === 1)) || await parts() !== n0) throw new Error('one undo did not bring both back');
+      await page.click('#vObject'); await ev(() => __studio.fileAction('new'));
+      if (await ev(() => __scene.data()) !== null || await parts() !== 0) throw new Error('"new" in the object view did not clear both');
+    } finally { await page.click('#vObject'); await ev(() => __scene.set(null)); await ev(k => __studio.loadScene(k), keep); }
+  });
   await step('describe it: built from a picture', async () => {
     const keep = await ev(() => __studio.sceneData());
     const png = (w, h, col) => ev(([w, h, col]) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
