@@ -1,0 +1,16 @@
+## Checks of the code
+  1. the edge finder: step → 1 edge at 3.70000000000005; ramp → 0 edges, 1 steep ok
+  2. a split sweep holds the step: worst 1.1e-15 ok
+
+## The harbour village, viewer on the high street at (6, -25)
+  4. A, B, F on the first view as DEP-S: 6.8e-6 4.0e-5 2.0e-5 ok
+  3. no edge, no change: 0 edges; X 2.3e-7, C′ 2.3e-7 ok
+file:///home/user/3d/bench/depth/edges.mjs:211
+  const ws = []; for (let W = -7; W <= 7; W++) ws.push(2 ** W); for (const o of g.order) ws.push(...wallsOfChain(o.ch));
+                                                                                            ^
+
+ReferenceError: wallsOfChain is not defined
+    at seamAndEdges (file:///home/user/3d/bench/depth/edges.mjs:211:93)
+    at file:///home/user/3d/bench/depth/edges.mjs:240:20
+
+Node.js v22.22.0

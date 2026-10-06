@@ -206,6 +206,7 @@ async function holdX(fn, more, edges, base = 8){
   return { units, order, P: presentU(units) }; }
 
 /* ── seams (walls where the reading is continuous) and edges kept ── */
+const wallsOfChain = ch => [chainAddr(0, ch), chainAddr(Infinity, ch)].filter(w => w > 2 ** -8 && w < 2 ** 8);   // as DEP-R's (seams.mjs)
 const dStep = (P, fn, w) => Math.abs((P(w * (1 - 1e-9)) - P(w * (1 + 1e-9))) - (fn(w * (1 - 1e-9)) - fn(w * (1 + 1e-9))));
 async function seamAndEdges(g, fn, more, edges){
   const ws = []; for (let W = -7; W <= 7; W++) ws.push(2 ** W); for (const o of g.order) ws.push(...wallsOfChain(o.ch));
