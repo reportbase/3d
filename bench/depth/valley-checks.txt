@@ -1,0 +1,13 @@
+## Checks of the code
+check: H = 1.7, 45°, edge 167.712 of size 0.222: missed by 2.5e-3 (0.011 of it); leaves below [8]:2 [8]:16; above [8]:2 [8]:16; another edge within 1/16 octave: no
+check: H = 1.7, 135°, edge 149.960 of size 0.075: missed by 9.7e-4 (0.013 of it); leaves below [8]:2 [8]:16; above [8]:2 [8]:16; another edge within 1/16 octave: no
+check: H = 1.7, 180°, edge 27.213 of size 0.091: missed by 2.0e-3 (0.022 of it); leaves below [5]:4 [5]:32 [5,2]:32; above [5]:4 [5]:32 [5,2]:32; another edge within 1/16 octave: no
+check: H = 30, 0°, edge 41.791 of size 0.055: missed by 5.6e-4 (0.010 of it); leaves below [6]:2 [6]:16 [6,0]:32; above [6]:2 [6]:16 [6,0]:32; another edge within 1/16 octave: no
+check: H = 30, 45°, edge 27.077 of size 0.050: missed by 1.7e-3 (0.035 of it); leaves below [5]:4 [5]:32; above [5]:4 [5]:32; another edge within 1/16 octave: no
+check: H = 30, 45°, edge 34.027 of size 0.050: missed by 1.3e-3 (0.027 of it); leaves below [6]:2 [6]:16; above [6]:2 [6]:16; another edge within 1/16 octave: no
+check: H = 30, 45°, edge 38.513 of size 0.050: missed by 7.9e-4 (0.016 of it); leaves below [6]:2 [6]:16 [6,0]:32; above [6]:2 [6]:16 [6,0]:32; another edge within 1/16 octave: no
+check: H = 30, 90°, edge 27.584 of size 0.048: missed by 2.2e-3 (0.045 of it); leaves below [5]:4 [5]:32; above [5]:4 [5]:32; another edge within 1/16 octave: no
+check: H = 30, 135°, edge 17.359 of size 0.099: missed by 1.8e-3 (0.018 of it); leaves below [5]:2 [5]:16; above [5]:2 [5]:16; another edge within 1/16 octave: no
+check: H = 30, 180°, edge 47.896 of size 0.065: missed by 7.5e-4 (0.012 of it); leaves below [6]:2 [6]:16 [6,1]:16 [6,1,1]:16; above [6]:2 [6]:16 [6,1]:16 [6,1,1]:16; another edge within 1/16 octave: yes
+check: H = 30, 270°, edge 15.994 of size 0.087: missed by 5.9e-3 (0.068 of it); leaves below [4]:2 [4]:16; above [4]:2 [4]:16; another edge within 1/16 octave: no
+check: 11 edges not kept; 1 of them with another edge within 1/16 octave

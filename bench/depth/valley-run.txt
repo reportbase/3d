@@ -1,0 +1,80 @@
+## Checks of the code
+  1. the edge finder: step → 1 edge at 3.70000000000005; ramp → 0 edges, 1 steep ok
+  2. a split sweep holds the step: worst 1.1e-15 ok
+  3. A, B, F on the harbour's first view as DEP-S: 6.8e-6 4.0e-5 2.0e-5 ok
+
+## The valley, viewer at (0, 0), ground 0.068 m
+
+H = 1.7 m, direction 0°: view error A 9.9e-3  B 3.4e-3  F 3.7e-3  C′ 7.8e-4  X 3.4e-5; X/C′ 0.044; octaves with content 2,3,4,5,6,7,8
+  edges 2 (8.398: 0.176, 9.096: 0.227); steep slopes 0
+  largest seam: C′ 8.9e-3, X 2.0e-3; edges kept within 1%: C′ 0 of 2, X 2 of 2
+
+H = 1.7 m, direction 45°: view error A 0.088  B 0.022  F 0.024  C′ 6.8e-3  X 1.3e-4; X/C′ 0.019; octaves with content 2,3,4,5,6,7,8
+  edges 5 (8.652: 0.816, 13.960: 0.465, 119.416: 0.464, 167.712: 0.222, 249.938: 0.198); steep slopes 0
+  largest seam: C′ 0.034, X 8.0e-4; edges kept within 1%: C′ 0 of 5, X 4 of 5
+
+H = 1.7 m, direction 90°: view error A 0.052  B 0.026  F 0.029  C′ 6.0e-3  X 6.0e-6; X/C′ 9.9e-4; octaves with content 2,3,4,5,6,7,8
+  edges 2 (5.918: 0.766, 169.083: 0.494); steep slopes 0
+  largest seam: C′ 0.021, X 6.3e-5; edges kept within 1%: C′ 0 of 2, X 2 of 2
+
+H = 1.7 m, direction 135°: view error A 0.099  B 0.046  F 0.033  C′ 7.5e-3  X 3.2e-5; X/C′ 4.2e-3; octaves with content 2,3,4,5,6,7,8
+  edges 6 (7.580: 0.667, 65.041: 0.218, 74.948: 0.460, 92.722: 0.106, 149.960: 0.075, 216.464: 0.343); steep slopes 0
+  largest seam: C′ 0.029, X 2.8e-4; edges kept within 1%: C′ 0 of 6, X 5 of 6
+
+H = 1.7 m, direction 180°: view error A 0.112  B 0.021  F 0.036  C′ 6.5e-3  X 3.1e-5; X/C′ 4.7e-3; octaves with content 2,4,5,6,7,8
+  edges 4 (27.213: 0.091, 55.617: 0.182, 103.706: 0.119, 152.200: 0.524); steep slopes 0
+  largest seam: C′ 0.018, X 1.5e-3; edges kept within 1%: C′ 0 of 4, X 3 of 4
+
+H = 1.7 m, direction 225°: view error A 0.162  B 0.036  F 0.023  C′ 5.0e-3  X 2.8e-7; X/C′ 5.6e-5; octaves with content 3,4,5,6,7,8
+  edges 2 (65.991: 0.620, 185.550: 0.555); steep slopes 0
+  largest seam: C′ 0.240, X 6.5e-7; edges kept within 1%: C′ 0 of 2, X 2 of 2
+
+H = 1.7 m, direction 270°: view error A 7.2e-4  B 1.9e-4  F 1.1e-4  C′ 4.6e-6  X 4.6e-6; X/C′ 1.000; octaves with content 4,5,6,7,8
+  edges 0; steep slopes 0
+  largest seam: C′ 2.0e-4, X 2.0e-4; edges kept within 1%: C′ 0 of 0, X 0 of 0
+
+H = 1.7 m, direction 315°: view error A 8.5e-3  B 1.1e-3  F 5.3e-4  C′ 2.4e-4  X 1.9e-6; X/C′ 8.0e-3; octaves with content 3,4,5,6,7,8
+  edges 1 (64.316: 0.124); steep slopes 0
+  largest seam: C′ 1.0e-2, X 1.1e-4; edges kept within 1%: C′ 0 of 1, X 1 of 1
+
+H = 30 m, direction 0°: view error A 0.032  B 7.8e-3  F 0.014  C′ 4.0e-3  X 7.0e-4; X/C′ 0.176; octaves with content 2,3,4,5,6
+  edges 3 (32.554: 0.067, 41.791: 0.055, 49.204: 0.994); steep slopes 0
+  largest seam: C′ 0.014, X 6.1e-3; edges kept within 1%: C′ 0 of 3, X 2 of 3
+
+H = 30 m, direction 45°: view error A 0.045  B 0.015  F 0.012  C′ 4.5e-3  X 2.4e-3; X/C′ 0.531; octaves with content 2,3,4,5,6,7
+  edges 4 (27.077: 0.050, 34.027: 0.050, 38.513: 0.050, 70.609: 1.014); steep slopes 0
+  largest seam: C′ 0.031, X 4.1e-3; edges kept within 1%: C′ 0 of 4, X 1 of 4
+
+H = 30 m, direction 90°: view error A 0.031  B 0.011  F 0.011  C′ 5.9e-3  X 5.7e-4; X/C′ 0.097; octaves with content 3,4,5,6
+  edges 4 (12.132: 0.087, 13.527: 0.161, 27.584: 0.048, 49.711: 0.994); steep slopes 0
+  largest seam: C′ 0.016, X 5.5e-3; edges kept within 1%: C′ 0 of 4, X 3 of 4
+
+H = 30 m, direction 135°: view error A 0.039  B 0.011  F 0.011  C′ 3.6e-3  X 1.7e-3; X/C′ 0.473; octaves with content 2,3,4,5,6,7
+  edges 3 (16.342: 0.051, 17.359: 0.099, 72.192: 1.032); steep slopes 0
+  largest seam: C′ 0.031, X 4.2e-3; edges kept within 1%: C′ 0 of 3, X 2 of 3
+
+H = 30 m, direction 180°: view error A 0.036  B 8.4e-3  F 0.011  C′ 5.1e-3  X 4.5e-4; X/C′ 0.089; octaves with content 3,4,5,6
+  edges 3 (38.418: 0.056, 47.896: 0.065, 48.647: 0.972); steep slopes 0
+  largest seam: C′ 0.013, X 0.013; edges kept within 1%: C′ 0 of 3, X 2 of 3
+
+H = 30 m, direction 225°: view error A 9.7e-3  B 3.4e-3  F 3.5e-3  C′ 8.1e-4  X 1.7e-6; X/C′ 2.2e-3; octaves with content 3,4,5,6,7,8
+  edges 4 (15.849: 0.089, 18.016: 0.148, 20.475: 0.059, 27.465: 0.215); steep slopes 0
+  largest seam: C′ 6.1e-3, X 4.0e-5; edges kept within 1%: C′ 0 of 4, X 4 of 4
+
+H = 30 m, direction 270°: view error A 7.4e-3  B 7.7e-3  F 6.0e-3  C′ 2.6e-3  X 3.9e-4; X/C′ 0.147; octaves with content 2,3,4,5,6,7,8
+  edges 4 (3.058: 0.192, 5.809: 0.216, 8.477: 0.134, 15.994: 0.087); steep slopes 0
+  largest seam: C′ 0.022, X 2.6e-3; edges kept within 1%: C′ 0 of 4, X 3 of 4
+
+H = 30 m, direction 315°: view error A 8.0e-3  B 7.5e-3  F 7.3e-3  C′ 2.6e-3  X 3.0e-4; X/C′ 0.118; octaves with content 2,3,4,5,6,7,8
+  edges 5 (3.823: 0.182, 5.181: 0.130, 5.280: 0.146, 7.313: 0.160, 20.067: 0.104); steep slopes 0
+  largest seam: C′ 0.074, X 4.7e-3; edges kept within 1%: C′ 0 of 5, X 5 of 5
+  4. the viewer stands on the ground in every view (reading at the smallest address within 0.01 of 0) ok
+
+## Verdicts
+  15 views with edges, 52 edges
+  V1: X's largest seam at most 1/10 of C′'s in 8 of 15 (at least 80% predicted): KV1 FIRES
+  V2: edges kept within 1% by X: 41 of 52 (at least 90% predicted): KV2 FIRES
+  V3: X below C′ in 15 of 15 (at least 80% predicted): holds
+  V4: views where X is not below the best of A, B, F: 0 (none predicted): holds
+  V5: F below A in 16 of 16 views (at least 10 predicted): holds
+  (reported) median view error A 0.034, B 9.5e-3, F 0.011, C′ 4.2e-3, X 8.1e-5; median largest seam on views with edges C′ 0.021, X 2.0e-3; edges kept by C′ 0 of 52
