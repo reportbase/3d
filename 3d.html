@@ -4426,9 +4426,12 @@ function exportSTL(){ if(!S.parts.length){ toast('nothing to export'); return; }
       out.push(`facet normal ${f(nr.x)} ${f(nr.y)} ${f(nr.z)}\n outer loop\n  vertex ${f(vA.x)} ${f(vA.y)} ${f(vA.z)}\n  vertex ${f(vB.x)} ${f(vB.y)} ${f(vB.z)}\n  vertex ${f(vC.x)} ${f(vC.y)} ${f(vC.z)}\n endloop\nendfacet`); } }
   out.push('endsolid shape_studio'); download('object.stl',out.join('\n')+'\n','model/stl'); toast('exported '+tris.toLocaleString()+' triangles'); return tris; }
 function fileAction(a){ $('fileMenu').hidden=true; const p=selPart();
-  if(a==='new'){ clearAll(); refreshAll(); commit('new'); }
+  /* In the scene view, "new" is a new, empty scene (Oct 6: "new scene does not work … it fails
+     quietly, does nothing"): it used to clear only the object's parts, hidden behind the scene. */
+  if(a==='new'&&sceneOn){ SCN.set(null,'new scene'); toast('a new, empty scene: describe ✦ → new scene, or place a prefab'); }
+  else if(a==='new'){ clearAll(); refreshAll(); commit('new'); }
   else if(a==='open') $('fileOpen').click();
-  else if(a==='save'){ if(!S.parts.length){ toast('nothing to save'); return; } download('object.3da',JSON.stringify(sceneData()),'application/json'); toast('saved '+S.parts.length+' parts'); }
+  else if(a==='save'){ if(!S.parts.length&&!SCN.data()){ toast('nothing to save'); return; } download('object.3da',JSON.stringify(sceneData()),'application/json'); toast(SCN.data()?'saved, with the scene':'saved '+S.parts.length+' parts'); }
   else if(a==='stl') exportSTL();
   else if(a==='tvf3d'||a==='copytvf3d'){ if(!p){ toast('select a part first'); return; } const o=buildTVF3D(p), note=o.warn.length?' (without '+o.warn.join(', ')+')':'';
     if(a==='tvf3d'){ download((p.name||'part').replace(/\s+/g,'_')+'.tvf3d',o.txt,'text/plain'); toast('exported '+p.name+'.tvf3d'+note); }

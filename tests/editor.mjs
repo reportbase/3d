@@ -1019,6 +1019,17 @@ try {
       await ev(k => __studio.loadScene(k), keep);
     }
   });
+  await step('scene: file → new, empty in the scene view is a new scene', async () => {
+    const keep = await ev(() => __studio.sceneData()), n0 = await parts();
+    try {
+      await page.click('#vScene'); await ev(() => { __scene.set(null); __library.add('well', [0, 0], 0); });
+      if (!(await ev(() => __scene.data() && __scene.data().place.length === 1))) throw new Error('no scene to start from');
+      await ev(() => __studio.fileAction('new'));
+      if (await ev(() => __scene.data()) !== null) throw new Error('"new" in the scene view left the scene');
+      if (await parts() !== n0) throw new Error('"new" in the scene view took the object\'s parts');
+      await page.click('#undo'); if (!(await ev(() => __scene.data() && __scene.data().place.length === 1))) throw new Error('undo did not bring the scene back');
+    } finally { await page.click('#vObject'); await ev(() => __scene.set(null)); await ev(k => __studio.loadScene(k), keep); }
+  });
   await step('describe it: built from a picture', async () => {
     const keep = await ev(() => __studio.sceneData());
     const png = (w, h, col) => ev(([w, h, col]) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
