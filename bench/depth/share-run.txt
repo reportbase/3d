@@ -1,0 +1,143 @@
+## Checks of the code
+  3. the table: √2: 32 octaves × 4 = 128, 14 nodes, 1024 leaves; φ: 24 octaves × 4 = 96, 14 nodes, 992 leaves; 2: 16 octaves × 8 = 128, 14 nodes, 1024 leaves; 3: 12 octaves × 8 = 96, 14 nodes, 992 leaves; 4: 8 octaves × 16 = 128, 14 nodes, 1024 leaves ok
+
+## The harbour, viewer at (6, -25)
+  2. DEP-D's ratios come back at a base of 8 on the harbour's first view: 1.4e-7 5.2e-8 2.3e-7 6.1e-7 1.0e-5 against 1.4e-7 5.2e-8 2.3e-7 6.1e-7 1.0e-5 ok
+
+H = 1.7 m, direction 0°: edges 0; view error r √2 1.5e-7  r φ 5.7e-8  r 2 2.3e-7  r 3 6.1e-7  r 4 1.0e-5
+  best r φ; DEP-D's (base 8 everywhere): r √2 1.4e-7  r φ 5.2e-8  r 2 2.3e-7  r 3 6.1e-7  r 4 1.0e-5
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 45°: edges 0; view error r √2 5.6e-7  r φ 1.1e-6  r 2 1.2e-6  r 3 4.8e-6  r 4 1.7e-5
+  best r √2; DEP-D's (base 8 everywhere): r √2 5.9e-7  r φ 1.0e-6  r 2 1.2e-6  r 3 4.8e-6  r 4 1.7e-5
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 90°: edges 1; view error r √2 2.0e-6  r φ 4.6e-6  r 2 5.7e-6  r 3 1.1e-5  r 4 3.9e-5
+  best r √2; DEP-D's (base 8 everywhere): r √2 1.8e-6  r φ 4.7e-6  r 2 5.7e-6  r 3 1.1e-5  r 4 3.8e-5
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 135°: edges 0; view error r √2 1.9e-6  r φ 5.8e-7  r 2 1.6e-7  r 3 7.6e-7  r 4 1.0e-6
+  best r 2; DEP-D's (base 8 everywhere): r √2 1.7e-6  r φ 4.9e-7  r 2 1.6e-7  r 3 7.6e-7  r 4 1.0e-6
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 180°: edges 0; view error r √2 5.3e-7  r φ 1.7e-7  r 2 3.3e-7  r 3 4.5e-6  r 4 5.7e-6
+  best r φ; DEP-D's (base 8 everywhere): r √2 5.0e-7  r φ 1.7e-7  r 2 3.3e-7  r 3 4.5e-6  r 4 5.7e-6
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 225°: edges 0; view error r √2 1.3e-7  r φ 3.9e-7  r 2 6.4e-8  r 3 7.2e-7  r 4 4.6e-8
+  best r 4; DEP-D's (base 8 everywhere): r √2 1.2e-7  r φ 3.9e-7  r 2 6.4e-8  r 3 7.2e-7  r 4 4.5e-8
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 270°: edges 0; view error r √2 1.3e-8  r φ 1.2e-8  r 2 7.3e-9  r 3 8.0e-9  r 4 8.1e-9
+  best r 2; DEP-D's (base 8 everywhere): r √2 7.0e-9  r φ 7.2e-9  r 2 7.3e-9  r 3 8.0e-9  r 4 8.0e-9
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 315°: edges 1; view error r √2 1.1e-8  r φ 9.0e-9  r 2 7.5e-9  r 3 8.6e-9  r 4 8.3e-9
+  best r 2; DEP-D's (base 8 everywhere): r √2 7.6e-9  r φ 6.8e-9  r 2 7.5e-9  r 3 8.6e-9  r 4 8.7e-9
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 30 m, direction 0°: edges 3; view error r √2 4.1e-6  r φ 6.7e-6  r 2 2.4e-5  r 3 3.2e-5  r 4 3.0e-5
+  best r √2; DEP-D's (base 8 everywhere): r √2 3.3e-6  r φ 6.4e-6  r 2 2.4e-5  r 3 3.2e-5  r 4 3.0e-5
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1006, 3 992/974, 4 1024/1004
+
+H = 30 m, direction 45°: edges 5; view error r √2 4.0e-5  r φ 6.3e-5  r 2 6.8e-5  r 3 7.3e-5  r 4 2.6e-4
+  best r √2; DEP-D's (base 8 everywhere): r √2 4.5e-5  r φ 7.2e-5  r 2 6.8e-5  r 3 7.3e-5  r 4 2.6e-4
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1006, 3 992/958, 4 1024/972
+
+H = 30 m, direction 90°: edges 5; view error r √2 1.2e-4  r φ 1.7e-4  r 2 1.3e-4  r 3 2.8e-4  r 4 4.8e-4
+  best r √2; DEP-D's (base 8 everywhere): r √2 1.4e-4  r φ 1.9e-4  r 2 1.3e-4  r 3 2.8e-4  r 4 4.7e-4
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1006, 3 992/974, 4 1024/1008
+
+H = 30 m, direction 135°: edges 4; view error r √2 1.8e-4  r φ 1.7e-4  r 2 1.5e-4  r 3 3.2e-4  r 4 2.6e-4
+  best r 2; DEP-D's (base 8 everywhere): r √2 1.8e-4  r φ 1.7e-4  r 2 1.5e-4  r 3 3.2e-4  r 4 2.4e-4
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1004
+
+H = 30 m, direction 180°: edges 6; view error r √2 1.1e-4  r φ 6.9e-5  r 2 7.7e-5  r 3 6.6e-5  r 4 3.4e-4
+  best r 3; DEP-D's (base 8 everywhere): r √2 8.8e-5  r φ 6.6e-5  r 2 7.7e-5  r 3 6.6e-5  r 4 3.4e-4
+  leaves allotted/used: √2 1024/1026, φ 992/978, 2 1024/1006, 3 992/954, 4 1024/1024
+
+H = 30 m, direction 225°: edges 4; view error r √2 6.7e-5  r φ 1.0e-4  r 2 8.3e-5  r 3 1.9e-4  r 4 1.7e-4
+  best r √2; DEP-D's (base 8 everywhere): r √2 6.1e-5  r φ 8.4e-5  r 2 8.3e-5  r 3 1.9e-4  r 4 1.6e-4
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1006, 3 992/974, 4 1024/1020
+
+H = 30 m, direction 270°: edges 4; view error r √2 4.6e-5  r φ 3.1e-5  r 2 3.8e-5  r 3 1.1e-4  r 4 1.2e-4
+  best r φ; DEP-D's (base 8 everywhere): r √2 3.5e-5  r φ 2.9e-5  r 2 3.8e-5  r 3 1.1e-4  r 4 1.2e-4
+  leaves allotted/used: √2 1024/1024, φ 992/978, 2 1024/990, 3 992/974, 4 1024/988
+
+H = 30 m, direction 315°: edges 4; view error r √2 2.6e-5  r φ 4.1e-5  r 2 5.4e-5  r 3 8.6e-5  r 4 1.6e-4
+  best r √2; DEP-D's (base 8 everywhere): r √2 3.4e-5  r φ 3.4e-5  r 2 5.4e-5  r 3 8.6e-5  r 4 1.6e-4
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1006, 3 992/992, 4 1024/1004
+
+## The valley, viewer at (0, 0)
+
+H = 1.7 m, direction 0°: edges 2; view error r √2 5.4e-5  r φ 6.5e-5  r 2 3.4e-5  r 3 2.7e-4  r 4 4.0e-4
+  best r 2; DEP-D's (base 8 everywhere): r √2 3.5e-5  r φ 4.0e-5  r 2 3.4e-5  r 3 2.7e-4  r 4 4.0e-4
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1006, 3 992/992, 4 1024/988
+
+H = 1.7 m, direction 45°: edges 5; view error r √2 1.5e-4  r φ 1.1e-4  r 2 1.3e-4  r 3 2.1e-4  r 4 5.3e-4
+  best r φ; DEP-D's (base 8 everywhere): r √2 1.5e-4  r φ 9.6e-5  r 2 1.3e-4  r 3 2.1e-4  r 4 5.3e-4
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/988, 3 992/974, 4 1024/988
+
+H = 1.7 m, direction 90°: edges 2; view error r √2 1.1e-5  r φ 1.8e-5  r 2 6.0e-6  r 3 2.6e-5  r 4 2.1e-5
+  best r 2; DEP-D's (base 8 everywhere): r √2 4.9e-6  r φ 8.0e-6  r 2 6.0e-6  r 3 2.6e-5  r 4 1.9e-5
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 135°: edges 6; view error r √2 3.8e-5  r φ 7.0e-5  r 2 3.2e-5  r 3 8.2e-5  r 4 1.1e-4
+  best r 2; DEP-D's (base 8 everywhere): r √2 3.3e-5  r φ 5.9e-5  r 2 3.2e-5  r 3 8.2e-5  r 4 9.9e-5
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1006, 3 992/974, 4 1024/972
+
+H = 1.7 m, direction 180°: edges 4; view error r √2 1.1e-4  r φ 9.3e-5  r 2 3.1e-5  r 3 2.7e-5  r 4 6.2e-5
+  best r 3; DEP-D's (base 8 everywhere): r √2 8.2e-5  r φ 4.8e-5  r 2 3.1e-5  r 3 2.7e-5  r 4 6.7e-5
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/956, 4 1024/968
+
+H = 1.7 m, direction 225°: edges 2; view error r √2 4.3e-7  r φ 2.3e-5  r 2 2.8e-7  r 3 3.6e-6  r 4 1.2e-6
+  best r 2; DEP-D's (base 8 everywhere): r √2 1.9e-7  r φ 6.6e-6  r 2 2.8e-7  r 3 3.6e-6  r 4 1.3e-6
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1004
+
+H = 1.7 m, direction 270°: edges 0; view error r √2 6.9e-6  r φ 1.2e-5  r 2 4.6e-6  r 3 1.9e-5  r 4 1.0e-4
+  best r 2; DEP-D's (base 8 everywhere): r √2 3.9e-6  r φ 8.5e-6  r 2 4.6e-6  r 3 1.9e-5  r 4 1.0e-4
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 1.7 m, direction 315°: edges 1; view error r √2 1.0e-6  r φ 2.4e-6  r 2 1.9e-6  r 3 1.9e-6  r 4 1.2e-7
+  best r 4; DEP-D's (base 8 everywhere): r √2 1.9e-7  r φ 1.5e-6  r 2 1.9e-6  r 3 1.9e-6  r 4 1.2e-7
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1024, 3 992/992, 4 1024/1024
+
+H = 30 m, direction 0°: edges 3; view error r √2 8.0e-4  r φ 7.4e-4  r 2 7.0e-4  r 3 8.2e-4  r 4 1.0e-3
+  best r 2; DEP-D's (base 8 everywhere): r √2 7.8e-4  r φ 5.9e-4  r 2 7.0e-4  r 3 8.2e-4  r 4 9.4e-4
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1024, 3 992/976, 4 1024/1008
+
+H = 30 m, direction 45°: edges 4; view error r √2 1.6e-3  r φ 2.4e-3  r 2 2.4e-3  r 3 2.5e-3  r 4 3.1e-3
+  best r √2; DEP-D's (base 8 everywhere): r √2 1.8e-3  r φ 2.3e-3  r 2 2.4e-3  r 3 2.5e-3  r 4 3.1e-3
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1006, 3 992/954, 4 1024/1024
+
+H = 30 m, direction 90°: edges 4; view error r √2 5.6e-4  r φ 5.5e-4  r 2 5.7e-4  r 3 8.1e-4  r 4 1.2e-3
+  best r φ; DEP-D's (base 8 everywhere): r √2 4.8e-4  r φ 4.9e-4  r 2 5.7e-4  r 3 8.1e-4  r 4 1.2e-3
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1006, 3 992/956, 4 1024/952
+
+H = 30 m, direction 135°: edges 3; view error r √2 1.9e-3  r φ 2.0e-3  r 2 1.7e-3  r 3 2.5e-3  r 4 2.1e-3
+  best r 2; DEP-D's (base 8 everywhere): r √2 1.8e-3  r φ 1.9e-3  r 2 1.7e-3  r 3 2.5e-3  r 4 1.9e-3
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1006, 3 992/958, 4 1024/1004
+
+H = 30 m, direction 180°: edges 3; view error r √2 5.4e-4  r φ 5.2e-4  r 2 4.5e-4  r 3 5.3e-4  r 4 8.8e-4
+  best r 2; DEP-D's (base 8 everywhere): r √2 5.1e-4  r φ 4.6e-4  r 2 4.5e-4  r 3 5.3e-4  r 4 8.7e-4
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/992, 3 992/960, 4 1024/1024
+
+H = 30 m, direction 225°: edges 4; view error r √2 6.7e-6  r φ 4.1e-6  r 2 1.7e-6  r 3 6.7e-5  r 4 7.4e-6
+  best r 2; DEP-D's (base 8 everywhere): r √2 4.1e-6  r φ 1.7e-6  r 2 1.7e-6  r 3 6.7e-5  r 4 7.4e-6
+  leaves allotted/used: √2 1024/1010, φ 992/996, 2 1024/1008, 3 992/976, 4 1024/1008
+
+H = 30 m, direction 270°: edges 4; view error r √2 3.2e-4  r φ 4.6e-4  r 2 3.9e-4  r 3 7.2e-4  r 4 5.7e-4
+  best r √2; DEP-D's (base 8 everywhere): r √2 3.7e-4  r φ 4.9e-4  r 2 3.9e-4  r 3 7.2e-4  r 4 5.6e-4
+  leaves allotted/used: √2 1024/1024, φ 992/992, 2 1024/1006, 3 992/992, 4 1024/1024
+
+H = 30 m, direction 315°: edges 5; view error r √2 2.8e-4  r φ 4.8e-4  r 2 3.0e-4  r 3 4.6e-4  r 4 5.6e-4
+  best r √2; DEP-D's (base 8 everywhere): r √2 2.5e-4  r φ 4.2e-4  r 2 3.0e-4  r 3 4.6e-4  r 4 5.4e-4
+  leaves allotted/used: √2 1024/1010, φ 992/978, 2 1024/1024, 3 992/970, 4 1024/1008
+  1. X_2 is DEP-D's X_2 on all 32 views, as printed ok
+
+## Verdicts
+  G1: X_2 the lowest of the five in 13 of 32 views (fewer than 16 predicted): holds
+  G2: on the harbour, √2's median 3.0e-6 against 2's 1.5e-5, ratio 0.206 (at most 0.5 predicted): holds
+  (reported) best ratio per view: √2 10, φ 5, 2 13, 3 2, 4 2
+  (reported, harbour) median view error r √2 3.0e-6 (DEP-D 2.6e-6), r φ 5.6e-6 (DEP-D 5.5e-6), r 2 1.5e-5 (DEP-D 1.5e-5), r 3 2.2e-5 (DEP-D 2.2e-5), r 4 3.5e-5 (DEP-D 3.4e-5)
+  (reported, valley) median view error r √2 1.3e-4 (DEP-D 1.2e-4), r φ 1.0e-4 (DEP-D 7.7e-5), r 2 8.1e-5 (DEP-D 8.2e-5), r 3 2.4e-4 (DEP-D 2.4e-4), r 4 4.7e-4 (DEP-D 4.7e-4)

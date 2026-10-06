@@ -1,0 +1,304 @@
+## Checks of the code
+  2. the octave maps at every r: round trip worst 6.1e-16; every scoring point in one base octave true; node sites in their regions true ok
+  3. octaves and nodes: √2: 32 octaves (k -15…16), ρ-octaves j -13…14, 12 nodes, 1024 leaves; φ: 24 octaves (k -11…12), ρ-octaves j -10…11, 13 nodes, 1024 leaves; 2: 16 octaves (k -7…8), ρ-octaves j -6…7, 14 nodes, 1024 leaves; 3: 12 octaves (k -5…6), ρ-octaves j -4…5, 14 nodes, 992 leaves; 4: 8 octaves (k -3…4), ρ-octaves j -3…4, 15 nodes, 1024 leaves ok
+
+## The harbour, viewer at (6, -25)
+
+H = 1.7 m, direction 0°: edges 0; view error r √2 1.4e-7  r φ 5.2e-8  r 2 2.3e-7  r 3 6.1e-7  r 4 1.0e-5; X₁ 2.0e-5
+  best r φ; worst/best 196.418; X_2/X₁ 0.012; X_2 against DEP-Y's X: 2.3e-7 / 2.3e-7
+  r √2: leaves allotted 1024, used 1024; nodes [3] [3,4] [3,3] [3,5] [3,2] [3,1] [3,8] [3,0] [3,7] [3,-1] [3,6] [3,-2] (depth 2: 11, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [3] [3,-2] [3,-1] [3,-2,0] [3,0] [3,-2,1] [3,-3] [3,1] [3,-2,-1] [3,2] [3,3] [3,-5] [3,-2,2] (depth 2: 8, depth 3: 4)
+  r 2: leaves allotted 1024, used 1024; nodes [2] [2,1] [2,0] [2,2] [2,-1] [2,1,-1] [2,3] [2,-2] [2,4] [2,5] [2,-3] [2,1,-2] [2,1,0] [2,1,1] (depth 2: 9, depth 3: 4)
+  r 3: leaves allotted 992, used 992; nodes [1] [1,2] [1,1] [1,3] [1,4] [1,2,0] [1,0] [1,2,1] [1,-1] [1,-2] [1,2,-1] [1,2,2] [1,-3] [1,2,-2] (depth 2: 8, depth 3: 5)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [1,1] [1,1,1] [1,2] [1,0] [1,1,0] [1,3] [1,1,2] [1,-1] [1,1,3] [1,1,-1] [1,-2] [-1] [-2] [-3] (depth 2: 6, depth 3: 5)
+  X₁: nodes [2] [1] [-2] [-1] [-4] [-7] [0] [-3] [-5] [8] [-6] [6] [4] [7]
+
+H = 1.7 m, direction 45°: edges 0; view error r √2 5.9e-7  r φ 1.0e-6  r 2 1.2e-6  r 3 4.8e-6  r 4 1.7e-5; X₁ 2.5e-5
+  best r √2; worst/best 28.190; X_2/X₁ 0.051; X_2 against DEP-Y's X: 1.2e-6 / 1.2e-6
+  r √2: leaves allotted 1024, used 1024; nodes [2] [6] [2,3] [6,2] [2,4] [2,5] [6,1] [2,8] [2,2] [6,3] [6,0] [2,1] (depth 2: 10, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [2] [5] [2,0] [5,-1] [2,0,1] [5,-2] [2,-1] [5,0] [5,-3] [2,-2] [5,1] [5,-4] [2,1] (depth 2: 10, depth 3: 1)
+  r 2: leaves allotted 1024, used 1024; nodes [1] [3] [1,3] [3,2] [3,3] [3,1] [1,4] [1,2] [1,3,0] [3,4] [1,5] [3,0] [1,1] [3,5] (depth 2: 11, depth 3: 1)
+  r 3: leaves allotted 992, used 992; nodes [1] [2] [1,1] [1,1,1] [2,1] [2,2] [1,1,0] [2,1,2] [1,2] [2,3] [2,0] [1,1,2] [1,0] [1,3] (depth 2: 8, depth 3: 4)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [2] [1,1] [2,1] [1,1,0] [1,0] [1,2] [2,0] [2,1,0] [1,1,1] [1,-1] [2,2] [1,3] [1,1,-1] [1,1,2] (depth 2: 8, depth 3: 5)
+  X₁: nodes [1] [3] [-2] [-1] [-3] [-4] [0] [-7] [-6] [-5] [6] [7] [8] [2]
+
+H = 1.7 m, direction 90°: edges 1; view error r √2 1.8e-6  r φ 4.7e-6  r 2 5.7e-6  r 3 1.1e-5  r 4 3.8e-5; X₁ 1.3e-4
+  best r √2; worst/best 20.371; X_2/X₁ 0.045; X_2 against DEP-Y's X: 5.7e-6 / 5.7e-6
+  r √2: leaves allotted 1024, used 1024; nodes [3] [5] [4] [5,2] [3,4] [4,-2] [5,1] [3,5] [4,-3] [4,-1] [4,-4] [5,0] (depth 2: 9, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [3] [4] [3,0] [4,0] [3,-1] [3,-2] [3,1] [4,1] [4,-1] [3,2] [3,0,-1] [4,0,1] [4,2] (depth 2: 9, depth 3: 2)
+  r 2: leaves allotted 1024, used 1024; nodes [2] [3] [2,1] [3,0] [2,0] [3,1] [2,1,1] [3,0,1] [3,-1] [3,2] [2,1,0] [2,1,-1] [3,3] [3,-2] (depth 2: 8, depth 3: 4)
+  r 3: leaves allotted 992, used 992; nodes [1] [2] [2,1] [1,2] [2,0] [2,1,0] [3] [2,2] [1,3] [1,2,0] [2,-1] [1,1] [2,3] [1,2,1] (depth 2: 8, depth 3: 3)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [2] [1,1] [2,0] [1,1,1] [2,1] [1,2] [2,0,0] [2,-1] [1,0] [2,0,1] [1,3] [1,1,0] [1,-1] [2,-2] (depth 2: 9, depth 3: 4)
+  X₁: nodes [2] [3] [1] [4] [-2] [-1] [-3] [-4] [-7] [0] [-6] [-5] [5] [6]
+
+H = 1.7 m, direction 135°: edges 0; view error r √2 1.7e-6  r φ 4.9e-7  r 2 1.6e-7  r 3 7.6e-7  r 4 1.0e-6; X₁ 7.5e-5
+  best r 2; worst/best 10.744; X_2/X₁ 2.2e-3; X_2 against DEP-Y's X: 1.6e-7 / 1.6e-7
+  r √2: leaves allotted 1024, used 1024; nodes [4] [4,0] [4,1] [4,-1] [4,2] [4,-2] [4,3] [4,-4] [4,4] [4,-3] [4,5] [4,-5] (depth 2: 11, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [3] [3,1] [3,0] [3,1,-1] [3,-1] [3,1,-2] [3,2] [3,-2] [3,1,-4] [3,1,-3] [3,3] [3,1,0] [3,-3] (depth 2: 7, depth 3: 5)
+  r 2: leaves allotted 1024, used 1024; nodes [2] [2,1] [2,2] [2,1,2] [2,1,3] [2,0] [2,1,4] [2,-1] [2,1,1] [2,3] [2,-2] [1] [2,1,0] [2,1,-1] (depth 2: 6, depth 3: 6)
+  r 3: leaves allotted 992, used 992; nodes [2] [2,0] [2,-1] [2,0,-1] [1] [2,1] [2,-2] [2,0,0] [2,2] [2,0,-2] [2,0,1] [2,3] [2,0,-3] [2,4] (depth 2: 7, depth 3: 5)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [1,1] [1,2] [1,1,2] [1,1,1] [1,3] [1,0] [1,1,3] [1,1,0] [1,-1] [1,-2] [1,1,-1] [-1] [-2] [-3] (depth 2: 6, depth 3: 5)
+  X₁: nodes [2] [1] [-2] [-1] [-3] [-4] [0] [-5] [-7] [-6] [7] [8] [4] [5]
+
+H = 1.7 m, direction 180°: edges 0; view error r √2 5.0e-7  r φ 1.7e-7  r 2 3.3e-7  r 3 4.5e-6  r 4 5.7e-6; X₁ 1.5e-5
+  best r φ; worst/best 34.330; X_2/X₁ 0.023; X_2 against DEP-Y's X: 3.3e-7 / 3.3e-7
+  r √2: leaves allotted 1024, used 1024; nodes [3] [3,0] [3,-1] [3,1] [3,-2] [3,2] [3,3] [3,0,-1] [3,-4] [3,-3] [3,-5] [3,4] (depth 2: 10, depth 3: 1)
+  r φ: leaves allotted 1024, used 1024; nodes [2] [2,2] [2,1] [2,3] [2,0] [2,4] [2,-1] [2,5] [2,2,-2] [2,6] [2,-2] [2,8] [2,-3] (depth 2: 11, depth 3: 1)
+  r 2: leaves allotted 1024, used 1024; nodes [2] [2,0] [2,-1] [2,1] [2,0,-1] [2,-2] [2,2] [2,3] [2,-3] [2,4] [2,5] [2,0,0] [2,0,-2] [2,0,1] (depth 2: 9, depth 3: 4)
+  r 3: leaves allotted 992, used 992; nodes [1] [1,1] [1,1,1] [1,1,2] [1,0] [1,1,0] [1,2] [1,1,3] [1,1,4] [1,-1] [1,3] [1,1,-1] [1,4] [1,-2] (depth 2: 7, depth 3: 6)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [1,1] [1,1,1] [1,2] [1,0] [1,1,0] [1,3] [1,-1] [1,-2] [1,1,-1] [1,1,2] [1,1,3] [-1] [-2] [-3] (depth 2: 6, depth 3: 5)
+  X₁: nodes [2] [1] [-3] [-1] [-2] [-7] [0] [-4] [-6] [5] [7] [8] [6] [3]
+
+H = 1.7 m, direction 225°: edges 0; view error r √2 1.2e-7  r φ 3.9e-7  r 2 6.4e-8  r 3 7.2e-7  r 4 4.5e-8; X₁ 1.1e-5
+  best r 4; worst/best 15.789; X_2/X₁ 5.6e-3; X_2 against DEP-Y's X: 6.4e-8 / 6.4e-8
+  r √2: leaves allotted 1024, used 1024; nodes [4] [4,1] [4,2] [4,0] [4,3] [4,-1] [4,4] [4,-2] [4,5] [4,1,0] [4,-4] [4,-3] (depth 2: 10, depth 3: 1)
+  r φ: leaves allotted 1024, used 1024; nodes [3] [3,1] [3,0] [3,2] [3,-1] [3,3] [3,1,0] [3,4] [3,-2] [3,-3] [3,5] [3,1,1] [3,-5] (depth 2: 10, depth 3: 2)
+  r 2: leaves allotted 1024, used 1024; nodes [2] [2,2] [2,1] [2,2,-1] [2,3] [2,0] [2,4] [2,-1] [2,5] [2,-2] [2,2,-2] [2,2,0] [2,2,1] [2,-3] (depth 2: 9, depth 3: 4)
+  r 3: leaves allotted 992, used 992; nodes [2] [2,0] [2,0,0] [2,0,-1] [2,1] [2,-1] [1] [2,0,1] [2,-2] [2,2] [2,0,-2] [2,0,2] [2,3] [2,0,3] (depth 2: 6, depth 3: 6)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [1,1] [1,2] [1,1,2] [1,3] [1,0] [1,1,3] [1,-1] [1,-2] [-2] [-1] [1,1,1] [0] [-3] [-1,0] (depth 2: 7, depth 3: 3)
+  X₁: nodes [2] [1] [-2] [-1] [-3] [-4] [-5] [-7] [0] [-6] [6] [8] [4] [5]
+
+H = 1.7 m, direction 270°: edges 0; view error r √2 7.0e-9  r φ 7.2e-9  r 2 7.3e-9  r 3 8.0e-9  r 4 8.0e-9; X₁ 8.5e-9
+  best r √2; worst/best 1.134; X_2/X₁ 0.859; X_2 against DEP-Y's X: 7.3e-9 / 7.3e-9
+  r √2: leaves allotted 1024, used 1024; nodes [-9] [-2] [-5] [-3] [-4] [-6] [-1] [-11] [0] [-8] [1] [-15] (depth 2: 0, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [-2] [-10] [-1] [-6] [-3] [-4] [-5] [-8] [0] [1] [2] [-5,-1] [-4,1] (depth 2: 2, depth 3: 0)
+  r 2: leaves allotted 1024, used 1024; nodes [1] [-2] [-1] [-3] [-7] [0] [-4] [-5] [2] [-3,0] [-1,0] [-4,-1] [0,0] [-2,1] (depth 2: 5, depth 3: 0)
+  r 3: leaves allotted 992, used 992; nodes [1] [2] [-1] [-3] [-2] [0] [-4] [0,0] [-1,0] [-3,0] [-2,0] [-1,1] [1,1] [-4,0] (depth 2: 7, depth 3: 0)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [2] [-1] [0] [-2] [-3] [0,0] [-1,0] [-3,0] [0,0,0] [1,1] [-3,0,0] [-2,0] [0,1] [1,0] (depth 2: 7, depth 3: 2)
+  X₁: nodes [1] [-2] [-1] [-3] [-7] [0] [-4] [-5] [2] [3] [4] [5] [6] [7]
+
+H = 1.7 m, direction 315°: edges 1; view error r √2 7.6e-9  r φ 6.8e-9  r 2 7.5e-9  r 3 8.6e-9  r 4 8.7e-9; X₁ 8.4e-9
+  best r φ; worst/best 1.282; X_2/X₁ 0.896; X_2 against DEP-Y's X: 7.5e-9 / 7.5e-9
+  r √2: leaves allotted 1024, used 1024; nodes [-11] [-4] [-15] [-2] [-3] [-9] [-1] [0] [1] [-6] [-5] [-8] (depth 2: 0, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [-2] [-1] [-3] [-5] [-6] [0] [-8] [-10] [-4] [1] [2] [-8,0] [-6,-2] (depth 2: 2, depth 3: 0)
+  r 2: leaves allotted 1024, used 1024; nodes [1] [-2] [-3] [-1] [-5] [-4] [0] [-7] [2] [-2,0] [-1,0] [-3,2] [-1,-1] [-2,1] (depth 2: 5, depth 3: 0)
+  r 3: leaves allotted 992, used 992; nodes [3] [1] [2] [-1] [-3] [0] [-2] [-4] [0,0] [-3,0] [-1,0] [0,1] [1,1] [-2,1] (depth 2: 6, depth 3: 0)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [2] [-2] [-1] [0] [-3] [-1,0] [0,0] [-1,1] [-3,0] [1,1] [-2,-1] [-3,0,0] [0,1] [1,0] (depth 2: 8, depth 3: 1)
+  X₁: nodes [1] [-2] [-3] [-1] [-5] [-4] [0] [-7] [2] [3] [5] [4] [-6] [8]
+
+H = 30 m, direction 0°: edges 3; view error r √2 3.3e-6  r φ 6.4e-6  r 2 2.4e-5  r 3 3.2e-5  r 4 3.0e-5; X₁ 4.5e-5
+  best r √2; worst/best 9.843; X_2/X₁ 0.518; X_2 against DEP-Y's X: 2.4e-5 / 2.4e-5
+  r √2: leaves allotted 1024, used 1024; nodes [6] [3] [3,1] [3,2] [5] [3,0] [3,1,-1] [3,1,-2] [4] [3,-1] [3,3] [-5] (depth 2: 5, depth 3: 2)
+  r φ: leaves allotted 1024, used 1024; nodes [2] [4] [2,2] [5] [3] [2,2,1] [2,3] [2,2,2] [2,1] [2,0] [2,2,0] [2,2,3] [2,5] (depth 2: 5, depth 3: 4)
+  r 2: leaves allotted 1024, used 1006; nodes [3] [2] [-2] [2,0] [2,0,0] [2,0,1] [1] [3,2] [2,1] [2,0,-1] [2,-1] [2,0,-2] [3,3] [2,0,2] (depth 2: 5, depth 3: 5)
+  r 3: leaves allotted 992, used 974; nodes [2] [1] [1,1] [-1] [1,1,2] [1,2] [2,1] [1,1,1] [1,1,3] [2,0] [2,2] [1,1,4] [1,1,0] [-1,0] (depth 2: 6, depth 3: 5)
+  r 4: leaves allotted 1024, used 1006; nodes [1] [2] [1,1] [1,1,1] [-1] [1,2] [1,0] [1,1,0] [1,1,2] [2,1] [1,3] [1,-1] [1,1,-1] [1,1,3] [-1,0] (depth 2: 7, depth 3: 5)
+  X₁: nodes [3] [2] [-2] [1] [0] [-1] [-6] [-3] [-4] [-5] [4] [5] [6] [7]
+
+H = 30 m, direction 45°: edges 5; view error r √2 4.5e-5  r φ 7.2e-5  r 2 6.8e-5  r 3 7.3e-5  r 4 2.6e-4; X₁ 4.2e-4
+  best r √2; worst/best 5.909; X_2/X₁ 0.163; X_2 against DEP-Y's X: 6.8e-5 / 6.8e-5
+  r √2: leaves allotted 1024, used 1006; nodes [2] [2,1] [3] [-3] [5] [2,2] [2,1,2] [2,0] [2,1,1] [-5] [2,3] [6] (depth 2: 4, depth 3: 2)
+  r φ: leaves allotted 1024, used 1006; nodes [2] [-2] [2,-1] [4] [2,3] [5] [2,-1,-1] [-4] [2,0] [2,-2] [2,-1,0] [2,2] [4,1] (depth 2: 6, depth 3: 2)
+  r 2: leaves allotted 1024, used 1006; nodes [1] [2] [1,2] [1,2,0] [-1] [3] [1,1] [2,0] [1,2,-1] [3,1] [-2] [2,0,1] [1,3] [1,0] (depth 2: 6, depth 3: 3)
+  r 3: leaves allotted 992, used 958; nodes [1] [2] [-1] [1,1] [1,1,0] [1,2] [2,1] [1,1,1] [1,0] [-1,1] [2,1,0] [1,2,-1] [-1,0] [1,-1] (depth 2: 7, depth 3: 4)
+  r 4: leaves allotted 1024, used 974; nodes [1] [2] [1,1] [1,1,0] [0] [1,1,1] [2,0] [1,0] [-1] [1,2] [1,1,2] [2,0,1] [0,-1] [2,1] [1,1,-1] (depth 2: 6, depth 3: 5)
+  X₁: nodes [1] [2] [-1] [3] [-2] [4] [-4] [-3] [0] [-7] [-5] [5] [6] [7]
+
+H = 30 m, direction 90°: edges 5; view error r √2 1.4e-4  r φ 1.9e-4  r 2 1.3e-4  r 3 2.8e-4  r 4 4.7e-4; X₁ 8.5e-4
+  best r 2; worst/best 3.638; X_2/X₁ 0.154; X_2 against DEP-Y's X: 1.3e-4 / 1.3e-4
+  r √2: leaves allotted 1024, used 1006; nodes [1] [-1] [4] [-1,-2] [1,-1] [0] [2] [1,4] [4,3] [5] [4,4] [1,0] (depth 2: 6, depth 3: 0)
+  r φ: leaves allotted 1024, used 1006; nodes [1] [-1] [4] [1,-1] [3] [-1,1] [-1,1,1] [1,1] [0] [3,2] [1,2] [2] [3,2,1] (depth 2: 5, depth 3: 2)
+  r 2: leaves allotted 1024, used 1006; nodes [0] [1] [0,-2] [3] [1,-1] [2] [1,1] [2,3] [1,1,-1] [0,-1] [1,0] [1,-1,2] [0,-2,3] [3,0] (depth 2: 7, depth 3: 3)
+  r 3: leaves allotted 992, used 974; nodes [0] [1] [0,0] [2] [0,0,0] [1,0] [2,0] [1,0,-1] [2,0,1] [1,0,1] [0,-1] [0,0,1] [1,1] [1,-1] (depth 2: 6, depth 3: 5)
+  r 4: leaves allotted 1024, used 1008; nodes [0] [1] [0,0] [0,0,1] [1,0] [2] [1,0,0] [1,0,1] [0,1] [1,2] [1,2,1] [1,1] [0,0,0] [2,0] [1,-1] (depth 2: 7, depth 3: 5)
+  X₁: nodes [0] [1] [3] [2] [-1] [-2] [-7] [-3] [-4] [-6] [-5] [4] [5] [6]
+
+H = 30 m, direction 135°: edges 4; view error r √2 1.8e-4  r φ 1.7e-4  r 2 1.5e-4  r 3 3.2e-4  r 4 2.4e-4; X₁ 7.6e-4
+  best r 2; worst/best 2.181; X_2/X₁ 0.191; X_2 against DEP-Y's X: 1.5e-4 / 1.5e-4
+  r √2: leaves allotted 1024, used 1024; nodes [2] [-1] [-1,-1] [4] [6] [3] [4,0] [2,1] [4,1] [7] [-1,-1,1] [-1,0] (depth 2: 5, depth 3: 1)
+  r φ: leaves allotted 1024, used 1024; nodes [-1] [5] [3] [2] [3,1] [1] [-1,2] [4] [-1,2,-1] [3,1,-1] [-1,1] [3,1,0] [2,-2] (depth 2: 4, depth 3: 3)
+  r 2: leaves allotted 1024, used 1024; nodes [1] [0] [3] [2] [0,-1] [0,-1,0] [2,1] [1,1] [1,2] [2,2] [4] [2,0] [0,0] [0,-2] (depth 2: 8, depth 3: 1)
+  r 3: leaves allotted 992, used 992; nodes [1] [0] [2] [0,0] [0,0,1] [1,1] [2,0] [2,0,-1] [1,1,0] [2,0,0] [2,1] [0,1] [1,2] [0,0,0] (depth 2: 6, depth 3: 5)
+  r 4: leaves allotted 1024, used 1006; nodes [0] [1] [2] [0,0] [0,0,1] [1,1] [1,1,2] [0,1] [1,0] [1,1,0] [1,1,1] [1,2] [2,1] [2,0] [0,0,0] (depth 2: 7, depth 3: 5)
+  X₁: nodes [1] [0] [3] [2] [4] [-1] [-2] [-3] [-7] [-4] [-5] [5] [6] [7]
+
+H = 30 m, direction 180°: edges 6; view error r √2 8.8e-5  r φ 6.6e-5  r 2 7.7e-5  r 3 6.6e-5  r 4 3.4e-4; X₁ 6.2e-4
+  best r φ; worst/best 5.172; X_2/X₁ 0.124; X_2 against DEP-Y's X: 7.7e-5 / 7.7e-5
+  r √2: leaves allotted 1024, used 1022; nodes [4] [4,2] [4,3] [3] [4,-3] [-3] [4,-2] [-5] [6] [4,-4] [4,1] [4,4] (depth 2: 7, depth 3: 0)
+  r φ: leaves allotted 1024, used 1006; nodes [3] [4] [-2] [3,-1] [3,2] [-4] [2] [3,0] [3,2,-1] [5] [3,1] [3,-1,2] [3,3] (depth 2: 5, depth 3: 2)
+  r 2: leaves allotted 1024, used 1006; nodes [2] [2,1] [3] [2,2] [-1] [2,1,0] [2,0] [2,3] [-2] [2,2,2] [2,2,1] [2,1,1] [2,4] [-1,-1] (depth 2: 6, depth 3: 4)
+  r 3: leaves allotted 992, used 954; nodes [1] [2] [2,0] [-1] [2,0,0] [1,2] [2,0,1] [2,1] [1,3] [2,-1] [1,2,2] [2,2] [-1,1] [0] (depth 2: 7, depth 3: 3)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [1,2] [1,1] [2] [1,1,1] [0] [1,2,0] [-1] [1,3] [1,2,1] [1,1,2] [0,-1] [1,1,0] [-1,0] [-1,0,1] (depth 2: 5, depth 3: 6)
+  X₁: nodes [2] [3] [-1] [-2] [4] [1] [-4] [-3] [0] [-6] [-5] [5] [6] [7]
+
+H = 30 m, direction 225°: edges 4; view error r √2 6.1e-5  r φ 8.4e-5  r 2 8.3e-5  r 3 1.9e-4  r 4 1.6e-4; X₁ 4.1e-4
+  best r √2; worst/best 3.055; X_2/X₁ 0.200; X_2 against DEP-Y's X: 8.3e-5 / 8.3e-5
+  r √2: leaves allotted 1024, used 1024; nodes [-1] [9] [-2] [-1,-3] [8] [9,2] [-2,2] [9,2,2] [-1,-4] [8,-1] [9,3] [-1,-2] (depth 2: 7, depth 3: 1)
+  r φ: leaves allotted 1024, used 1024; nodes [7] [-1] [6] [-1,1] [7,0] [-1,0] [-1,0,0] [7,0,-1] [-1,1,-1] [7,-1] [6,-1] [-1,2] [-1,1,0] (depth 2: 6, depth 3: 4)
+  r 2: leaves allotted 1024, used 1006; nodes [0] [5] [-1] [4] [5,0] [0,-2] [5,0,1] [-1,2] [-1,2,0] [-2] [5,1] [4,1] [0,-1] [0,-3] (depth 2: 7, depth 3: 2)
+  r 3: leaves allotted 992, used 974; nodes [0] [3] [0,0] [0,0,0] [3,1] [3,1,1] [1] [3,0] [-1] [0,0,1] [3,0,1] [3,2] [0,-1] [0,1] (depth 2: 6, depth 3: 4)
+  r 4: leaves allotted 1024, used 1006; nodes [0] [0,0] [2] [3] [3,0] [0,0,1] [3,0,1] [1] [2,1] [0,1] [-1] [2,1,1] [0,-1] [3,0,0] [0,0,0] (depth 2: 5, depth 3: 5)
+  X₁: nodes [0] [5] [-1] [4] [-2] [2] [3] [1] [-3] [-6] [-4] [-5] [6] [7]
+
+H = 30 m, direction 270°: edges 4; view error r √2 3.5e-5  r φ 2.9e-5  r 2 3.8e-5  r 3 1.1e-4  r 4 1.2e-4; X₁ 3.0e-4
+  best r φ; worst/best 4.191; X_2/X₁ 0.125; X_2 against DEP-Y's X: 3.8e-5 / 3.8e-5
+  r √2: leaves allotted 1024, used 1024; nodes [0] [2] [0,0] [0,0,0] [0,1] [1] [7] [0,-1] [0,2] [0,-2] [0,0,-1] [1,5] (depth 2: 6, depth 3: 2)
+  r φ: leaves allotted 1024, used 1006; nodes [1] [0] [0,1] [0,1,-1] [5] [1,2] [0,0] [1,3] [1,1] [0,1,1] [0,1,0] [-1] [0,1,2] (depth 2: 5, depth 3: 4)
+  r 2: leaves allotted 1024, used 990; nodes [0] [1] [0,1] [0,1,1] [1,1] [0,1,0] [4] [1,1,0] [1,1,1] [0,0] [2] [1,1,-1] [0,1,2] [0,2] (depth 2: 4, depth 3: 6)
+  r 3: leaves allotted 992, used 974; nodes [0] [1] [0,1] [0,1,1] [2] [1,0] [1,0,1] [1,1] [0,1,0] [0,0] [0,2] [0,1,-1] [0,1,2] [0,3] (depth 2: 6, depth 3: 5)
+  r 4: leaves allotted 1024, used 990; nodes [0] [1] [2] [0,1] [0,1,1] [1,0] [1,0,1] [0,1,0] [0,1,2] [1,1] [0,1,-1] [0,0] [0,2] [0,1,3] [1,2] (depth 2: 6, depth 3: 6)
+  X₁: nodes [0] [1] [4] [2] [3] [-6] [-1] [-2] [-3] [-4] [5] [6] [7] [8]
+
+H = 30 m, direction 315°: edges 4; view error r √2 3.4e-5  r φ 3.4e-5  r 2 5.4e-5  r 3 8.6e-5  r 4 1.6e-4; X₁ 2.2e-4
+  best r φ; worst/best 4.770; X_2/X₁ 0.241; X_2 against DEP-Y's X: 5.4e-5 / 5.4e-5
+  r √2: leaves allotted 1024, used 1024; nodes [7] [8] [-4] [-3] [-4,0] [7,-5] [7,-6] [-4,0,1] [7,-2] [-4,0,0] [7,-8] [7,-5,0] (depth 2: 5, depth 3: 3)
+  r φ: leaves allotted 1024, used 1024; nodes [5] [6] [-3] [5,0] [5,0,0] [-2] [-3,1] [-3,1,3] [5,1] [5,0,1] [5,-1] [-3,2] [5,0,2] (depth 2: 5, depth 3: 4)
+  r 2: leaves allotted 1024, used 1006; nodes [4] [-1] [-2] [4,-3] [-2,1] [4,1] [4,0] [4,-2] [4,2] [-2,1,1] [4,-1] [2] [-1,0] [4,-4] (depth 2: 9, depth 3: 1)
+  r 3: leaves allotted 992, used 992; nodes [2] [3] [-1] [2,2] [2,2,0] [-1,0] [-1,0,1] [2,1] [1] [2,2,1] [3,0] [2,0] [0] [2,3] (depth 2: 6, depth 3: 3)
+  r 4: leaves allotted 1024, used 1006; nodes [2] [0] [-1] [2,1] [1] [2,1,0] [-1,1] [-1,1,1] [2,2] [2,0] [0,0] [2,1,1] [0,0,0] [2,-1] [-1,1,0] (depth 2: 6, depth 3: 5)
+  X₁: nodes [4] [-1] [-2] [2] [3] [1] [-3] [0] [-6] [-5] [-4] [5] [6] [7]
+
+## The valley, viewer at (0, 0)
+
+H = 1.7 m, direction 0°: edges 2; view error r √2 3.5e-5  r φ 4.0e-5  r 2 3.4e-5  r 3 2.7e-4  r 4 4.0e-4; X₁ 4.8e-4
+  best r 2; worst/best 11.913; X_2/X₁ 0.070; X_2 against DEP-Y's X: 3.4e-5 / 3.4e-5
+  r √2: leaves allotted 1024, used 1006; nodes [9] [6] [7] [14] [11] [6,2] [6,3] [6,1] [6,4] [6,5] [6,3,-4] [6,0] (depth 2: 6, depth 3: 1)
+  r φ: leaves allotted 1024, used 1006; nodes [5] [6] [8] [10] [5,-1] [7] [5,-2] [5,0] [5,-1,0] [5,-3] [5,-4] [10,2] [5,-6] (depth 2: 7, depth 3: 1)
+  r 2: leaves allotted 1024, used 1006; nodes [5] [3] [4] [7] [6] [3,2] [3,2,2] [3,3] [7,2] [5,0] [3,2,1] [3,1] [7,1] [5,-1] (depth 2: 7, depth 3: 2)
+  r 3: leaves allotted 992, used 992; nodes [3] [2] [4] [3,1] [5] [2,1] [6] [3,2] [3,0] [2,1,2] [2,2] [3,3] [3,1,1] [5,0] (depth 2: 7, depth 3: 2)
+  r 4: leaves allotted 1024, used 990; nodes [2] [3] [4] [2,1] [2,1,0] [4,1] [3,0] [3,1] [4,0] [2,1,-1] [1] [3,-1] [2,0] [4,2] [4,1,0] (depth 2: 8, depth 3: 3)
+  X₁: nodes [5] [3] [4] [7] [6] [2] [8] [1] [-2] [-7] [-1] [-3] [-4] [0]
+
+H = 1.7 m, direction 45°: edges 5; view error r √2 1.5e-4  r φ 9.6e-5  r 2 1.3e-4  r 3 2.1e-4  r 4 5.3e-4; X₁ 1.5e-3
+  best r φ; worst/best 5.516; X_2/X₁ 0.084; X_2 against DEP-Y's X: 1.3e-4 / 1.3e-4
+  r √2: leaves allotted 1024, used 1024; nodes [8] [4] [14] [15] [16] [8,-8] [8,-6] [7] [4,0] [8,-4] [8,-5] [8,-3] (depth 2: 6, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [6] [3] [6,-2] [10] [5] [11] [6,-3] [12] [6,-4] [6,-1] [3,0] [6,-5] [6,0] (depth 2: 7, depth 3: 0)
+  r 2: leaves allotted 1024, used 988; nodes [4] [4,1] [2] [8] [7] [4,1,0] [4,0] [2,1] [4,1,1] [4,1,-1] [4,-1] [2,1,1] [4,1,-2] [4,1,2] (depth 2: 4, depth 3: 6)
+  r 3: leaves allotted 992, used 974; nodes [3] [2] [3,0] [6] [5] [3,0,0] [3,0,1] [6,-1] [2,-1] [3,-1] [3,1] [2,2] [5,0] [3,-2] (depth 2: 8, depth 3: 2)
+  r 4: leaves allotted 1024, used 990; nodes [2] [1] [2,1] [4] [2,1,1] [1,1] [4,1] [1,1,1] [1,2] [2,1,2] [2,1,0] [4,1,1] [1,1,2] [2,2] [4,2] (depth 2: 6, depth 3: 6)
+  X₁: nodes [4] [2] [8] [7] [5] [6] [1] [-7] [-2] [-1] [-3] [0] [-4] [3]
+
+H = 1.7 m, direction 90°: edges 2; view error r √2 4.9e-6  r φ 8.0e-6  r 2 6.0e-6  r 3 2.6e-5  r 4 1.9e-5; X₁ 5.2e-5
+  best r √2; worst/best 5.376; X_2/X₁ 0.116; X_2 against DEP-Y's X: 6.0e-6 / 6.0e-6
+  r √2: leaves allotted 1024, used 1024; nodes [3] [15] [11] [6] [3,-1] [3,0] [3,-2] [3,1] [3,2] [3,-3] [3,-4] [6,-4] (depth 2: 8, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [2] [4] [11] [8] [2,1] [2,2] [4,1] [2,0] [2,3] [4,2] [2,4] [2,-1] [2,1,3] (depth 2: 8, depth 3: 1)
+  r 2: leaves allotted 1024, used 1024; nodes [2] [3] [6] [8] [2,0] [2,-1] [3,1] [5] [2,1] [3,1,0] [2,-2] [2,2] [3,0] [2,3] (depth 2: 8, depth 3: 1)
+  r 3: leaves allotted 992, used 992; nodes [1] [4] [6] [2] [5] [1,1] [6,-1] [6,-2] [1,1,1] [2,1] [1,2] [3] [2,1,1] [1,0] (depth 2: 6, depth 3: 2)
+  r 4: leaves allotted 1024, used 1024; nodes [1] [3] [2] [4] [1,1] [1,1,1] [1,1,0] [1,0] [1,2] [2,0] [2,0,1] [4,1] [1,3] [4,1,1] [1,-1] (depth 2: 7, depth 3: 4)
+  X₁: nodes [2] [3] [6] [8] [5] [4] [7] [1] [-2] [-1] [-3] [-7] [0] [-4]
+
+H = 1.7 m, direction 135°: edges 6; view error r √2 3.3e-5  r φ 5.9e-5  r 2 3.2e-5  r 3 8.2e-5  r 4 9.9e-5; X₁ 3.3e-4
+  best r 2; worst/best 3.118; X_2/X₁ 0.095; X_2 against DEP-Y's X: 3.2e-5 / 3.2e-5
+  r √2: leaves allotted 1024, used 1006; nodes [10] [13] [4] [6] [15] [16] [4,-2] [10,1] [14] [6,2] [10,2] [12] (depth 2: 4, depth 3: 0)
+  r φ: leaves allotted 1024, used 1006; nodes [7] [12] [3] [9] [10] [12,1] [5] [12,0] [11] [3,0] [12,-1] [12,1,0] [9,1] (depth 2: 5, depth 3: 1)
+  r 2: leaves allotted 1024, used 1006; nodes [5] [2] [7] [3] [8] [5,2] [2,1] [6] [5,1] [3,2] [5,3] [2,1,1] [5,0] [7,1] (depth 2: 7, depth 3: 1)
+  r 3: leaves allotted 992, used 974; nodes [4] [6] [5] [2] [3] [4,-1] [4,-2] [4,1] [2,1] [6,-1] [6,-2] [4,0] [5,1] [2,-2] (depth 2: 9, depth 3: 0)
+  r 4: leaves allotted 1024, used 980; nodes [3] [1] [4] [3,1] [2] [1,1] [3,0] [1,1,1] [4,1] [4,0] [3,2] [3,1,0] [1,2] [2,1] [3,-1] (depth 2: 9, depth 3: 2)
+  X₁: nodes [5] [2] [7] [3] [8] [6] [4] [1] [-1] [-3] [-2] [-7] [0] [-4]
+
+H = 1.7 m, direction 180°: edges 4; view error r √2 8.2e-5  r φ 4.8e-5  r 2 3.1e-5  r 3 2.7e-5  r 4 6.7e-5; X₁ 6.7e-4
+  best r 3; worst/best 3.048; X_2/X₁ 0.045; X_2 against DEP-Y's X: 3.1e-5 / 3.1e-5
+  r √2: leaves allotted 1024, used 1024; nodes [10] [16] [16,5] [12] [14] [15] [16,4] [16,5,-1] [16,3] [16,8] [16,2] [16,5,-5] (depth 2: 5, depth 3: 2)
+  r φ: leaves allotted 1024, used 1024; nodes [7] [12] [12,1] [12,1,-1] [10] [9] [11] [12,0] [12,1,0] [12,1,-2] [12,-1] [7,3] [10,1] (depth 2: 5, depth 3: 3)
+  r 2: leaves allotted 1024, used 1024; nodes [5] [8] [6] [8,3] [7] [8,4] [8,3,2] [8,2] [8,5] [5,2] [8,1] [7,1] [5,1] [6,2] (depth 2: 9, depth 3: 1)
+  r 3: leaves allotted 992, used 956; nodes [4] [3] [6] [5] [6,-1] [4,1] [4,-1] [4,-2] [6,-1,1] [6,-1,0] [6,-2] [5,0] [4,0] [2] (depth 2: 7, depth 3: 2)
+  r 4: leaves allotted 1024, used 972; nodes [3] [4] [4,2] [4,3] [3,1] [4,2,1] [4,1] [3,2] [3,0] [1] [4,2,0] [4,0] [4,1,1] [2] [3,-1] (depth 2: 8, depth 3: 3)
+  X₁: nodes [5] [8] [6] [7] [4] [2] [3] [1] [-7] [-2] [-1] [-3] [0] [-4]
+
+H = 1.7 m, direction 225°: edges 2; view error r √2 1.9e-7  r φ 6.6e-6  r 2 2.8e-7  r 3 3.6e-6  r 4 1.3e-6; X₁ 3.2e-6
+  best r √2; worst/best 34.931; X_2/X₁ 0.087; X_2 against DEP-Y's X: 2.8e-7 / 2.8e-7
+  r √2: leaves allotted 1024, used 1024; nodes [13] [16] [12] [15] [13,-3] [13,-3,3] [8] [13,-4] [13,-3,1] [9] [13,-3,0] [13,-6] (depth 2: 3, depth 3: 3)
+  r φ: leaves allotted 1024, used 1024; nodes [12] [9] [12,1] [11] [12,0] [12,-1] [12,-2] [12,-3] [12,-4] [12,-6] [9,2] [9,1] [11,3] (depth 2: 10, depth 3: 0)
+  r 2: leaves allotted 1024, used 1024; nodes [8] [7] [6] [4] [8,1] [5] [7,-1] [8,1,0] [8,0] [3] [7,-2] [8,-1] [2] [8,-2] (depth 2: 6, depth 3: 1)
+  r 3: leaves allotted 992, used 992; nodes [4] [6] [5] [6,-1] [6,-2] [3] [4,1] [4,1,2] [2] [5,1] [4,1,1] [5,1,1] [4,0] [4,1,0] (depth 2: 5, depth 3: 4)
+  r 4: leaves allotted 1024, used 1006; nodes [4] [3] [2] [4,1] [4,-1] [1] [4,1,1] [4,0] [4,-1,1] [4,1,0] [4,1,-1] [4,-1,0] [-1] [4,-1,-1] [0] (depth 2: 3, depth 3: 6)
+  X₁: nodes [8] [7] [6] [4] [5] [3] [2] [-2] [-7] [1] [-1] [-3] [-4] [0]
+
+H = 1.7 m, direction 270°: edges 0; view error r √2 3.9e-6  r φ 8.5e-6  r 2 4.6e-6  r 3 1.9e-5  r 4 1.0e-4; X₁ 1.1e-4
+  best r √2; worst/best 26.127; X_2/X₁ 0.042; X_2 against DEP-Y's X: 4.6e-6 / 4.6e-6
+  r √2: leaves allotted 1024, used 1024; nodes [11] [11,3] [11,2] [11,3,-1] [11,4] [11,1] [11,3,0] [11,5] [11,0] [11,3,-4] [11,3,-2] [11,-1] (depth 2: 7, depth 3: 4)
+  r φ: leaves allotted 1024, used 1024; nodes [8] [8,2] [8,2,1] [8,3] [8,1] [8,4] [8,2,0] [8,0] [8,5] [6] [8,2,2] [8,-1] [8,7] (depth 2: 8, depth 3: 3)
+  r 2: leaves allotted 1024, used 1024; nodes [6] [6,0] [6,0,2] [4] [6,1] [6,0,3] [6,0,1] [6,2] [6,-1] [5] [6,3] [6,0,0] [6,-2] [6,4] (depth 2: 7, depth 3: 4)
+  r 3: leaves allotted 992, used 992; nodes [4] [3] [4,1] [4,0] [4,1,0] [4,1,-1] [4,2] [2] [4,-1] [4,3] [4,1,-2] [4,1,1] [4,4] [4,1,2] (depth 2: 6, depth 3: 5)
+  r 4: leaves allotted 1024, used 1024; nodes [3] [3,1] [2] [3,1,1] [3,2] [3,0] [3,3] [3,-1] [1] [3,-2] [3,1,0] [3,1,2] [3,1,-1] [3,1,3] [-1] (depth 2: 6, depth 3: 5)
+  X₁: nodes [6] [4] [5] [3] [2] [-2] [-7] [-1] [-4] [-3] [0] [-5] [1] [8]
+
+H = 1.7 m, direction 315°: edges 1; view error r √2 1.9e-7  r φ 1.5e-6  r 2 1.9e-6  r 3 1.9e-6  r 4 1.2e-7; X₁ 4.7e-5
+  best r 4; worst/best 15.658; X_2/X₁ 0.040; X_2 against DEP-Y's X: 1.9e-6 / 1.9e-6
+  r √2: leaves allotted 1024, used 1024; nodes [10] [13] [12] [13,-4] [10,0] [13,-5] [9] [10,1] [13,-3] [10,2] [10,-1] [6] (depth 2: 7, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [7] [9] [7,2] [9,1] [7,3] [7,1] [7,4] [7,0] [5] [9,1,3] [7,-1] [4] [8] (depth 2: 7, depth 3: 1)
+  r 2: leaves allotted 1024, used 1024; nodes [5] [6] [5,1] [7] [5,2] [5,0] [5,3] [3] [5,-1] [7,-2] [5,4] [5,5] [5,-2] [7,-1] (depth 2: 10, depth 3: 0)
+  r 3: leaves allotted 992, used 992; nodes [3] [4] [2] [3,2] [4,1] [3,3] [4,1,2] [1] [4,1,1] [4,0] [4,2] [3,1] [4,1,0] [4,-1] (depth 2: 7, depth 3: 3)
+  r 4: leaves allotted 1024, used 1024; nodes [3] [2] [3,0] [3,1] [4] [1] [3,2] [3,-1] [3,3] [4,-1] [3,-2] [4,-1,0] [4,-1,1] [4,0] [4,-1,2] (depth 2: 8, depth 3: 3)
+  X₁: nodes [5] [6] [7] [3] [2] [4] [1] [-2] [-7] [-1] [-4] [-3] [0] [-5]
+
+H = 30 m, direction 0°: edges 3; view error r √2 7.8e-4  r φ 5.9e-4  r 2 7.0e-4  r 3 8.2e-4  r 4 9.4e-4; X₁ 1.3e-3
+  best r φ; worst/best 1.579; X_2/X₁ 0.530; X_2 against DEP-Y's X: 7.0e-4 / 7.0e-4
+  r √2: leaves allotted 1024, used 1006; nodes [10] [9] [8] [11] [12] [6] [-1] [11,1] [10,0] [12,-1] [7] [11,0] (depth 2: 4, depth 3: 0)
+  r φ: leaves allotted 1024, used 1006; nodes [6] [7] [5] [8] [4] [8,1] [-1] [0] [9] [7,2] [7,1] [6,2] [8,2] (depth 2: 5, depth 3: 0)
+  r 2: leaves allotted 1024, used 1024; nodes [5] [3] [4] [6] [6,0] [5,1] [0] [6,1] [6,1,1] [5,-1] [0,0] [5,1,0] [6,-2] [5,1,2] (depth 2: 6, depth 3: 3)
+  r 3: leaves allotted 992, used 976; nodes [3] [2] [4] [3,1] [3,2] [4,0] [0] [4,1] [0,0] [3,1,0] [4,1,0] [1] [4,0,1] [3,1,1] (depth 2: 5, depth 3: 4)
+  r 4: leaves allotted 1024, used 1008; nodes [3] [2] [3,0] [3,1] [1] [3,1,1] [3,-1] [0] [3,0,1] [3,1,-1] [3,1,0] [0,1] [0,0] [2,1] [0,0,1] (depth 2: 6, depth 3: 5)
+  X₁: nodes [5] [3] [4] [6] [0] [2] [1] [-2] [-3] [-1] [-4] [-6] [-5] [7]
+
+H = 30 m, direction 45°: edges 4; view error r √2 1.8e-3  r φ 2.3e-3  r 2 2.4e-3  r 3 2.5e-3  r 4 3.1e-3; X₁ 4.6e-3
+  best r √2; worst/best 1.733; X_2/X₁ 0.518; X_2 against DEP-Y's X: 2.4e-3 / 2.4e-3
+  r √2: leaves allotted 1024, used 1006; nodes [7] [12] [-4] [10] [11] [13] [0] [12,-1] [7,1] [-2] [-4,-1] [13,-2] (depth 2: 4, depth 3: 0)
+  r φ: leaves allotted 1024, used 1006; nodes [7] [9] [8] [-3] [6] [5] [9,1] [9,-1] [5,2] [0] [9,0] [8,3] [-3,1] (depth 2: 6, depth 3: 0)
+  r 2: leaves allotted 1024, used 1006; nodes [5] [6] [-2] [6,1] [4] [6,2] [6,3] [7] [5,1] [4,0] [-2,1] [0] [6,0] [-2,1,0] (depth 2: 7, depth 3: 1)
+  r 3: leaves allotted 992, used 954; nodes [3] [4] [4,1] [-1] [0] [4,1,1] [-1,0] [4,1,0] [4,2] [2] [4,0] [3,-1] [3,2] [3,1] (depth 2: 7, depth 3: 2)
+  r 4: leaves allotted 1024, used 1024; nodes [2] [3] [3,1] [-1] [3,1,1] [3,2] [3,0] [2,1] [2,1,1] [-1,1] [4] [0] [-1,1,1] [4,0] [3,1,2] (depth 2: 6, depth 3: 4)
+  X₁: nodes [5] [6] [-2] [4] [7] [0] [-1] [3] [2] [1] [-3] [-6] [-4] [-5]
+
+H = 30 m, direction 90°: edges 4; view error r √2 4.8e-4  r φ 4.9e-4  r 2 5.7e-4  r 3 8.1e-4  r 4 1.2e-3; X₁ 1.8e-3
+  best r √2; worst/best 2.472; X_2/X₁ 0.314; X_2 against DEP-Y's X: 5.7e-4 / 5.7e-4
+  r √2: leaves allotted 1024, used 1006; nodes [11] [-5] [9] [8] [12] [8,0] [10] [-5,-1] [11,3] [12,-1] [11,0] [8,0,2] (depth 2: 5, depth 3: 1)
+  r φ: leaves allotted 1024, used 1006; nodes [7] [8] [6] [-4] [9] [8,2] [8,1] [-4,3] [6,0] [6,0,1] [9,-2] [7,0] [8,0] (depth 2: 7, depth 3: 1)
+  r 2: leaves allotted 1024, used 1006; nodes [6] [5] [4] [-2] [6,1] [-2,-1] [3] [6,0] [4,1] [5,0] [4,1,2] [6,1,1] [6,-1] [6,1,-2] (depth 2: 6, depth 3: 3)
+  r 3: leaves allotted 992, used 956; nodes [3] [4] [-1] [4,1] [4,0] [2] [3,1] [4,1,0] [-1,0] [-1,0,-1] [4,0,1] [3,0] [3,1,1] [3,0,2] (depth 2: 5, depth 3: 5)
+  r 4: leaves allotted 1024, used 956; nodes [2] [3] [-1] [3,1] [3,1,1] [-1,0] [3,0] [3,1,0] [-1,0,1] [2,1] [2,1,2] [1] [2,0] [-1,1] [2,1,1] (depth 2: 6, depth 3: 5)
+  X₁: nodes [6] [5] [4] [-2] [3] [2] [1] [-1] [-3] [-5] [0] [-6] [-4] [7]
+
+H = 30 m, direction 135°: edges 3; view error r √2 1.8e-3  r φ 1.9e-3  r 2 1.7e-3  r 3 2.5e-3  r 4 1.9e-3; X₁ 2.8e-3
+  best r 2; worst/best 1.446; X_2/X₁ 0.609; X_2 against DEP-Y's X: 1.7e-3 / 1.7e-3
+  r √2: leaves allotted 1024, used 1006; nodes [12] [10] [-4] [8] [9] [11] [13] [7] [9,3] [9,1] [-4,-1] [9,2] (depth 2: 4, depth 3: 0)
+  r φ: leaves allotted 1024, used 1006; nodes [9] [6] [-3] [8] [7] [5] [6,1] [9,1] [-2] [9,0] [8,1] [9,2] [6,2] (depth 2: 6, depth 3: 0)
+  r 2: leaves allotted 1024, used 1006; nodes [5] [6] [-2] [4] [3] [7] [5,1] [5,0] [5,2] [6,1] [6,0] [-2,1] [-2,1,0] [-1] (depth 2: 6, depth 3: 1)
+  r 3: leaves allotted 992, used 958; nodes [3] [4] [-1] [2] [4,1] [3,1] [4,0] [-1,0] [3,2] [3,1,1] [4,1,1] [4,1,0] [3,0] [4,0,0] (depth 2: 6, depth 3: 4)
+  r 4: leaves allotted 1024, used 1006; nodes [3] [3,1] [2] [-1] [3,0] [1] [3,2] [4] [3,1,1] [-1,1] [0] [3,1,0] [3,0,0] [2,2] [3,0,1] (depth 2: 5, depth 3: 4)
+  X₁: nodes [5] [6] [-2] [4] [3] [7] [-1] [2] [1] [-3] [-5] [-4] [0] [-6]
+
+H = 30 m, direction 180°: edges 3; view error r √2 5.1e-4  r φ 4.6e-4  r 2 4.5e-4  r 3 5.3e-4  r 4 8.7e-4; X₁ 1.2e-3
+  best r 2; worst/best 1.916; X_2/X₁ 0.375; X_2 against DEP-Y's X: 4.5e-4 / 4.5e-4
+  r √2: leaves allotted 1024, used 1006; nodes [9] [10] [8] [11] [12] [9,4] [6] [10,5] [10,2] [11,1] [11,3] [7] (depth 2: 5, depth 3: 0)
+  r φ: leaves allotted 1024, used 1006; nodes [7] [8] [6] [4] [5] [8,-1] [7,0] [8,-2] [8,2] [8,2,1] [9] [8,-1,0] [7,3] (depth 2: 5, depth 3: 2)
+  r 2: leaves allotted 1024, used 992; nodes [5] [4] [3] [6] [5,1] [5,3] [5,2] [6,0] [6,1] [5,0] [4,1] [5,1,-1] [6,1,1] [6,0,2] (depth 2: 7, depth 3: 3)
+  r 3: leaves allotted 992, used 960; nodes [3] [4] [2] [4,0] [3,1] [4,0,0] [3,1,2] [4,1] [4,-1] [1] [3,0] [3,2] [4,1,0] [4,1,-1] (depth 2: 6, depth 3: 4)
+  r 4: leaves allotted 1024, used 1024; nodes [3] [2] [3,0] [3,1] [1] [3,1,0] [3,1,1] [3,0,1] [2,1] [2,2] [3,-1] [2,1,1] [3,1,-1] [3,0,0] [2,0] (depth 2: 6, depth 3: 6)
+  X₁: nodes [5] [4] [3] [6] [2] [1] [-2] [-1] [-3] [0] [-5] [-6] [-4] [7]
+
+H = 30 m, direction 225°: edges 4; view error r √2 4.1e-6  r φ 1.7e-6  r 2 1.7e-6  r 3 6.7e-5  r 4 7.4e-6; X₁ 1.3e-4
+  best r φ; worst/best 38.370; X_2/X₁ 0.014; X_2 against DEP-Y's X: 1.7e-6 / 1.7e-6
+  r √2: leaves allotted 1024, used 1006; nodes [8] [9] [9,1] [9,0] [8,3] [7] [8,4] [6] [8,5] [9,2] [8,2] [8,1] (depth 2: 8, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [6] [7] [5] [7,-1] [7,-2] [6,1] [6,2] [6,0] [7,-3] [7,-4] [6,-1] [7,0] [3] (depth 2: 9, depth 3: 0)
+  r 2: leaves allotted 1024, used 1008; nodes [4] [5] [5,0] [5,0,0] [4,2] [4,3] [3] [5,0,-1] [5,0,1] [4,1] [4,4] [4,0] [2] [4,-1] (depth 2: 7, depth 3: 3)
+  r 3: leaves allotted 992, used 976; nodes [3] [2] [3,1] [4] [3,0] [3,1,1] [3,1,0] [1] [3,-1] [3,-2] [3,1,-1] [3,1,-2] [3,2] [2,2] (depth 2: 6, depth 3: 4)
+  r 4: leaves allotted 1024, used 1008; nodes [2] [3] [2,2] [2,1] [1] [3,0] [3,0,0] [2,3] [2,0] [3,0,1] [3,1] [2,-1] [3,-1] [3,1,0] [2,1,1] (depth 2: 8, depth 3: 4)
+  X₁: nodes [4] [5] [3] [2] [1] [-2] [-3] [-1] [-4] [-6] [0] [-5] [6] [7]
+
+H = 30 m, direction 270°: edges 4; view error r √2 3.7e-4  r φ 4.9e-4  r 2 3.9e-4  r 3 7.2e-4  r 4 5.6e-4; X₁ 1.6e-3
+  best r √2; worst/best 1.941; X_2/X₁ 0.247; X_2 against DEP-Y's X: 3.9e-4 / 3.9e-4
+  r √2: leaves allotted 1024, used 1024; nodes [8] [6] [8,3] [11] [9] [10] [3] [5] [11,1] [7] [8,2] [10,1] (depth 2: 4, depth 3: 0)
+  r φ: leaves allotted 1024, used 1024; nodes [6] [8] [6,1] [5] [4] [2] [7] [8,1] [3] [9] [6,2] [6,1,2] [8,1,1] (depth 2: 3, depth 3: 2)
+  r 2: leaves allotted 1024, used 1006; nodes [4] [2] [3] [5] [6] [4,2] [4,1] [6,0] [4,3] [6,0,0] [4,2,2] [5,2] [4,4] [2,0] (depth 2: 7, depth 3: 2)
+  r 3: leaves allotted 992, used 992; nodes [2] [3] [1] [4] [3,1] [2,1] [4,0] [3,1,0] [4,0,1] [3,4] [4,1] [3,0] [1,2] [1,1] (depth 2: 8, depth 3: 2)
+  r 4: leaves allotted 1024, used 1024; nodes [2] [1] [3] [3,1] [2,2] [2,1] [3,1,1] [1,1] [2,2,0] [1,1,1] [2,0] [2,3] [3,1,0] [2,2,1] [2,1,0] (depth 2: 6, depth 3: 6)
+  X₁: nodes [4] [2] [3] [5] [6] [1] [-2] [-1] [-3] [-4] [-6] [0] [-5] [7]
+
+H = 30 m, direction 315°: edges 5; view error r √2 2.5e-4  r φ 4.2e-4  r 2 3.0e-4  r 3 4.6e-4  r 4 5.4e-4; X₁ 1.2e-3
+  best r √2; worst/best 2.158; X_2/X₁ 0.258; X_2 against DEP-Y's X: 3.0e-4 / 3.0e-4
+  r √2: leaves allotted 1024, used 1006; nodes [9] [5] [8] [6] [7] [10] [4] [9,0] [9,4] [9,0,1] [9,-1] [9,3] (depth 2: 4, depth 3: 1)
+  r φ: leaves allotted 1024, used 1006; nodes [4] [7] [6] [3] [5] [7,0] [7,1] [7,2] [6,2] [7,-3] [4,2] [7,3] [6,1] (depth 2: 8, depth 3: 0)
+  r 2: leaves allotted 1024, used 1024; nodes [3] [2] [5] [4] [5,1] [5,0] [5,0,-1] [5,1,-1] [5,1,0] [5,2] [3,1] [5,-1] [2,1] [2,2] (depth 2: 7, depth 3: 3)
+  r 3: leaves allotted 992, used 970; nodes [3] [2] [3,1] [2,1] [3,1,1] [1] [3,0] [3,2] [3,1,0] [4] [2,1,1] [3,1,2] [2,0] [3,2,-1] (depth 2: 5, depth 3: 5)
+  r 4: leaves allotted 1024, used 1008; nodes [1] [2] [3] [2,1] [3,0] [2,2] [1,1] [3,0,1] [3,1] [2,1,1] [3,0,0] [2,0] [1,2] [3,-1] [2,3] (depth 2: 9, depth 3: 3)
+  X₁: nodes [3] [2] [5] [4] [1] [6] [-2] [-3] [0] [-4] [-6] [-1] [-5] [7]
+  1. X_2 is DEP-Y's X on all 32 views, as printed ok
+
+## Verdicts
+  D1: X_2 the lowest of the five ratios in 7 of 32 views (at least 16 predicted): KD1 FIRES
+  D2: worst ratio at least 1.5 × the best in 29 of 32 views (at least 16 predicted): holds
+  D3: X_2 below X₁ in 32 of 32 views (at least 24 predicted): holds
+  (reported) best ratio per view: √2 13, φ 9, 2 7, 3 1, 4 2
+  (reported, harbour) median view error r √2 2.6e-6, r φ 5.5e-6, r 2 1.5e-5, r 3 2.2e-5, r 4 3.4e-5; X₁ 1.0e-4; median X_2/X₁ 0.140
+  (reported, valley) median view error r √2 1.1e-4, r φ 7.7e-5, r 2 8.1e-5, r 3 2.4e-4, r 4 4.7e-4; X₁ 9.2e-4; median X_2/X₁ 0.105
