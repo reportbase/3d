@@ -4575,10 +4575,26 @@ const SCN=(function(){
   const group=new THREE.Group(); group.visible=false; scene.add(group);
   const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.62,metalness:0.02,side:THREE.DoubleSide});
   // the blend: every type mesh carries the shorter prefix (posPrev, nrmPrev) and each copy its fade
-  mat.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader
-    .replace('#include <common>','#include <common>\nattribute vec3 posPrev;\nattribute vec3 nrmPrev;\nattribute float fade;')
+  /* Variation and motion, per copy, in the same pass (Oct 6: "we can inject some small
+     variation cheaply, and animate objects easily"). Each copy carries anim = (seed, vary,
+     sway, bob) and asize = (1/size, 1/height) of its type. vary nudges every vertex along
+     its normal by four coarse cosine modes whose directions and phases come from the seed,
+     so no two copies share a shape and no mesh is built per copy. sway leans the copy by
+     sway·h² of its height (the parts' own lean term), at its own phase. bob lifts and rolls
+     it, for things afloat. All zero, the copy is drawn exactly as before. */
+  mat.onBeforeCompile=sh=>{ sh.uniforms.uTime={value:0}; mat.userData.sh=sh; sh.vertexShader=sh.vertexShader
+    .replace('#include <common>','#include <common>\nattribute vec3 posPrev;\nattribute vec3 nrmPrev;\nattribute float fade;\nattribute vec4 anim;\nattribute vec2 asize;\nuniform float uTime;\nfloat hh(float n){ return fract(sin(n)*43758.5453); }')
     .replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(mix(nrmPrev, vec3(normal), fade));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3(tangent.xyz);\n#endif')
-    .replace('#include <begin_vertex>','vec3 transformed = mix(posPrev, vec3(position), fade);'); };
+    .replace('#include <begin_vertex>',[
+      'vec3 transformed = mix(posPrev, vec3(position), fade);',
+      'if(anim.y>0.0){ vec3 q=transformed*asize.x; float f=0.0;',
+      '  for(int k=0;k<4;k++){ float fk=float(k); vec3 dv=vec3(hh(anim.x*91.7+fk*1.7),hh(anim.x*37.3+fk*2.3),hh(anim.x*53.1+fk*3.1))-0.5;',
+      '    f+=cos(6.2831853*(dot(normalize(dv+1e-4),q)*(1.0+0.5*fk)+hh(anim.x*17.9+fk*5.3))); }',
+      '  transformed+=objectNormal*anim.y*0.25*f; }',
+      'float ph=6.2831853*fract(anim.x*7.31);',
+      'if(anim.z>0.0){ float hy=clamp(transformed.y*asize.y,0.0,1.0), w=sin(uTime*1.3+ph)+0.35*sin(uTime*2.9+ph*1.7), lean=anim.z*hy*hy/asize.y*w;',
+      '  transformed.x+=lean*cos(ph*0.5); transformed.z+=lean*sin(ph*0.5); }',
+      'if(anim.w>0.0){ transformed.y+=anim.w/asize.y*sin(uTime*1.1+ph)+anim.w*0.6*transformed.x*sin(uTime*0.9+ph*1.3); }'].join('\n')); };
   const detailed=d=>!!((d.cascade&&(d.sculpted||d.painted))||(d.detail&&d.detail.pattern));
   // the mesh for one part at one level: plain parts as before, detailed ones fine enough for that level's rung
   function partDims(p,level){ if(!detailed(p)||level===0) return LODS[level]; const k=1<<Math.min(level-1,(p.eng.rungs||4)-1);
@@ -4724,6 +4740,7 @@ const SCN=(function(){
       for(let i=ci-k;i<=ci+k;i++) for(let j=cj-k;j<=cj+k;j++){ const b=hash.get(key(i,j)); if(b) for(const o of b) if(Math.hypot(o.x-x,o.z-z)<o.r+r) return false; } return true; };
     const reg=(x,z,r)=>{ const k=key(Math.floor(x/CELL),Math.floor(z/CELL)); if(!hash.has(k)) hash.set(k,[]); hash.get(k).push({x,z,r}); maxR=Math.max(maxR,r); };
     let rule_=0;   // which top-level rule placed each copy, for the panel and the tests
+    let motion_={vary:0,sway:0,bob:0};   // the placing rule's vary, sway and bob, inherited by a prefab's own rules
     const TR=terrainOf(d);
     /* Where a copy's base goes: on water, the water's level; on land, the ground. A wide copy
        on a slope takes the lowest of five points under its footprint, so a house settles into
@@ -4772,8 +4789,13 @@ const SCN=(function(){
         for(let i=-n;i<=n;i++){ const u=o+hl*i/n; reg(x+ux*u,z+uz*u,rr); } }
       else reg(x,z,r);
       const v=1+(R()*2-1)*tint, m=new THREE.Matrix4().compose(V(x,y,z),new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(s*sx,s*sy,s*sz));
-      out.push({t,x,y,z,s,m,col:new THREE.Color(v,v,v),rule:rule_,lv:0}); return true; };
-    function runRule(rule,f,depth){ const t=byName.get(String(rule.type||'').toLowerCase()); if(t==null||!rule||typeof rule!=='object') return;
+      // the seed comes from where the copy stands, not from R: drawing from R would move every later copy of an older scene
+      const seed=((Math.sin(x*12.9898+z*78.233)*43758.5453)%1+1)%1;
+      out.push({t,x,y,z,s,m,col:new THREE.Color(v,v,v),rule:rule_,lv:0,anim:[seed,motion_.vary*T.size,motion_.sway,motion_.bob]}); return true; };
+    function runRule(rule,f,depth){ if(!rule||typeof rule!=='object') return; const prev=motion_;
+      motion_={vary:rule.vary!=null?num(rule.vary,0,0.2,0):prev.vary, sway:rule.sway!=null?num(rule.sway,0,0.5,0):prev.sway, bob:rule.bob!=null?num(rule.bob,0,0.5,0):prev.bob};
+      try{ runRule0(rule,f,depth); } finally{ motion_=prev; } }
+    function runRule0(rule,f,depth){ const t=byName.get(String(rule.type||'').toLowerCase()); if(t==null) return;
       const T=types[t], sc=scaleOf(rule), size=()=>(sc[0]+R()*(sc[1]-sc[0]))*f.s, y=num(rule.y,-100,500,0)*f.s, jit=num(rule.jitter,0,100,0)*f.s, tint=num(rule.tint,0,0.4,rule.scatter?0.12:0.05);
       const st=Array.isArray(rule.stretch)&&rule.stretch.length===3?rule.stretch.map(v=>num(v,0.05,50,1)):null;
       const exNamed=[], exLocal=[]; for(const e of (Array.isArray(rule.exclude)?rule.exclude:rule.exclude?[rule.exclude]:[])){ const a=area(e); if(a) (isNamed(e)?exNamed:exLocal).push(a); }
@@ -4927,6 +4949,8 @@ const SCN=(function(){
       for(const L of T.lod){ if(L.mesh&&L.cap>=n&&n>0){ continue; } if(L.mesh){ group.remove(L.mesh); L.mesh.dispose(); L.mesh=null; }
         if(!n) continue; L.mesh=new THREE.InstancedMesh(L.geo,mat,n); L.cap=n; L.mesh.frustumCulled=false;
         L.fade=new THREE.InstancedBufferAttribute(new Float32Array(n).fill(1),1); L.geo.setAttribute('fade',L.fade);
+        L.anim=new THREE.InstancedBufferAttribute(new Float32Array(n*4),4); L.geo.setAttribute('anim',L.anim);
+        const asz=new Float32Array(n*2); for(let i=0;i<n;i++){ asz[2*i]=1/Math.max(1e-3,T.size); asz[2*i+1]=1/Math.max(1e-3,T.h); } L.geo.setAttribute('asize',new THREE.InstancedBufferAttribute(asz,2));
         L.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3); group.add(L.mesh); } }
     /* The ground is a round island; it grows to hold every area and every copy, with a
        margin (Oct 5: the fields east of the stream, the far corners of a wide map, fell
@@ -4941,6 +4965,7 @@ const SCN=(function(){
   const _m=new THREE.Matrix4();
   function update(force){
     if(!sceneOn||!built) return;
+    if(mat.userData.sh) mat.userData.sh.uniforms.uTime.value=performance.now()/1000;   // sway and bob run on, even with the camera still
     const c=cam.position, k=c.x.toFixed(2)+','+c.y.toFixed(2)+','+c.z.toFixed(2);
     if(!force&&k===lastKey) return; lastKey=k;
     for(const T of built.types) for(const L of T.lod) L.n=0;
@@ -4954,13 +4979,14 @@ const SCN=(function(){
          distances alone, rocks 20 to 40 sizes off were drawn as 8 by 3 diamonds). */
       let fade=1;
       if(T.oct){ const x=Math.log2(156*T.leaf*o.s/(d*T.size*o.s)); lv=Math.max(lv,Math.max(0,Math.min(4,Math.floor(x)))); fade=Math.max(0,Math.min(1,x-lv)); }
-      o.lv=lv; o.fade=fade; const L=T.lod[lv]; if(!L.mesh) continue; L.mesh.setMatrixAt(L.n,o.m); L.mesh.setColorAt(L.n,o.col); L.fade.array[L.n]=fade; L.n++; tris+=L.geo.index.count/3; }
-    for(const T of built.types) for(const L of T.lod) if(L.mesh){ L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true; L.fade.needsUpdate=true; if(L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate=true; }
+      o.lv=lv; o.fade=fade; const L=T.lod[lv]; if(!L.mesh) continue; L.mesh.setMatrixAt(L.n,o.m); L.mesh.setColorAt(L.n,o.col); L.fade.array[L.n]=fade; if(L.anim) L.anim.array.set(o.anim,4*L.n); L.n++; tris+=L.geo.index.count/3; }
+    for(const T of built.types) for(const L of T.lod) if(L.mesh){ L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true; L.fade.needsUpdate=true; if(L.anim) L.anim.needsUpdate=true; if(L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate=true; }
     stats={copies:built.inst.length,tris}; const el=$('scStats'); if(el) el.textContent=statsText(); }
   const statsText=()=>built?built.inst.length.toLocaleString()+' objects of '+built.types.length+' types · '+Math.round(stats.tris).toLocaleString()+' triangles drawn'+(built.short?' · '+built.short+' did not fit':''):'';
 
   /* ── the panels ── */
-  function ruleText(r){ const t='<b>'+escapeHtml(r.type||'?')+'</b>';
+  function ruleText(r){ const m=[r.vary>0?'varied':'',r.sway>0?'swaying':'',r.bob>0?'bobbing':''].filter(Boolean); return ruleText0(r)+(m.length?', '+m.join(', '):''); }
+  function ruleText0(r){ const t='<b>'+escapeHtml(r.type||'?')+'</b>';
     if(r.at) return t+' at '+xz(r.at).join(', ');
     if(r.row){ const road=typeof r.row.path==='string'?r.row.path:typeof r.row.area==='string'?r.row.area:null, where=road?'<b>'+escapeHtml(road)+'</b>':r.row.path?'a path':'';
       return (r.count||'')+' '+t+(r.row.side?(r.row.side==='both'?' on both sides of ':' on the '+escapeHtml(String(r.row.side))+' of ')+(where||'a line'):where?' along '+where:' in a row')+(r.every?' every '+r.every+' m':''); }
@@ -5228,7 +5254,7 @@ window.__scene=SCN;
     '  {"type": name, "ring": {"center": [x, z], "radius": r}, "count": n, "rot"?: "out"|"in"|"along"|degrees}   standing stones, chairs round a table, towers on a wall',
     '  {"type": name, "grid": "area name" or {"rect": [x0, z0, x1, z1]}, "every": [dx, dz]}   crops in a field, an orchard, market stalls, gravestones',
     '  {"type": name, "scatter": "area name" or {"center": [x, z], "radius": r} or {"rect": [x0, z0, x1, z1]}, "count": n}   forests, rocks, bushes, a crowd, boats in a harbour ("scatter": "harbour"); copies keep apart and avoid everything placed before them',
-    '  Any rule may add "stretch": [sx, sy, sz] (stretch each copy along its own axes: a longer barn, a taller tower), "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "elevation": [min, max] (scatters and grids only where the ground is that high: pines above 5 m, reeds below 1 m), "tint": 0..0.4 (lightness variation), "y": height above the ground. Scatter rot is random unless given.',
+    '  Any rule may add "stretch": [sx, sy, sz] (stretch each copy along its own axes: a longer barn, a taller tower), "scale": s or [min, max] (random size), "turn": degrees (added to rot), "jitter": metres (random nudge), "exclude": ["area name", ...] (keep out of more areas), "elevation": [min, max] (scatters and grids only where the ground is that high: pines above 5 m, reeds below 1 m), "tint": 0..0.4 (lightness variation), "y": height above the ground. Scatter rot is random unless given., "vary": 0 to 0.2 (each copy a little different in shape: rocks, trees, haystacks, cottages; 0.03 to 0.1 suits most), "sway": 0 to 0.5 (copies lean with the wind, each at its own pace: trees, reeds, grass, flags; 0.05 to 0.15 for trees), "bob": 0 to 0.5 (copies rise, fall and roll: boats, buoys; 0.02 to 0.08). A prefab\'s own rules take the vary, sway and bob of the rule that places it unless they give their own.',
     'Place landmarks first, then rows and rings, and scatters last so they flow around everything else. Rows and single copies go exactly where you put them, so keep them out of water and off roads yourself (a row of houses runs BESIDE a road, a pier reaches INTO the water).',
     'Make it rich and believable: real places hold hundreds or thousands of things. Use the counts a real place would have (a forest is hundreds of trees, a field rows of crops), up to 20000 copies in all, spread over the ground size you give.',
     'When asked to CHANGE a scene you are given its terrain, areas, types (name, height, width, copies) and rules. Return "terrain", "areas" and "place" IN FULL (the new lists), and in "types" ONLY the types that are new or whose shape changes; a type you leave out keeps its shape if a rule still uses it. Keep "seed" unless asked to rearrange.',
