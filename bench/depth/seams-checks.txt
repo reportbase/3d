@@ -1,0 +1,9 @@
+## Checks of the code
+
+## The harbour village, viewer on the high street at (6, -25)
+check: H = 30, 0°: largest step 0.079 at 8.000, a wall of [3]; below it held by [3] (reading -1.000, presented -0.922); above by [4] (reading -1.000, presented -1.000)
+check:   scoring points within 1/64 octave of that wall: 8
+check: H = 1.7, 315°: largest step 1.9e-3 at 18.441, a wall of [5,0,0]; below it held by [5] [5,0] [5,0,-1] (reading 0.755, presented 0.755); above by [5] [5,0] [5,0,0] (reading 0.755, presented 0.754)
+check:   scoring points within 1/64 octave of that wall: 8
+check: H = 30, 270°: largest step 0.026 at 10.306, a wall of [4,0,2]; below it held by [4] [4,0] [4,0,1] (reading 0.303, presented 0.303); above by [4] [4,0] [4,0,2] (reading 0.303, presented 0.322)
+check:   scoring points within 1/64 octave of that wall: 8
