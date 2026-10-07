@@ -284,6 +284,38 @@ try {
     const ratio = (W / H) / (sw / sh * 1.1);
     if (Math.abs(ratio - 1) > 0.04) throw new Error('the proportions changed by ' + ((ratio - 1) * 100).toFixed(1) + '%');
   });
+  await step('open a chess piece again: its parts, placed and coloured as they were', async () => {
+    // Oct 7: the windmill games reads could not even be chosen in the open dialog, and this
+    // reader only knew one-field files. Export the snowman as a piece, open it through the
+    // real open button, and check the parts come back named, in place (exporting again gives
+    // the same PART matrices) and in their own colours; and that neither picker filters by
+    // extension, which is what greyed the file out on a phone.
+    const keep = await ev(() => __studio.sceneData());
+    await ev(() => __studio.loadExample('snowman'));
+    const before = await ev(() => __studio.S.parts.map(p => ({ name: p.name, color: p.paint.color, plain: !p.paint.bands && !p.painted })));
+    const d = await download(() => ev(() => __studio.fileAction('piece')));
+    await ev(() => __studio.fileAction('new'));
+    await page.setInputFiles('#fileOpen', d.path);
+    await page.waitForFunction(n => __studio.S.parts.length === n, before.length, { timeout: 5000 });
+    const got = await ev(t => {
+      const mats = x => x.split('\n').filter(l => l.startsWith('PART ')).map(l => l.split(/\s+/).slice(2).map(Number));
+      const a = mats(t), b = mats(__studio.buildPieceTVF3D(__studio.S.parts).txt); let diff = 0;
+      a.forEach((m, i) => m.forEach((v, k) => { diff = Math.max(diff, Math.abs(v - b[i][k])); }));
+      return { diff, parts: __studio.S.parts.map(p => ({ name: p.name, color: p.paint.color })),
+               accept: ['fileOpen', 'fileTvf3d'].map(id => document.getElementById(id).getAttribute('accept')) };
+    }, d.text);
+    await ev(k => __studio.loadScene(k), keep);
+    if (got.accept.some(a => a)) throw new Error('a picker still filters by extension: ' + got.accept.join(' / '));
+    const norm = n => n.toLowerCase().replace(/[\s_]+/g, ' ');
+    const names = got.parts.map(p => norm(p.name)).join(','), want = before.map(p => norm(p.name)).join(',');
+    if (names !== want) throw new Error('parts came back as ' + names + ', not ' + want);
+    if (got.diff > 2e-3) throw new Error('exported again, the PART matrices moved by ' + got.diff.toFixed(4));
+    const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+    for (const [i, p] of before.entries()) if (p.plain){
+      const a = hex(p.color), b = hex(got.parts[i].color), dc = Math.max(...a.map((v, k) => Math.abs(v - b[k])));
+      if (dc > 6) throw new Error(p.name + ' came back ' + got.parts[i].color + ', not ' + p.color);
+    }
+  });
   await step('describe it: build a new object', async () => {
     const keep = await ev(() => __studio.sceneData());
     aiReply = claudeSays('Here it is:\n' + JSON.stringify({ name: 'boat', parts: [

@@ -194,7 +194,7 @@
     <div class="menuwrap"><button id="fileBtn">file &#9662;</button>
       <div class="dropdown" id="fileMenu" hidden>
         <button data-act="new">new, empty <span></span></button>
-        <button data-act="open">open… <span>.3da</span></button>
+        <button data-act="open">open… <span>.3da, .tvf3d</span></button>
         <button data-act="save">save <span>.3da</span></button>
         <hr>
         <button data-act="stl">export the object <span>.stl</span></button>
@@ -203,7 +203,7 @@
         <button data-act="piece" title="every part, as one chess piece for the games page">export as a chess piece <span>.tvf3d</span></button>
         <button data-act="chessSet" title="six files, pawn.tvf3d to king.tvf3d, from parts named after their piece; the set keeps its relative heights">export a chess set <span>6 × .tvf3d</span></button>
         <hr>
-        <button data-act="importTvf3d">add a part from <span>.tvf3d</span></button>
+        <button data-act="importTvf3d">add parts from <span>.tvf3d</span></button>
         <button data-act="importImage">add a part from an image <span>heightmap</span></button>
       </div>
     </div>
@@ -245,8 +245,10 @@
     <button id="redo" title="redo (Ctrl+Shift+Z)">&#8631;</button>
     <div class="grow"></div>
     <label class="adv"><input type="checkbox" id="advanced"> advanced</label>
-    <input type="file" id="fileOpen" accept=".3da,.json" hidden>
-    <input type="file" id="fileTvf3d" accept=".tvf3d,.txt" hidden>
+    <!-- No accept filter on these two (Oct 7): a phone's picker knows nothing of .3da or .tvf3d,
+         so it greyed the files out and none could be chosen. The contents decide instead. -->
+    <input type="file" id="fileOpen" hidden>
+    <input type="file" id="fileTvf3d" hidden>
     <input type="file" id="fileImage" accept="image/*" hidden>
     <input type="file" id="fileCurve" accept=".svg,.tvf,.txt" hidden>
   </header>
@@ -4347,11 +4349,60 @@ function applyKind(k){ const p=selPart();
 
 /* ══ FILES ══ */
 function download(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
-function parseTVF3D(text){ const lines=text.replace(/\r/g,'').split('\n'), hdr=lines.find(l=>l.startsWith('TVF3D')); if(!hdr) throw new Error('not a .tvf3d field');
-  const hp=hdr.split(/\s+/), NH=+hp[1], MT=+hp[2], Aa=[], Ab=[];
-  for(const l of lines){ const t=l.trim(); if(t.startsWith('Aa ')) Aa.push(t.slice(3).trim().split(/\s+/).map(Number)); else if(t.startsWith('Ab ')) Ab.push(t.slice(3).trim().split(/\s+/).map(Number)); }
+function parseTVF3D(text){ const lines=text.replace(/\r/g,'').split('\n'), hdr=lines.find(l=>/^TVF3D\s/.test(l)); if(!hdr) throw new Error('not a .tvf3d field');
+  const hp=hdr.split(/\s+/), NH=+hp[1], MT=+hp[2], rows={};
+  for(const l of lines){ const t=l.trim(), k=t.split(/\s+/,1)[0]; if(/^(Aa|Ab|C[rgb][ab])$/.test(k)) (rows[k]=rows[k]||[]).push(t.slice(k.length).trim().split(/\s+/).map(Number)); }
+  const Aa=rows.Aa||[], Ab=rows.Ab||[];
   if(Aa.length!==NH||Ab.length!==NH) throw new Error('coefficient rows do not match the header');
-  return {kind:'field',NH,MT,Aa,Ab}; }
+  const c={kind:'field',NH,MT,Aa,Ab};
+  // its colour, when written: the same series, one per channel (read for the part's paint, below)
+  if(['r','g','b'].every(ch=>(rows['C'+ch+'a']||[]).length===NH&&(rows['C'+ch+'b']||[]).length===NH))
+    c.color=Object.fromEntries(['r','g','b'].map(ch=>[ch,{Aa:rows['C'+ch+'a'],Ab:rows['C'+ch+'b']}]));
+  return c; }
+/* OPENING WHAT GAMES READS (Oct 7: "I tried loading the windmill into the 3d editor and its
+   disabled, wont even let me selecte the file."). Two things stood in the way. The pickers
+   named their extensions, and a phone, which has never heard of .tvf3d, greyed the file out;
+   they now take any file and the contents decide. And this reader only knew a one-field
+   .tvf3d, while the windmill, like every chess piece exported from here, is a TVF3D-PARTS file.
+   A TVF3D-PARTS file opens as its parts again. Each PART matrix is fit · place · unfield
+   (buildPieceTVF3D), so undoing the xz widening on both sides leaves the piece's scale times the
+   part's placement: the parts come back where they were relative to one another, at the
+   piece's size (about one unit tall), stood on the ground and centred. Each part's colour is
+   the mean of its colour series, so a one-colour part keeps its colour; painted detail and
+   stripes come back as that mean. The shape is the field itself, as a core, so a part looks as
+   it was exported (sculpting and outline baked in) and can be shaped further. */
+function parseTVF3DParts(text){ const src=text.replace(/\r/g,''); if(!/^\s*TVF3D-PARTS\b/.test(src)) return null;
+  const parts=[]; let cur=null;
+  for(const l of src.split('\n')){ const t=l.trim();
+    if(t.startsWith('PART ')){ const w=t.split(/\s+/), M=w.slice(2,14).map(Number);
+      if(M.length!==12||M.some(v=>!isFinite(v))) throw new Error('bad PART line: '+t.slice(0,40));
+      cur={name:w[1].replace(/_/g,' '),M,lines:[]}; parts.push(cur); }
+    else if(cur) cur.lines.push(l); }
+  if(!parts.length) throw new Error('no parts in this file');
+  return parts.map(p=>({name:p.name,M:p.M,core:parseTVF3D(p.lines.join('\n'))})); }
+function fieldMeanColor(c){ if(!c.color) return null; const out=[0,0,0];
+  ['r','g','b'].forEach((ch,k)=>{ const {Aa,Ab}=c.color[ch]; let s=0, n=0;
+    for(let i=0;i<12;i++){ const h=(i+0.5)/12; for(let j=0;j<24;j++){ const th=j/24*TAU; let v=0;
+      for(let a=0;a<c.NH;a++){ const hb=Math.cos(a*PI*h); for(let m=0;m<c.MT;m++) v+=hb*(Aa[a][m]*Math.cos(m*th)+Ab[a][m]*Math.sin(m*th)); }
+      s+=v; n++; } }
+    out[k]=clamp(s/n,0,1); });
+  return '#'+new THREE.Color(out[0],out[1],out[2]).getHexString(); }
+function partFromField(core,name){ const p=newPart({core,name}); p.outline=coreOutline(p); p._origOutline=JSON.parse(JSON.stringify(p.outline));
+  const col=fieldMeanColor(core); if(col) p.paint=paintOf(col); return p; }
+function importTvf3d(t,n,fresh){ const name=n.replace(/\.[^.]+$/,''), multi=parseTVF3DParts(t);
+  if(!multi){ const p=partFromField(parseTVF3D(t),name); if(fresh) clearAll(); else placeNew(p);
+    addPart(p); dropDown(p); if(fresh) frameAll(); commit((fresh?'open ':'add ')+n); toast((fresh?'opened ':'added ')+n); return [p]; }
+  if(fresh) clearAll();
+  const shift=(!fresh&&S.parts.length)?boxOf(S.parts).max.x+0.6:0;
+  const unfit=new THREE.Matrix4().makeScale(PRESET_SCALE,1,PRESET_SCALE), unfieldInv=new THREE.Matrix4().makeScale(1/PRESET_SCALE,1,1/PRESET_SCALE);
+  const pos=new THREE.Vector3(), q=new THREE.Quaternion(), sc=new THREE.Vector3(), e=new THREE.Euler();
+  const made=multi.map(({name:pn,M,core})=>{ const p=partFromField(core,pn);
+    const place=unfit.clone().multiply(new THREE.Matrix4().set(...M,0,0,0,1)).multiply(unfieldInv);
+    place.decompose(pos,q,sc); e.setFromQuaternion(q);
+    p.pos=[pos.x+shift,pos.y,pos.z]; p.rot=[e.x*180/PI,e.y*180/PI,e.z*180/PI]; p.scale=[sc.x,sc.y,sc.z];
+    addPart(p,false); return p; });
+  S.sel=made[0].id; refreshAll(); frameAll(); commit((fresh?'open ':'add ')+n);
+  toast((fresh?'opened ':'added ')+n+': '+made.length+' parts'); return made; }
 /* One part as the field games reads: r(θ,h) with the outline, section, squash, twist and
    taper/bulge and the sculpting all baked in, plus its colour. Placement, lean and
    hollowing are not part of a .tvf3d (it is one surface about a fixed axis). */
@@ -4459,9 +4510,9 @@ $('fileBtn').onclick=e=>{ e.stopPropagation(); $('fileMenu').hidden=!$('fileMenu
 $('fileMenu').addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); if(b) fileAction(b.dataset.act); });
 addEventListener('click',e=>{ if(!e.target.closest('.menuwrap')) $('fileMenu').hidden=true; });
 const readFile=(input,fn,asURL)=>input.onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>fn(rd.result,f.name); if(asURL) rd.readAsDataURL(f); else rd.readAsText(f); e.target.value=''; };
-readFile($('fileOpen'),(t,n)=>{ try{ loadScene(JSON.parse(t)); frameAll(); commit('open '+n); toast('opened '+n); }catch(err){ toast('could not open '+n+': '+err.message); } });
-readFile($('fileTvf3d'),(t,n)=>{ try{ const core=parseTVF3D(t); const p=newPart({core,name:n.replace(/\.[^.]+$/,'')}); p.outline=coreOutline(p); p._origOutline=JSON.parse(JSON.stringify(p.outline));
-    placeNew(p); addPart(p); dropDown(p); commit('add '+p.name); toast('added '+n); }catch(err){ toast('could not read '+n+': '+err.message); } });
+readFile($('fileOpen'),(t,n)=>{ try{ if(/^\s*TVF3D/.test(t)){ importTvf3d(t,n,true); return; }   // a piece for games (or one part) opens as its parts
+    loadScene(JSON.parse(t)); frameAll(); commit('open '+n); toast('opened '+n); }catch(err){ toast('could not open '+n+': '+err.message); } });
+readFile($('fileTvf3d'),(t,n)=>{ try{ importTvf3d(t,n,false); }catch(err){ toast('could not read '+n+': '+err.message); } });
 readFile($('fileImage'),(url,n)=>{ const img=new Image(); img.onload=()=>{ const w=96,H=72,c=document.createElement('canvas'); c.width=w; c.height=H; const g=c.getContext('2d'); g.drawImage(img,0,0,w,H);
     const px=g.getImageData(0,0,w,H).data, data=[]; for(let i=0;i<w*H;i++) data.push(+((0.299*px[i*4]+0.587*px[i*4+1]+0.114*px[i*4+2])/255).toFixed(3));
     const p=newPart({core:{kind:'image',w,h:H,data,depth:0.14},name:n.replace(/\.[^.]+$/,'')}); p.outline=coreOutline(p); p._origOutline=JSON.parse(JSON.stringify(p.outline));
@@ -5847,7 +5898,7 @@ function loop(){ requestAnimationFrame(loop);
   SCN.tick(); if(!SCN.nav) orbit.update(); SCN.update(); renderer.render(scene,cam); }
 resize(); renderGallery(); loadExample('lighthouse'); loop();
 window.__studio={S,cam:()=>cam,orbit:()=>orbit,buildChessSet,exportChessSet,pieceOf,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
-  useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D};
+  useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D,importTvf3d,parseTVF3DParts};
 
 </script>
 </body>
