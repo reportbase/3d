@@ -54,6 +54,9 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
     `.tvf3d` block (`buildPieceTVF3D`). The matrix already stands the piece on
     y=0, centres it and fits it to games' square; games reads it in
     `parseTVF3D` / `buildPartsGeometry`. Change the two together.
+    The studio opens one again (file → open, or add parts; `importTvf3d`): the parts come
+    back at the piece's size, placed as they were, each painted the mean of its colour
+    series. The file pickers take any file (a phone greys out unknown extensions).
   - A chess set is six of those (`buildChessSet`): parts belong to a piece by the
     piece's name in their own (`pieceOf`), and all six share one scale, so the
     king is one unit tall and the rest keep their heights relative to it.
