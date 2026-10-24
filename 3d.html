@@ -143,6 +143,7 @@
   .ed .pt.end{fill:var(--accent)}
   .ed .sect{fill:rgba(90,159,212,.14);stroke:var(--cool);stroke-width:2}
   .ed .leaf{fill:var(--bg);stroke:#9cc8ee;stroke-width:1.6;cursor:grab}
+  .ed .cpt{fill:var(--bg);stroke:var(--accent2);stroke-width:2;cursor:grab}
   .ed .core{fill:none;stroke:var(--faint);stroke-width:1;stroke-dasharray:2 3}
   .stypes{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
   .stypes button{padding:4px 0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px}
@@ -314,7 +315,7 @@
     <div class="sec obj-only">
       <div class="h">side outline <span class="note">drag · click to add · double-click to remove</span></div>
       <svg class="ed" id="outline" viewBox="0 0 240 250"></svg>
-      <div class="row"><button id="olFromFile" title="take the outline from the right half of a drawing: an .svg, or a .tvf saved in draw">from a drawing…</button><button id="olReset" title="back to the part's own outline">reset</button></div>
+      <div class="row"><button id="olFromFile" title="take the outline from the right half of a drawing: an .svg, or a .tvf saved in draw">from a drawing…</button><button id="olSharp" title="the point last touched: sharp (a shoulder, a step, a rim) or smooth. Alt-click a point does the same">sharp</button><button id="olReset" title="back to the part's own outline">reset</button></div>
     </div>
     <div class="sec obj-only">
       <div class="h">section <span class="note">its shape going around</span></div>
@@ -4841,7 +4842,7 @@ function newPart(o={}){
 /* Caches a part derives from its settings: the core's average width per height (so the
    outline can reshape any core) and the section as a lookup table round the turn. */
 const SEC_N=512, MEAN_N=64;
-function prepPart(p){ prepCore(p); prepSection(p); if(p.detail&&(!p.cascade||p._detailGen)) applyDetail(p); }   // a pattern is made again whenever the shape it lies on changes
+function prepPart(p){ prepCore(p); prepSection(p); if(p.detail&&!p.extrude&&(!p.cascade||p._detailGen)) applyDetail(p); }   // a pattern is made again whenever the shape it lies on changes
 /* ══ PATTERNS ══ (Oct 5, step 2 of the detail plan: "make the objects very detailed").
    A part may carry {"detail": {pattern, size, depth, color}}: stones, bricks, shingles,
    planks, bark or rough, with features "size" metres across, joints "depth" metres deep
@@ -4960,11 +4961,16 @@ function coreFn(c){
   return null;
 }
 function meanAt(p,h){ const x=clamp(h,0,1)*MEAN_N, i=Math.min(MEAN_N-1,Math.floor(x)); return lerp(p._mean[i],p._mean[i+1],x-i); }
-/* The outline: a smooth curve through its points (Catmull-Rom on r, points ordered by h). */
+/* The outline: a smooth curve through its points (Catmull-Rom on r, points ordered by h).
+   SHARP POINTS (24 Oct 2026, Tom: "1 and 2"): a point [h, r, 1] is sharp, a shoulder, a step,
+   a rim. The curve leaves it straight toward its neighbour on each side (the point beyond it
+   taken as its mirror), so between two sharp points the outline is a straight line, and the
+   mesh puts a ring on it, twice (meshHeights), so the faces meeting there are shaded apart. */
 function outlineAt(pts,h){
   if(h<=pts[0][0]) return pts[0][1]; const n=pts.length; if(h>=pts[n-1][0]) return pts[n-1][1];
   let i=0; while(i<n-2 && pts[i+1][0]<h) i++;
-  const p0=pts[Math.max(0,i-1)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(n-1,i+2)];
+  const p1=pts[i], p2=pts[i+1];
+  const p0=p1[2]===1?[0,2*p1[1]-p2[1]]:pts[Math.max(0,i-1)], p3=p2[2]===1?[0,2*p2[1]-p1[1]]:pts[Math.min(n-1,i+2)];
   const t=(h-p1[0])/Math.max(1e-6,p2[0]-p1[0]), t2=t*t, t3=t2*t;
   return Math.max(0,0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3));
 }
@@ -4977,7 +4983,7 @@ function coreOutline(p,n=9){ if(p.core.kind==='lathe') return [[0,0.3],[0.5,0.3]
    How wide the part is going round, relative to its outline; corners reach 1. The
    parametric kinds are formulas; "custom" is a closed curve held as a tvf Shape (draw's
    library), read here as a radius at every angle by casting rays from the axis. */
-const STYPES=[['round','round'],['polygon','polygon'],['star','star'],['petal','petals'],['super','super'],['custom','drawn']];
+const STYPES=[['round','round'],['polygon','polygon'],['star','star'],['petal','petals'],['super','super'],['corners','corners'],['custom','drawn']];
 function sectionFormula(s,th){
   const n=s.n, k=s.k;
   if(s.type==='polygon'){ const seg=TAU/n, a=(((th+seg/2)%seg)+seg)%seg-seg/2; return lerp(1,Math.cos(PI/n)/Math.cos(a),k); }   // a flat side faces θ=0
@@ -4988,15 +4994,19 @@ function sectionFormula(s,th){
 }
 function prepSection(p){
   const s=p.section, tab=new Float64Array(SEC_N);
+  if(p.extrude){ polarRegions(p,tab); p._sec=tab; return; }   // EXTRUDED PARTS: their own reach, not scaled to 1
   if(s.type==='custom' && s.shape){ polarTable(s.shape,tab); }
+  else if(s.type==='corners' && s.corners){ polarPts(EXS.pts(s.corners),tab); }   // SECTIONS WITH CORNERS
   else for(let i=0;i<SEC_N;i++) tab[i]=sectionFormula(s,i/SEC_N*TAU);
   let mx=0; for(const v of tab) mx=Math.max(mx,v); if(mx>1e-9) for(let i=0;i<SEC_N;i++) tab[i]/=mx;
   p._sec=tab;
 }
 /* A closed curve → its radius from the origin at each angle: the farthest crossing of a
    ray from the axis, so a curve that folds back on itself is read by its outer edge. */
-function polarTable(shapeJSON,tab){
-  const sh=tvf.Shape.fromJSON(shapeJSON), d=sh.sample(720), n=d.x.length;
+function polarTable(shapeJSON,tab){ polarPts(tvf.Shape.fromJSON(shapeJSON).sample(720),tab); }
+/* the same from any closed polyline {x, y} */
+function polarPts(d,tab){
+  const n=d.x.length;
   for(let i=0;i<SEC_N;i++){ const a=i/SEC_N*TAU, ux=Math.cos(a), uy=Math.sin(a); let best=0;
     for(let k=0;k<n;k++){ const ax=d.x[k], ay=d.y[k], bx=d.x[(k+1)%n], by=d.y[(k+1)%n], ex=bx-ax, ey=by-ay;
       const den=ux*ey-uy*ex; if(Math.abs(den)<1e-12) continue;
@@ -5004,7 +5014,243 @@ function polarTable(shapeJSON,tab){
     tab[i]=best; }
   for(let i=0;i<SEC_N;i++) if(tab[i]<=0){ let L=i,R=i; while(tab[(L+SEC_N)%SEC_N]<=0&&L>i-SEC_N)L--; while(tab[R%SEC_N]<=0&&R<i+SEC_N)R++; tab[i]=Math.max(tab[(L+SEC_N)%SEC_N],tab[R%SEC_N])||0.01; }
 }
+/* ══ SECTIONS WITH CORNERS (24 Oct 2026, Tom: "1 and 2") ════════════════════
+   A section drawn in draw with sharp corners, straight edges or chosen cubics used to come in
+   as a tvf Shape of 24 to 96 leaves, and leaves round every corner: a square drawn in draw
+   arrived a rounded square. Draw's .tvf, and its copy, carry the shape as drawn beside the
+   leaves (TVF §2.9: #meta exact, corners, radii, smooth, curves, with leafsum to check the
+   leaves are the ones written with them), and an SVG's paths are lines and cubics already. So
+   a drawing with a sharp corner is now held as its corners: section type 'corners',
+   s.corners = {x, y, round, smooth, ctrl} in plain arrays, centred on the axis and reaching 1.
+   It is read as a radius by the same ray casting as a drawn curve (polarPts), and the mesh puts
+   a column on each sharp corner, twice, so the two faces meeting there are shaded apart
+   (sharpThetas, buildGeometry).
+   The outline's rules are draw's (smoothTangent, arcHandle, edgeCtrl, cornerArc, the corner
+   radius only where both edges are straight), written again here in short: they are not among
+   the blocks 3d copies from draw unchanged, and the two must agree on what a shape looks like. */
+const EXS={
+  sm:(E,k)=>!!(E.smooth&&E.smooth[k]),
+  // at a smooth corner the outline leaves along the circle through it and its two neighbours
+  tangent(E,k){ const X=E.x,Y=E.y,n=X.length,i=(k-1+n)%n,j=(k+1)%n, ax=X[i]-X[k],ay=Y[i]-Y[k],bx=X[j]-X[k],by=Y[j]-Y[k], A=ax*ax+ay*ay,B=bx*bx+by*by;
+    let tx=A*bx-B*ax, ty=A*by-B*ay; const L=Math.hypot(tx,ty); if(!(L>0)) return null; tx/=L; ty/=L; if(tx*(bx-ax)+ty*(by-ay)<0){ tx=-tx; ty=-ty; } return [tx,ty]; },
+  // a handle as long as a circular arc asks for the turn between it and the chord
+  handle(chord,cosPhi){ const phi=Math.acos(clamp(cosPhi,-1,1)); if(phi<1e-6) return chord/3; const q=Math.min(phi,PI/2); return chord*(2/3)*Math.tan(q/2)/Math.sin(q); },
+  // the edge from corner a to b as [c1x, c1y, c2x, c2y], or null when it is straight
+  edge(E,a,b){ if(E.ctrl&&E.ctrl[a]) return E.ctrl[a]; if(!EXS.sm(E,a)&&!EXS.sm(E,b)) return null;
+    const X=E.x,Y=E.y, dx=X[b]-X[a],dy=Y[b]-Y[a],c=Math.hypot(dx,dy); if(!(c>0)) return [X[a],Y[a],X[b],Y[b]];
+    const ux=dx/c,uy=dy/c; let o=[X[a]+dx/3,Y[a]+dy/3,X[b]-dx/3,Y[b]-dy/3];
+    const ta=EXS.sm(E,a)?EXS.tangent(E,a):null; if(ta){ const h=EXS.handle(c,ta[0]*ux+ta[1]*uy); o[0]=X[a]+ta[0]*h; o[1]=Y[a]+ta[1]*h; }
+    const tb=EXS.sm(E,b)?EXS.tangent(E,b):null; if(tb){ const h=EXS.handle(c,tb[0]*ux+tb[1]*uy); o[2]=X[b]-tb[0]*h; o[3]=Y[b]-tb[1]*h; }
+    return o; },
+  // a rounded corner's arc, only where the corner is sharp and both its edges straight
+  arc(E,k){ const R=E.round, X=E.x,Y=E.y,n=X.length; if(!R||!(R[k]>0)||EXS.sm(E,k)||n<3) return null; const i=(k-1+n)%n,j=(k+1)%n;
+    if(EXS.sm(E,i)||EXS.sm(E,j)||(E.ctrl&&(E.ctrl[i]||E.ctrl[k]))) return null;
+    let ux=X[i]-X[k],uy=Y[i]-Y[k],vx=X[j]-X[k],vy=Y[j]-Y[k]; const lu=Math.hypot(ux,uy),lv=Math.hypot(vx,vy); if(lu<1e-12||lv<1e-12) return null;
+    ux/=lu; uy/=lu; vx/=lv; vy/=lv; const phi=Math.acos(clamp(ux*vx+uy*vy,-1,1)); if(phi<1e-3||phi>PI-1e-3) return null;
+    const tn=Math.tan(phi/2), t=Math.min(R[k]/tn,Math.min(lu,lv)/2), r=t*tn; let bx=ux+vx,by=uy+vy; const lb=Math.hypot(bx,by); bx/=lb; by/=lb;
+    const dc=r/Math.sin(phi/2); return {r,t1x:X[k]+ux*t,t1y:Y[k]+uy*t,t2x:X[k]+vx*t,t2y:Y[k]+vy*t,cx:X[k]+bx*dc,cy:Y[k]+by*dc}; },
+  // the outline as a closed polyline: corners as they are, arcs and cubics sampled
+  pts(E){ const X=E.x,Y=E.y,n=X.length,ox=[],oy=[],ci=[];   // ci: where each corner (or its arc) starts among the points
+    for(let k=0;k<n;k++){ const g=EXS.arc(E,k); ci.push(ox.length);
+      if(g){ const a1=Math.atan2(g.t1y-g.cy,g.t1x-g.cx); let d=Math.atan2(g.t2y-g.cy,g.t2x-g.cx)-a1; while(d>PI) d-=TAU; while(d<-PI) d+=TAU;
+        const st=Math.max(2,Math.ceil(Math.abs(d)/(PI/24))); for(let q=0;q<=st;q++){ const th=a1+d*q/st; ox.push(g.cx+g.r*Math.cos(th)); oy.push(g.cy+g.r*Math.sin(th)); } }
+      else { ox.push(X[k]); oy.push(Y[k]); }
+      const b=(k+1)%n, c=EXS.edge(E,k,b);
+      if(c) for(let q=1;q<16;q++){ const t=q/16,u=1-t; ox.push(u*u*u*X[k]+3*u*u*t*c[0]+3*u*t*t*c[2]+t*t*t*X[b]); oy.push(u*u*u*Y[k]+3*u*u*t*c[1]+3*u*t*t*c[3]+t*t*t*Y[b]); } }
+    return {x:ox,y:oy,ci}; },
+  // the corners where the outline turns (not smooth, not rounded off): their indices
+  sharpIdx(E){ const X=E.x,Y=E.y,n=X.length,out=[];
+    for(let k=0;k<n;k++){ if(EXS.sm(E,k)||EXS.arc(E,k)) continue; const i=(k-1+n)%n,j=(k+1)%n, ci=EXS.edge(E,i,k), co=EXS.edge(E,k,j);
+      const ux=X[k]-(ci?ci[2]:X[i]), uy=Y[k]-(ci?ci[3]:Y[i]), vx=(co?co[0]:X[j])-X[k], vy=(co?co[1]:Y[j])-Y[k], lu=Math.hypot(ux,uy), lv=Math.hypot(vx,vy);
+      if(lu>0&&lv>0&&(ux*vx+uy*vy)/(lu*lv)<Math.cos(PI/90)) out.push(k); }
+    return out; },
+  // centred on the polygon's area centroid and scaled so its farthest point reaches 1
+  normalize(E){ const d=EXS.pts(E), n=d.x.length; let A=0,cx=0,cy=0;
+    for(let i=0;i<n;i++){ const j=(i+1)%n, cr=d.x[i]*d.y[j]-d.x[j]*d.y[i]; A+=cr; cx+=(d.x[i]+d.x[j])*cr; cy+=(d.y[i]+d.y[j])*cr; }
+    if(Math.abs(A)>1e-12){ cx/=3*A; cy/=3*A; } else { cx=d.x.reduce((a,b)=>a+b,0)/n; cy=d.y.reduce((a,b)=>a+b,0)/n; }
+    let mx=0; for(let i=0;i<n;i++) mx=Math.max(mx,Math.hypot(d.x[i]-cx,d.y[i]-cy)); const s=1/Math.max(1e-9,mx), r6=v=>+v.toFixed(6);
+    return { x:E.x.map(v=>r6((v-cx)*s)), y:E.y.map(v=>r6((v-cy)*s)), round:E.round?E.round.map(v=>r6(v*s)):null,
+      smooth:E.smooth&&E.smooth.some(Boolean)?Array.from(E.smooth,v=>v?1:0):null,
+      ctrl:E.ctrl&&E.ctrl.some(Boolean)?E.ctrl.map(c=>c?[r6((c[0]-cx)*s),r6((c[1]-cy)*s),r6((c[2]-cx)*s),r6((c[3]-cy)*s)]:null):null }; },
+};
+/* The angles a mesh should put a column on, each twice: the section's sharp corners (a
+   corners section's, or a polygon's when its sides are flat). None while the part twists,
+   which carries the corners round as it rises. */
+function sharpThetas(p){ const s=p.section; if(Math.abs(p.bend.twist)>1e-9) return [];
+  if(s.type==='corners'&&s.corners) return EXS.sharpIdx(s.corners).map(k=>((Math.atan2(s.corners.y[k],s.corners.x[k])%TAU)+TAU)%TAU);
+  if(s.type==='polygon'&&s.k>=0.999) return Array.from({length:s.n},(_,i)=>(i+0.5)*TAU/s.n);
+  return []; }
+/* NT angles evenly round, with every sharp angle added twice (and an even angle sitting on one
+   dropped): the quad between the two is of no width, so each copy takes its normal from its
+   own face alone and the corner is drawn as a corner. */
+function meshThetas(p,NT){ const sh=sharpThetas(p), out=[];
+  for(let j=0;j<NT;j++){ const th=j/NT*TAU; if(!sh.some(a=>Math.abs(a-th)<1e-9)) out.push(th); }
+  for(const a of sh) out.push(a,a); return out.sort((a,b)=>a-b); }
+/* the same for heights up the outside: every sharp point of the outline, twice */
+function meshHeights(p,NH){ const sh=p.outline.filter(q=>q[2]===1&&q[0]>1e-6&&q[0]<1-1e-6).map(q=>q[0]), out=[];
+  for(let i=0;i<NH;i++){ const h=i/(NH-1); if(!sh.some(a=>Math.abs(a-h)<1e-9)) out.push(h); }
+  for(const a of sh) out.push(a,a); return out.sort((a,b)=>a-b); }
+/* a corners section from scratch: the polygon's corners when it is a polygon, else a square */
+function cornersFromSection(p){ const s=p.section, n=s.type==='polygon'?s.n:4;
+  return EXS.normalize({x:Array.from({length:n},(_,i)=>Math.cos((i+0.5)*TAU/n)),y:Array.from({length:n},(_,i)=>Math.sin((i+0.5)*TAU/n)),round:null,smooth:null,ctrl:null}); }
+
+/* THE SHAPE AS DRAWN, FROM A .tvf (TVF §2.9). One entry per curve parseTvfText returns, in its
+   order: {x, y, round, smooth, ctrl} or null. Read here, beside parseTvfText (a copy from draw,
+   left unchanged), from the same blocks: a header, its #meta lines, then its rows. A shape whose
+   leaves no longer give the leafsum written with it was edited elsewhere: its leaves win. Lines
+   (exact:line) and holes have no place in a section, which is one closed ring; holes are
+   reported in tvfStructure.holes. */
+function tvfStructure(text){ const out=[], lines=text.split(/\r?\n/); tvfStructure.holes=0; tvfStructure.edited=0;
+  const nums=s=>String(s||'').trim().split(/\s+/).filter(Boolean).map(Number);
+  for(let i=0;i<lines.length;i++){ const hm=lines[i].trim().match(/^TVF\s+(\d+)\s+(\d+)\s+(\d+)\s*$/); if(!hm) continue;
+    const meta={}; let j=i+1; while(j<lines.length&&lines[j].trim().startsWith('#meta')){ const t=lines[j].trim().slice(5).trim(), c=t.indexOf(':'); if(c>0) meta[t.slice(0,c).trim()]=t.slice(c+1).trim(); j++; }
+    const H=+hm[2]; let info=null;
+    if(H===1&&meta.exact==='polygon'&&meta.corners){
+      let ok=true;
+      if(meta.leafsum){ const rows=[]; for(let r=j;r<lines.length&&rows.length<2;r++){ const t=lines[r].trim(); if(!t) continue; if(t.startsWith('#')||/^TVF\s/.test(t)) break; rows.push(nums(t).slice(1)); }
+        ok=rows.length===2&&leafSumMatches(meta.leafsum,rows[0],rows[1]); if(!ok) tvfStructure.edited++; }
+      const v=nums(meta.corners), n=v.length/2;
+      if(ok&&v.length%2===0&&n>=(meta.curves?2:3)&&v.every(Number.isFinite)){
+        const E={x:[],y:[],round:null,smooth:null,ctrl:null}; for(let k=0;k<n;k++){ E.x.push(v[2*k]); E.y.push(v[2*k+1]); }
+        const r=nums(meta.radii); if(r.length===n&&r.every(q=>Number.isFinite(q)&&q>=0)) E.round=r;
+        const sm=nums(meta.smooth).filter(k=>Number.isInteger(k)&&k>=0&&k<n); if(sm.length){ E.smooth=new Array(n).fill(0); for(const k of sm) E.smooth[k]=1; }
+        if(meta.curves){ const C=new Array(n).fill(null); for(const part of meta.curves.split(',')){ const w=nums(part); if(w.length===5&&Number.isInteger(w[0])&&w[0]>=0&&w[0]<n&&w.slice(1).every(Number.isFinite)) C[w[0]]=w.slice(1); }
+          if(C.some(Boolean)) E.ctrl=C; }
+        if(meta.holes){ tvfStructure.holes++;   // its holes, ring by ring (for an extruded part; a section leaves them out)
+          const hs=meta.holes.split('|'), hm=(meta.holesmooth||'').split('|'), hc=(meta.holecurves||'').split('|');
+          E.holes=hs.map((part,hi)=>{ const w=nums(part), m=w.length/2; if(w.length%2||m<2||!w.every(Number.isFinite)) return null;   // two corners will do when their edges are curves
+            const H={x:[],y:[],round:null,smooth:null,ctrl:null}; for(let k=0;k<m;k++){ H.x.push(w[2*k]); H.y.push(w[2*k+1]); }
+            const q=nums(hm[hi]).filter(k=>Number.isInteger(k)&&k>=0&&k<m); if(q.length){ H.smooth=new Array(m).fill(0); for(const k of q) H.smooth[k]=1; }
+            const C=new Array(m).fill(null); for(const pc of (hc[hi]||'').split(',')){ const w2=nums(pc); if(w2.length===5&&Number.isInteger(w2[0])&&w2[0]>=0&&w2[0]<m&&w2.slice(1).every(Number.isFinite)) C[w2[0]]=w2.slice(1); }
+            if(C.some(Boolean)) H.ctrl=C; return m>=3||H.ctrl?H:null; }).filter(Boolean); }
+        info=E; } }
+    for(let r=0;r<H;r++) out.push(r===0?info:null); }
+  return out; }
+/* The leaves' check, as draw writes and reads it (TVF §2.9): per channel the sums of the
+   leaves against 1, cos and sin of k times the golden angle. */
+const LEAF_GOLDEN=Math.PI*(3-Math.sqrt(5));
+function leafSums(X,Y){ const out=[]; for(const V of [X,Y]){ let s0=0,s1=0,s2=0; for(let k=0;k<V.length;k++){ s0+=V[k]; s1+=V[k]*Math.cos(k*LEAF_GOLDEN); s2+=V[k]*Math.sin(k*LEAF_GOLDEN); } out.push(s0,s1,s2); } return out; }
+function leafSumMatches(text,X,Y){ const w=String(text).trim().split(/\s+/).map(Number);
+  if(w.length!==7||w[0]!==X.length||X.length!==Y.length||!w.every(Number.isFinite)) return false;
+  let peak=1; for(let k=0;k<X.length;k++) peak=Math.max(peak,Math.abs(X[k]),Math.abs(Y[k])); const tol=1e-6*X.length*peak;
+  return leafSums(X,Y).every((v,k)=>Math.abs(v-w[k+1])<=tol); }
+
+/* THE SHAPE AS DRAWN, FROM AN SVG. Its paths normalised to lines and cubics (getPathData, the
+   polyfill above) and carried by their transforms: one ring per closed or filled subpath, y
+   up. A corner between two cubics that meet in line is smooth. null when the file cannot be
+   read this way (the importer then reads it as before). */
+function svgRings(text){ const doc=new DOMParser().parseFromString(text,'image/svg+xml'), root=doc.documentElement;
+  if(!root||root.nodeName.toLowerCase()!=='svg'||doc.querySelector('parsererror')||root.querySelector('use, image, text, foreignObject')) return null;
+  if(typeof SVGPathElement.prototype.getPathData!=='function') return null;
+  const host=document.createElement('div'); host.style.cssText='position:absolute;left:-100000px;top:0;width:10px;height:10px;overflow:hidden;visibility:hidden;';
+  host.appendChild(document.importNode(root,true)); document.body.appendChild(host);
+  try{ const rings=[];
+    for(const el of host.querySelectorAll('path, rect, circle, ellipse, polygon')){
+      if(el.closest('defs, symbol, clipPath, mask, pattern, marker')) continue;
+      const m=el.getCTM&&el.getCTM(), M=m?[m.a,m.b,m.c,m.d,m.e,m.f]:[1,0,0,1,0,0], T=(x,y)=>[M[0]*x+M[2]*y+M[4],-(M[1]*x+M[3]*y+M[5])];
+      let cur=null,px=0,py=0,sx=0,sy=0; const subs=[];
+      for(const sg of el.getPathData({normalize:true})){ const v=sg.values;
+        if(sg.type==='M'){ cur={x:[v[0]],y:[v[1]],c:[]}; subs.push(cur); px=sx=v[0]; py=sy=v[1]; continue; }
+        if(!cur){ cur={x:[px],y:[py],c:[]}; subs.push(cur); }
+        if(sg.type==='L'){ cur.c.push(null); cur.x.push(v[0]); cur.y.push(v[1]); px=v[0]; py=v[1]; }
+        else if(sg.type==='C'){ cur.c.push([v[0],v[1],v[2],v[3]]); cur.x.push(v[4]); cur.y.push(v[5]); px=v[4]; py=v[5]; }
+        else if(sg.type==='Z'){ cur=null; px=sx; py=sy; } }
+      for(const sb of subs){ let n=sb.x.length; if(n<2) continue;
+        if(Math.hypot(sb.x[n-1]-sb.x[0],sb.y[n-1]-sb.y[0])<1e-9){ sb.x.pop(); sb.y.pop(); n--; } else sb.c.push(null);
+        for(let k=sb.x.length-1;k>=0&&sb.x.length>2;k--){ const j=(k+1)%sb.x.length; if(!sb.c[k]&&Math.hypot(sb.x[j]-sb.x[k],sb.y[j]-sb.y[k])<1e-9){ sb.x.splice(j,1); sb.y.splice(j,1); sb.c.splice(k,1); if(j===0) sb.c.push(sb.c.shift()); } }
+        if(sb.x.length<3&&!sb.c.some(Boolean)) continue;
+        const X=[],Y=[]; for(let k=0;k<sb.x.length;k++){ const w=T(sb.x[k],sb.y[k]); X.push(w[0]); Y.push(w[1]); }
+        const C=sb.c.map(c=>{ if(!c) return null; const a=T(c[0],c[1]), b=T(c[2],c[3]); return [a[0],a[1],b[0],b[1]]; }), q=X.length, S=new Array(q).fill(0);
+        for(let k=0;k<q;k++){ const e=(k-1+q)%q; if(!C[e]||!C[k]) continue; const ux=X[k]-C[e][2],uy=Y[k]-C[e][3],vx=C[k][0]-X[k],vy=C[k][1]-Y[k],lu=Math.hypot(ux,uy),lv=Math.hypot(vx,vy);
+          if(lu>0&&lv>0&&(ux*vx+uy*vy)/(lu*lv)>Math.cos(PI/90)) S[k]=1; }
+        rings.push({x:X,y:Y,round:null,smooth:S.some(Boolean)?S:null,ctrl:C.some(Boolean)?C:null}); } }
+    return rings; }
+  catch(_){ return null; }
+  finally{ host.remove(); } }
 const secAt=(p,th)=>{ const x=((th/TAU)%1+1)%1*SEC_N, i=Math.floor(x)%SEC_N; return lerp(p._sec[i],p._sec[(i+1)%SEC_N],x-Math.floor(x)); };
+/* ══ EXTRUDED PARTS (24 Oct 2026, Tom: "1", the extruded part) ════════════════
+   Every other part is turned on a lathe: one radius in each direction round its axis, so an
+   L, a letter, a notched star or a window frame cannot be its section. An extruded part is a
+   drawing pushed straight up: p.extrude = {regions: [{outer, holes: [...]}, ...]}, each ring
+   draw's exact-shape record ({x, y, round, smooth, ctrl}, read by EXS), all of them centred
+   with the larger side of their box 1. It stands where a lathe part stands: the drawing lies
+   in the ground plane (its x along x, its y along -z, so seen from above it reads as drawn),
+   pushed up from h = 0 to 1, so scale y is its depth, and turned [90, 0, 0] it stands up
+   reading from the front. Taper, bulge, twist and lean bend it as they bend a lathe part.
+   Sculpting, painting by brush and hollowing work on a lathe part's leaves, which it has none
+   of. Its radius at each angle (p._sec, the outer rings' farthest reach) stands in for it
+   wherever a part is read as one surface about its axis: a .tvf3d, a pattern's girth. */
+function extrudeRings(p){ const out=[]; for(const g of p.extrude.regions){ out.push(g.outer); for(const h of g.holes||[]) out.push(h); } return out; }
+/* regions centred on their box, the larger side of it 1 */
+function normalizeRegions(regions){ let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+  for(const g of regions){ const d=EXS.pts(g.outer); for(let i=0;i<d.x.length;i++){ x0=Math.min(x0,d.x[i]); x1=Math.max(x1,d.x[i]); y0=Math.min(y0,d.y[i]); y1=Math.max(y1,d.y[i]); } }
+  const cx=(x0+x1)/2, cy=(y0+y1)/2, s=1/Math.max(1e-9,x1-x0,y1-y0), r6=v=>+v.toFixed(6);
+  const map=E=>({x:E.x.map(v=>r6((v-cx)*s)),y:E.y.map(v=>r6((v-cy)*s)),round:E.round&&E.round.some(r=>r>0)?E.round.map(v=>r6(v*s)):null,
+    smooth:E.smooth&&E.smooth.some(Boolean)?Array.from(E.smooth,v=>v?1:0):null,
+    ctrl:E.ctrl&&E.ctrl.some(Boolean)?E.ctrl.map(c=>c?[r6((c[0]-cx)*s),r6((c[1]-cy)*s),r6((c[2]-cx)*s),r6((c[3]-cy)*s)]:null):null});
+  return regions.map(g=>({outer:map(g.outer),holes:(g.holes||[]).map(map)})); }
+/* loose rings into regions, by what lies inside what: a ring inside an even number of others
+   is an outline, inside an odd number a hole in the smallest one holding it */
+function nestRings(rings){ const D=rings.map(E=>EXS.pts(E)), area=d=>{ let a=0; for(let i=0,n=d.x.length;i<n;i++){ const j=(i+1)%n; a+=d.x[i]*d.y[j]-d.x[j]*d.y[i]; } return Math.abs(a/2); };
+  const inside=(x,y,d)=>{ let c=false; for(let i=0,n=d.x.length,j=n-1;i<n;j=i++) if((d.y[i]>y)!==(d.y[j]>y)&&x<(d.x[j]-d.x[i])*(y-d.y[i])/(d.y[j]-d.y[i])+d.x[i]) c=!c; return c; };
+  const A=D.map(area), holders=D.map((d,i)=>D.map((e,j)=>j!==i&&A[j]>A[i]&&inside(d.x[0],d.y[0],e)?j:-1).filter(j=>j>=0)), regions=[], at=new Map();
+  rings.forEach((E,i)=>{ if(holders[i].length%2===0){ at.set(i,regions.length); regions.push({outer:E,holes:[]}); } });
+  rings.forEach((E,i)=>{ if(holders[i].length%2===1){ const host=holders[i].filter(j=>holders[j].length===holders[i].length-1).sort((a,b)=>A[a]-A[b])[0]; if(host!=null&&at.has(host)) regions[at.get(host)].holes.push(E); } });
+  return regions; }
+/* a smooth closed curve (leaves) as a ring: 48 smooth corners on it */
+function ringFromCurve(x,y){ const n=48, sh=new tvf.Shape(Float64Array.from(x),Float64Array.from(y)), d=sh.sample(n); return {x:Array.from(d.x),y:Array.from(d.y),round:null,smooth:new Array(n).fill(1),ctrl:null}; }
+/* the drawings in a file as regions: a draw .tvf's shapes with their holes (TVF §2.9), a plain
+   .tvf's curves, an SVG's paths, nested by what lies inside what */
+function regionsFromText(text){ const t=text.trim();
+  if(/^TVF\s+\d+/m.test(t)&&!t.startsWith('<')){ const r=parseTvfText(t), ex=tvfStructure(t), regions=[], loose=[];
+    r.subpaths.forEach((sp,k)=>{ const E=ex[k]; if(E) regions.push({outer:E,holes:E.holes||[]}); else loose.push(ringFromCurve(sp.leafX,sp.leafY)); });
+    return regions.concat(loose.length?nestRings(loose):[]); }
+  const rings=svgRings(t); if(rings&&rings.length) return nestRings(rings);
+  const r=parseSvgToPolyline(t); return nestRings(r.subpaths.map(sp=>({x:Array.from(sp.x),y:Array.from(sp.y,v=>-v),round:null,smooth:null,ctrl:null})));
+}
+/* the outer rings' farthest reach at each angle, in the drawing's own units */
+function polarRegions(p,tab){ tab.fill(0); const D=p.extrude.regions.map(g=>EXS.pts(g.outer));
+  for(let i=0;i<SEC_N;i++){ const a=i/SEC_N*TAU, ux=Math.cos(a), uy=Math.sin(a); let best=0;
+    for(const d of D){ const n=d.x.length; for(let k=0;k<n;k++){ const ax=d.x[k], ay=-d.y[k], bx=d.x[(k+1)%n], by=-d.y[(k+1)%n], ex=bx-ax, ey=by-ay, den=ux*ey-uy*ex;   // y to -z, as drawn
+      if(Math.abs(den)<1e-12) continue; const t=(ax*ey-ay*ex)/den, u=(ax*uy-ay*ux)/den; if(t>0&&u>=0&&u<=1&&t>best) best=t; } }
+    tab[i]=best||0.01; } }
+/* The mesh: each ring's side as runs between its sharp corners (a run's points shared, so a
+   curve is smooth; runs, sides and the two ends never share a point, so every edge between
+   them is drawn as an edge), and the two ends cut into triangles (three.js's earcut, holes
+   and all). Up the side two rings do unless the part is bent; then as many as the detail. */
+function extrudeGeometry(p,dims){
+  const b=p.bend, sq=p.section.squash, bent=Math.abs(b.twist)>1e-9||Math.abs(b.bulge)>1e-9||Math.abs(b.lean)>1e-9;
+  const NH=bent?Math.max(3,(dims||DETAIL[detail])[1]):2, hs=Array.from({length:NH},(_,i)=>i/(NH-1));
+  const at=(x,y,h)=>{ const m=(1+b.taper*(1-2*h))*(1+b.bulge*Math.sin(PI*h)), a=b.twist*h*TAU, c=Math.cos(a), s=Math.sin(a);
+    return [(x*c-y*s)*m+b.lean*h*h, h, -(x*s+y*c)*m*sq]; };
+  const pos=[], col=[], idx=[], c3=[0,0,0];
+  const vert=(x,y,h)=>{ const P=at(x,y,h); pos.push(P[0],P[1],P[2]); baseColor(p,h,c3); col.push(clamp(c3[0],0,1),clamp(c3[1],0,1),clamp(c3[2],0,1)); return pos.length/3-1; };
+  // a triangle wound so its normal leans toward n
+  const tri=(i,j,k,n)=>{ const o=q=>[pos[3*q],pos[3*q+1],pos[3*q+2]], A=o(i),B=o(j),C=o(k), u=[B[0]-A[0],B[1]-A[1],B[2]-A[2]], v=[C[0]-A[0],C[1]-A[1],C[2]-A[2]];
+    const cx=u[1]*v[2]-u[2]*v[1], cy=u[2]*v[0]-u[0]*v[2], cz=u[0]*v[1]-u[1]*v[0]; if(cx*n[0]+cy*n[1]+cz*n[2]<0) idx.push(i,k,j); else idx.push(i,j,k); };
+  for(const g of p.extrude.regions){ const rings=[g.outer,...(g.holes||[])], polys=[];
+    rings.forEach((E,ri)=>{ const d=EXS.pts(E), n=d.x.length; let A=0; for(let i=0;i<n;i++){ const j=(i+1)%n; A+=d.x[i]*d.y[j]-d.x[j]*d.y[i]; }
+      // the outline counter-clockwise, holes clockwise: then the outward side is on the right of travel
+      let X=d.x, Y=d.y, sharp=EXS.sharpIdx(E).map(k=>d.ci[k]);
+      if((ri===0)!==(A>0)){ X=X.slice().reverse(); Y=Y.slice().reverse(); sharp=sharp.map(i=>n-1-i); }
+      polys.push({X,Y});
+      const S=[...new Set(sharp)].sort((a,c)=>a-c), runs=[];
+      if(!S.length) runs.push({pts:[...Array(n).keys()],closed:true});
+      else S.forEach((s,k)=>{ const e=S[(k+1)%S.length], r=[s]; for(let i=(s+1)%n;;i=(i+1)%n){ r.push(i); if(i===e) break; } runs.push({pts:r,closed:false}); });
+      for(const R of runs){ const L=R.pts.length, V=hs.map(h=>R.pts.map(i=>vert(X[i],Y[i],h)));
+        for(let t=0;t<(R.closed?L:L-1);t++){ const t2=(t+1)%L, i=R.pts[t], j=R.pts[t2], dx=X[j]-X[i], dy=Y[j]-Y[i], n3=[dy,0,dx];   // the shape's right-hand normal, y to -z
+          for(let a=0;a<NH-1;a++){ tri(V[a][t],V[a][t2],V[a+1][t],n3); tri(V[a][t2],V[a+1][t2],V[a+1][t],n3); } } } });
+    // the two ends
+    const contour=polys[0].X.map((x,i)=>new THREE.Vector2(x,polys[0].Y[i])), holes=polys.slice(1).map(P=>P.X.map((x,i)=>new THREE.Vector2(x,P.Y[i])));
+    const faces=THREE.ShapeUtils.triangulateShape(contour,holes), flat=[contour,...holes].flat();
+    for(const [h,n3] of [[0,[0,-1,0]],[1,[0,1,0]]]){ const base=flat.map(v=>vert(v.x,v.y,h)); for(const f of faces) tri(base[f[0]],base[f[1]],base[f[2]],n3); } }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  geo.setIndex(idx); geo.computeVertexNormals(); return geo; }
+/* the starting extruded part: a square frame round a round window */
+const EXTRUDE_FRAME={regions:[{outer:{x:[-0.5,0.5,0.5,-0.5],y:[-0.5,-0.5,0.5,0.5],round:null,smooth:null,ctrl:null},
+  holes:[{x:[0.28,0,-0.28,0],y:[0,0.28,0,-0.28],round:null,smooth:[1,1,1,1],ctrl:null}]}]};
+
 
 /* ══ THE RADIUS AND COLOUR OF A PART ═══════════════════════════════════════ */
 function usePart(p){ state.cascade=p.cascade; state.rungs=p.eng.rungs; state.baseT=p.eng.baseT; state.baseH=p.eng.baseH; state.hkernel=p.eng.hkernel;
@@ -5041,15 +5287,18 @@ function paintCurrent(th,h){ const o=[0,0,0]; return _paintPart ? colorAt(_paint
 const DETAIL=[[32,24],[48,36],[72,56],[112,84]];
 let detail=2;
 function buildGeometry(p,dims,cap){
-  const [NT,NH]=dims||DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0], keepCap=rungCap;
+  if(p.extrude) return extrudeGeometry(p,dims);   // EXTRUDED PARTS
+  const [NT0,NH]=dims||DETAIL[detail], sq=p.section.squash, lean=p.bend.lean, rings=[], col=[0,0,0], keepCap=rungCap;
   if(p.cascade) usePart(p);
   rungCap=cap==null?Infinity:cap;
   // every ring's height, outside then (hollow) inside, so the cascade can be read on the whole grid at once
-  const hs=[], insets=[]; for(let i=0;i<NH;i++){ hs.push(i/(NH-1)); insets.push(0); }
+  // the outside's heights, with a sharp point of the outline at its own height, twice (SHARP POINTS)
+  const hs=meshHeights(p,NH), insets=hs.map(()=>0);
   let capTop=true;
   if(p.hollow.on){ const w=p.hollow.wall, f=clamp(p.hollow.floor,0.02,0.9), NI=Math.max(4,Math.round(NH*(1-f)));
     for(let i=0;i<NI;i++){ hs.push(1-(1-f)*(i/(NI-1))); insets.push(w); } capTop=false; }
-  const ths=Array.from({length:NT},(_,j)=>j/NT*TAU);
+  // the angles round, with a column on each sharp corner of the section, twice (SECTIONS WITH CORNERS)
+  const ths=meshThetas(p,NT0), NT=ths.length;
   /* The cascade's share of radius and colour on that grid, rung by rung, by rungGrid's two
      passes (the same sums as radiusAt and colorAt, point for point, without a window per
      vertex: a patterned scene built in seconds otherwise). */
@@ -5088,6 +5337,7 @@ const LATHE={
   star:{outline:[[0,0.42],[1,0.42]], section:{type:'star',n:5,k:0.9}},
   flower:{outline:[[0,0.05],[0.4,0.3],[0.8,0.45],[1,0.46]], section:{type:'petal',n:6,k:0.9}},
   column:{outline:[[0,0.3],[0.06,0.3],[0.1,0.22],[0.9,0.2],[0.94,0.3],[1,0.3]], section:{type:'petal',n:16,k:0.25}},
+  extruded:{outline:[[0,1],[1,1]], extrude:EXTRUDE_FRAME},   // EXTRUDED PARTS: a drawing pushed up; its section panel takes drawings
 };
 const CLASSIC=['knight','pawn','rook','bishop','queen','gem','brilliant','emerald','quartz','fluted','twisted','spiked','supershape','rounded_cube','diamond'];
 const CLASSIC_OK=()=>CLASSIC.filter(k=>PRESETS[k]);
@@ -5178,7 +5428,7 @@ let stroking=null, downAt=null;
 renderer.domElement.addEventListener('pointerdown',e=>{
   downAt={x:e.clientX,y:e.clientY};
   const p=S.editing && (S.tool==='sculpt'||S.tool==='paint') ? selPart() : null;
-  if(!p || e.button!==0 || e.shiftKey) return;
+  if(!p || p.extrude || e.button!==0 || e.shiftKey) return;   // an extruded part has no leaves to sculpt or paint
   const hit=hitAt(e,[p]); if(!hit) return;
   orbit.enabled=false; ensureCascade(p); usePart(p);
   const painting=S.tool==='paint';
@@ -5227,6 +5477,7 @@ function partData(p){
   const o={ id:p.id, name:p.name, core:p.core, outline:p.outline, section:p.section, bend:p.bend, paint:p.paint, hollow:p.hollow,
     pos:p.pos, rot:p.rot, scale:p.scale, eng:p.eng, sculpted:p.sculpted, painted:p.painted, origOutline:p._origOutline||null };
   if(p.detail) o.detail=p.detail;
+  if(p.extrude) o.extrude=p.extrude;
   if(p.cascade && (p.sculpted||p.painted) && !p._detailGen) o.cascade=p.cascade.map(rg=>({Nt:rg.Nt,Nh:rg.Nh,v:Array.from(rg.v,r5),cR:Array.from(rg.cR,r5),cG:Array.from(rg.cG,r5),cB:Array.from(rg.cB,r5),blocked:Array.from(rg.blocked)}));
   return o; }
 function partFromData(d){ const q=JSON.parse(JSON.stringify(Object.assign({},d,{cascade:undefined})));
@@ -5278,25 +5529,32 @@ function drawOutline(){
   for(let i=0;i<=4;i++){ const y=olY(i/4); s+=`<line class="grid" x1="${OL.pad}" y1="${y}" x2="${OL.W-OL.pad}" y2="${y}"/>`; }
   s+=`<line class="axis" x1="${OL.W/2}" y1="6" x2="${OL.W/2}" y2="${OL.H-6}"/>`;
   if(!p){ svg.innerHTML=s+`<text x="${OL.W/2}" y="${OL.H/2}" fill="#5c5c68" font-size="12" text-anchor="middle">select a part</text>`; return; }
+  if(p.extrude){ svg.innerHTML=s+`<text x="${OL.W/2}" y="${OL.H/2-8}" fill="#8a8a96" font-size="12" text-anchor="middle">an extruded drawing:</text><text x="${OL.W/2}" y="${OL.H/2+10}" fill="#8a8a96" font-size="12" text-anchor="middle">straight up, its height its size</text>`; return; }
   if(olDrag<0){ olMax=Math.max(0.3,...p.outline.map(q=>q[1]))*1.15; }
-  const N=80, right=[], left=[];
-  for(let i=0;i<=N;i++){ const h=i/N, r=outlineAt(p.outline,h)*(1+p.bend.taper*(1-2*h))*(1+p.bend.bulge*Math.sin(PI*h)); right.push([olX(r),olY(h)]); left.push([olX(-r),olY(h)]); }
+  const N=80, right=[], left=[], hs=meshHeights(p,N+1);   // the sharp points' own heights among them
+  for(const h of hs){ const r=outlineAt(p.outline,h)*(1+p.bend.taper*(1-2*h))*(1+p.bend.bulge*Math.sin(PI*h)); right.push([olX(r),olY(h)]); left.push([olX(-r),olY(h)]); }
   const path=a=>a.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');
   s+=`<path class="fill" d="${path(right)} ${path(left.slice().reverse()).replace('M','L')} Z"/><path class="mirror" d="${path(left)}"/><path class="curve" d="${path(right)}"/>`;
-  p.outline.forEach((q,i)=>{ const end=i===0||i===p.outline.length-1; s+=`<circle class="pt${end?' end':''}" data-i="${i}" cx="${olX(q[1])}" cy="${olY(q[0])}" r="5.5"/>`; });
+  p.outline.forEach((q,i)=>{ const end=i===0||i===p.outline.length-1, x=olX(q[1]), y=olY(q[0]);
+    s+=q[2]===1?`<rect class="pt sharp${end?' end':''}" data-i="${i}" x="${x-5}" y="${y-5}" width="10" height="10"/>`:`<circle class="pt${end?' end':''}" data-i="${i}" cx="${x}" cy="${y}" r="5.5"/>`; });
   svg.innerHTML=s;
 }
 function svgPoint(svg,e){ const r=svg.getBoundingClientRect(), vb=svg.viewBox.baseVal; return [(e.clientX-r.left)/r.width*vb.width,(e.clientY-r.top)/r.height*vb.height]; }
-$('outline').addEventListener('pointerdown',e=>{ const p=selPart(); if(!p) return; const [x,y]=svgPoint(e.currentTarget,e), t=e.target.closest('.pt');
-  if(t) olDrag=+t.dataset.i;
-  else { const h=olH(y), pts=p.outline; const i=pts.findIndex(q=>q[0]>h); if(i<=0) return; pts.splice(i,0,[h,olR(x)]); olDrag=i; rebuild(p); drawOutline(); }
+/* Alt-click (or a long press's partner, the sharp button below) turns a point sharp or smooth */
+function toggleSharp(p,i){ const q=p.outline[i]; if(!q) return; if(q[2]===1) q.length=2; else q[2]=1; rebuild(p); drawOutline(); commit(q[2]===1?'sharp point':'smooth point'); }
+let olLast=-1;   // the point last touched, for the sharp button
+$('outline').addEventListener('pointerdown',e=>{ const p=selPart(); if(!p||p.extrude) return; const [x,y]=svgPoint(e.currentTarget,e), t=e.target.closest('.pt');
+  if(t&&e.altKey){ olLast=+t.dataset.i; toggleSharp(p,olLast); return; }
+  if(t){ olDrag=+t.dataset.i; olLast=olDrag; }
+  else { const h=olH(y), pts=p.outline; const i=pts.findIndex(q=>q[0]>h); if(i<=0) return; pts.splice(i,0,[h,olR(x)]); olDrag=i; olLast=i; rebuild(p); drawOutline(); }
   e.currentTarget.setPointerCapture(e.pointerId); });
 $('outline').addEventListener('pointermove',e=>{ if(olDrag<0) return; const p=selPart(); if(!p) return; const [x,y]=svgPoint(e.currentTarget,e), pts=p.outline, last=pts.length-1;
   let h=olH(y); if(olDrag===0) h=0; else if(olDrag===last) h=1; else h=clamp(h,pts[olDrag-1][0]+0.01,pts[olDrag+1][0]-0.01);
-  pts[olDrag]=[h,olR(x)]; rebuild(p); drawOutline(); });
+  pts[olDrag]=pts[olDrag][2]===1?[h,olR(x),1]:[h,olR(x)]; rebuild(p); drawOutline(); });
 $('outline').addEventListener('pointerup',()=>{ if(olDrag>=0){ olDrag=-1; drawOutline(); commit('outline'); } });
 $('outline').addEventListener('dblclick',e=>{ const p=selPart(), t=e.target.closest('.pt'); if(!p||!t) return; const i=+t.dataset.i;
-  if(i===0||i===p.outline.length-1||p.outline.length<=2) return; p.outline.splice(i,1); rebuild(p); drawOutline(); commit('outline'); });
+  if(i===0||i===p.outline.length-1||p.outline.length<=2) return; p.outline.splice(i,1); olLast=-1; rebuild(p); drawOutline(); commit('outline'); });
+$('olSharp').onclick=()=>{ const p=selPart(); if(!p) return; if(olLast<0||olLast>=p.outline.length){ toast('touch a point of the outline first'); return; } toggleSharp(p,olLast); };
 $('olReset').onclick=()=>{ const p=selPart(); if(!p) return; p.outline=JSON.parse(JSON.stringify(p._origOutline||coreOutline(p))); rebuild(p); drawOutline(); commit('outline reset'); };
 
 /* ══ THE SECTION EDITOR ═══════════════════════════════════════════════════
@@ -5305,20 +5563,79 @@ $('olReset').onclick=()=>{ const p=selPart(); if(!p) return; p.outline=JSON.pars
    symmetry, or start from draw's primitives. */
 const SX=120, SY=85, SR=62;
 function sectPathFormula(s,cx,cy,R,N=120){ let d=''; for(let i=0;i<=N;i++){ const th=i/N*TAU, r=R*sectionFormula(s,th); d+=(i?'L':'M')+(cx+r*Math.cos(th)).toFixed(1)+' '+(cy+r*Math.sin(th)).toFixed(1); } return d+'Z'; }
-$('stypes').innerHTML=STYPES.map(([t,l])=>{ const icon=t==='custom'?'M13 3C19 3 23 7 21 12S16 22 11 21 3 17 4 11 8 3 13 3Z':sectPathFormula({type:t,n:t==='super'?4:5,k:t==='round'?0:(t==='super'?0.15:0.85)},13,13,10,60);
+$('stypes').innerHTML=STYPES.map(([t,l])=>{ const icon=t==='custom'?'M13 3C19 3 23 7 21 12S16 22 11 21 3 17 4 11 8 3 13 3Z':t==='corners'?'M4 5L21 4L22 21L12 17L4 22Z':sectPathFormula({type:t,n:t==='super'?4:5,k:t==='round'?0:(t==='super'?0.15:0.85)},13,13,10,60);
   return `<button data-t="${t}" title="${l}"><svg viewBox="0 0 26 26"><path d="${icon}"/></svg>${l}</button>`; }).join('');
 $('stypes').addEventListener('click',e=>{ const b=e.target.closest('button'), p=selPart(); if(!b||!p) return; const t=b.dataset.t;
   if(t==='custom' && !p.section.shape) p.section.shape=shapeFromSection(p);
+  if(t==='corners' && !p.section.corners) p.section.corners=cornersFromSection(p);
   p.section.type=t; if(t!=='round'&&t!=='custom'&&p.section.k<0.2) p.section.k=0.7; prepSection(p); rebuild(p); syncSection(); commit('section'); });
 /* the current section as a drawn curve: sampled into a tvf Shape */
 function shapeFromSection(p,N=48){ prepSection(p); const s=tvf.Shape.fromFunction(t=>{ const th=t*TAU, r=secAt(p,th); return [r*Math.cos(th),r*Math.sin(th)]; },N); return s.toJSON(); }
 let leafDrag=null;
 function drawSection(){ const p=selPart(), svg=$('section'); if(!p){ svg.innerHTML=''; return; }
-  let d=''; for(let i=0;i<=180;i++){ const th=i/180*TAU, r=SR*secAt(p,th); d+=(i?'L':'M')+(SX+r*Math.cos(th)).toFixed(1)+' '+(SY+r*Math.sin(th)*p.section.squash).toFixed(1); }
+  if(p.extrude){ drawExtrudeShape(p,svg); return; }
+  const ths=Array.from({length:180},(_,i)=>i/180*TAU).concat(sharpThetas(p)).sort((a,b)=>a-b);   // the corners' own angles among them
+  let d=''; ths.forEach((th,i)=>{ const r=SR*secAt(p,th); d+=(i?'L':'M')+(SX+r*Math.cos(th)).toFixed(1)+' '+(SY+r*Math.sin(th)*p.section.squash).toFixed(1); });
   let s=`<line class="axis" x1="${SX}" y1="8" x2="${SX}" y2="162"/><line class="axis" x1="30" y1="${SY}" x2="210" y2="${SY}"/><path class="sect" d="${d}Z"/>`;
   if(p.section.type==='custom' && p.section.shape){ const sh=p.section.shape, sc=customScale(p);
     for(let k=0;k<sh.x.length;k++) s+=`<circle class="leaf" data-k="${k}" cx="${(SX+sh.x[k]*sc).toFixed(1)}" cy="${(SY+sh.y[k]*sc*p.section.squash).toFixed(1)}" r="4"/>`; }
+  if(p.section.type==='corners' && p.section.corners){ const E=p.section.corners, sc=cornersScale(p);
+    E.x.forEach((x,k)=>{ const cx=SX+x*sc, cy=SY+E.y[k]*sc*p.section.squash;
+      s+=EXS.sm(E,k)?`<circle class="cpt" data-c="${k}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5"/>`:`<rect class="cpt" data-c="${k}" x="${(cx-4).toFixed(1)}" y="${(cy-4).toFixed(1)}" width="8" height="8"/>`; }); }
   svg.innerHTML=s; }
+/* An extruded part's drawing, y up as in draw, its rings filled even-odd so the holes show,
+   and its corners to drag (data-x = region.ring.corner, ring 0 the outline). */
+const EXS_SC=140;
+function drawExtrudeShape(p,svg){ let d='', dots='';
+  p.extrude.regions.forEach((g,gi)=>[g.outer,...(g.holes||[])].forEach((E,ri)=>{ const q=EXS.pts(E);
+    d+=q.x.map((x,i)=>(i?'L':'M')+(SX+x*EXS_SC).toFixed(1)+' '+(SY-q.y[i]*EXS_SC).toFixed(1)).join('')+'Z';
+    E.x.forEach((x,k)=>{ const cx=SX+x*EXS_SC, cy=SY-E.y[k]*EXS_SC, key=gi+'.'+ri+'.'+k;
+      dots+=EXS.sm(E,k)?`<circle class="cpt" data-x="${key}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4"/>`:`<rect class="cpt" data-x="${key}" x="${(cx-3.5).toFixed(1)}" y="${(cy-3.5).toFixed(1)}" width="7" height="7"/>`; }); }));
+  svg.innerHTML=`<line class="axis" x1="${SX}" y1="8" x2="${SX}" y2="162"/><line class="axis" x1="30" y1="${SY}" x2="210" y2="${SY}"/><path class="sect" fill-rule="evenodd" d="${d}"/>`+dots; }
+const ringAt=(p,key)=>{ const [g,r]=key.split('.').map(Number), G=p.extrude.regions[g]; return G?(r===0?G.outer:(G.holes||[])[r-1]):null; };
+let exDrag=null, exTap={key:'',t:0};
+$('section').addEventListener('pointerdown',e=>{ const p=selPart(), t=e.target.closest('.cpt'); if(!p||!p.extrude||!t||!t.dataset.x) return; const key=t.dataset.x, now=performance.now();
+  if(exTap.key===key&&now-exTap.t<400){ exTap={key:'',t:0}; const E=ringAt(p,key), k=+key.split('.')[2]; if(!E) return;
+    if(!E.smooth) E.smooth=new Array(E.x.length).fill(0); E.smooth[k]=E.smooth[k]?0:1; if(!E.smooth.some(Boolean)) E.smooth=null;
+    prepSection(p); rebuild(p); drawSection(); commit(EXS.sm(E,k)?'smooth corner':'sharp corner'); return; }
+  exTap={key,t:now}; const [x,y]=svgPoint(e.currentTarget,e); exDrag={key,x,y,moved:false}; e.currentTarget.setPointerCapture(e.pointerId); });
+$('section').addEventListener('pointermove',e=>{ if(!exDrag) return; const p=selPart(); if(!p||!p.extrude) return; const [x,y]=svgPoint(e.currentTarget,e);
+  const E=ringAt(p,exDrag.key), k=+exDrag.key.split('.')[2], n=E.x.length, dx=(x-exDrag.x)/EXS_SC, dy=-(y-exDrag.y)/EXS_SC;
+  E.x[k]+=dx; E.y[k]+=dy; if(E.ctrl){ const ci=E.ctrl[(k-1+n)%n], co=E.ctrl[k]; if(ci){ ci[2]+=dx; ci[3]+=dy; } if(co){ co[0]+=dx; co[1]+=dy; } }
+  exDrag.x=x; exDrag.y=y; exDrag.moved=true; prepSection(p); rebuild(p); drawSection(); });
+$('section').addEventListener('pointerup',()=>{ if(exDrag){ const m=exDrag.moved; exDrag=null; if(m){ exTap={key:'',t:0}; commit('extruded corner'); } } });
+/* The drawing out to draw: one document a shape, its outline's leaves for every reader and,
+   beside them, its corners and holes as draw writes an exact shape (TVF §2.9). */
+function saveExtrudeTvf(p){ const cv=v=>+(v*100).toPrecision(10), lv=v=>+(v*100).toPrecision(8), blocks=[];
+  const ringText=E=>E.x.map((x,k)=>cv(x)+' '+cv(E.y[k])).join(' '), smText=E=>E.smooth?E.smooth.map((v,k)=>v?k:-1).filter(k=>k>=0).join(' '):'', cText=E=>E.ctrl?E.ctrl.map((c,k)=>c?k+' '+c.map(cv).join(' '):null).filter(Boolean).join(', '):'';
+  p.extrude.regions.forEach((g,gi)=>{ const E=g.outer, d=EXS.pts(E), J=tvf.Shape.fromPoints(d.x.map((x,i)=>[x,d.y[i]]),64).toJSON(), N=J.x.length, lx=J.x.map(lv), ly=J.y.map(lv), H=g.holes||[];
+    const L=[`TVF ${N} 1 2`,'#meta type:curve','#meta closed:true','#meta channels:xy',`#meta name:${p.name}`,'#meta exact:polygon','#meta corners:'+ringText(E)];
+    if(E.round&&E.round.some(r=>r>0)) L.push('#meta radii:'+E.round.map(lv).join(' '));
+    if(E.smooth&&E.smooth.some(Boolean)) L.push('#meta smooth:'+smText(E));
+    if(E.ctrl&&E.ctrl.some(Boolean)) L.push('#meta curves:'+cText(E));
+    if(H.some(h=>h.ctrl&&h.ctrl.some(Boolean))) L.push('#meta holecurves:'+H.map(cText).join(' | '));
+    if(H.length){ L.push('#meta holes:'+H.map(ringText).join(' | ')); if(H.some(h=>h.smooth&&h.smooth.some(Boolean))) L.push('#meta holesmooth:'+H.map(smText).join(' | ')); }
+    L.push('#meta leafsum:'+N+' '+leafSums(lx,ly).map(v=>+v.toPrecision(12)).join(' '),'0 '+lx.join(' '),'0 '+ly.join(' ')); blocks.push(L.join('\n')); });
+  download((p.name||'drawing')+'.tvf',blocks.join('\n\n# --- next subpath ---\n')+'\n','text/plain'); toast('saved the drawing as a .tvf for draw, corners and holes kept'); }
+/* a corners section is drawn at the scale its farthest point reaches the section's 1 */
+function cornersScale(p){ const d=EXS.pts(p.section.corners); let mx=0; for(let i=0;i<d.x.length;i++) mx=Math.max(mx,Math.hypot(d.x[i],d.y[i])); return SR/Math.max(1e-6,mx); }
+/* Dragging a corner moves it, and the handles either side of it with it, so a curve keeps its
+   shape where it meets the corner. A double-click makes a corner smooth or sharp (draw's rule:
+   an edge between two sharp corners is straight). */
+let cornerDrag=null;
+let cornerTap={k:-1,t:0};   // a second press on the same corner soon after the first: the double-click (a dblclick event goes to the captured svg)
+$('section').addEventListener('pointerdown',e=>{ const p=selPart(), t=e.target.closest('.cpt'); if(!p||!t||t.dataset.c==null) return; const k=+t.dataset.c, now=performance.now();
+  if(cornerTap.k===k&&now-cornerTap.t<400){ cornerTap={k:-1,t:0}; toggleCornerSmooth(p,k); return; }
+  cornerTap={k,t:now};
+  const [x,y]=svgPoint(e.currentTarget,e); cornerDrag={k,x,y,sc:cornersScale(p),moved:false}; e.currentTarget.setPointerCapture(e.pointerId); });
+$('section').addEventListener('pointermove',e=>{ if(!cornerDrag) return; const p=selPart(); if(!p||!p.section.corners) return; const [x,y]=svgPoint(e.currentTarget,e);
+  const E=p.section.corners, k=cornerDrag.k, n=E.x.length, dx=(x-cornerDrag.x)/cornerDrag.sc, dy=(y-cornerDrag.y)/cornerDrag.sc/p.section.squash;
+  E.x[k]+=dx; E.y[k]+=dy; if(E.ctrl){ const ci=E.ctrl[(k-1+n)%n], co=E.ctrl[k]; if(ci){ ci[2]+=dx; ci[3]+=dy; } if(co){ co[0]+=dx; co[1]+=dy; } }
+  cornerDrag.x=x; cornerDrag.y=y; cornerDrag.moved=true; prepSection(p); rebuild(p); drawSection(); });
+$('section').addEventListener('pointerup',()=>{ if(cornerDrag){ const moved=cornerDrag.moved; cornerDrag=null; if(moved){ cornerTap={k:-1,t:0}; commit('section corner'); } } });
+function toggleCornerSmooth(p,k){ const E=p.section.corners; if(!E) return;
+  if(!E.smooth) E.smooth=new Array(E.x.length).fill(0); E.smooth[k]=E.smooth[k]?0:1; if(!E.smooth.some(Boolean)) E.smooth=null;
+  prepSection(p); rebuild(p); drawSection(); commit(EXS.sm(E,k)?'smooth corner':'sharp corner'); }
 /* the drawn curve is shown at the scale its outermost point reaches the section's 1 */
 function customScale(p){ const sh=tvf.Shape.fromJSON(p.section.shape), d=sh.sample(360); let mx=0; for(let i=0;i<d.x.length;i++) mx=Math.max(mx,Math.hypot(d.x[i],d.y[i])); return SR/Math.max(1e-6,mx); }
 $('section').addEventListener('pointerdown',e=>{ const p=selPart(), t=e.target.closest('.leaf'); if(!p||!t) return;
@@ -5328,7 +5645,16 @@ $('section').addEventListener('pointermove',e=>{ if(!leafDrag) return; const p=s
   p.section.shape=sh.toJSON(); leafDrag.x=x; leafDrag.y=y; prepSection(p); rebuild(p); drawSection(); });
 $('section').addEventListener('pointerup',()=>{ if(leafDrag){ leafDrag=null; commit('section'); } });
 function syncSection(){ const p=selPart(); for(const b of $('stypes').children) b.classList.toggle('on',!!p && b.dataset.t===p.section.type);
-  const el=$('secParams'); if(!p){ el.innerHTML=''; drawSection(); return; }
+  const el=$('secParams'); $('stypes').style.display=p&&p.extrude?'none':''; if(!p){ el.innerHTML=''; drawSection(); return; }
+  if(p.extrude){ el.innerHTML=`<div class="row"><button id="exFile" title="an .svg, or a .tvf from draw: every shape in it, holes and all">from a drawing…</button><button id="exPaste" title="paste shapes copied in draw">paste</button></div>
+      <div class="row"><button id="exStand" title="turn it to stand up, reading from the front, and drop it to the ground">stand up</button><button id="exSave" title="save the drawing as a .tvf for draw, corners and holes kept">to draw</button></div>
+      ${slider('sa','squash',0.15,1,0.01,p.section.squash)}
+      <div class="note">An extruded drawing, pushed straight up: its height is its size (tall). Drag a corner; tap one twice to make it smooth or sharp. Text, signs and frames from draw come in here.</div>`;
+    bindSlider('sa',v=>{ p.section.squash=v; rebuild(p); drawSection(); },'squash');
+    $('exFile').onclick=()=>pickCurve('extrude'); $('exSave').onclick=()=>saveExtrudeTvf(p);
+    $('exPaste').onclick=async()=>{ try{ const tx=await navigator.clipboard.readText(); useCurveText(tx,'extrude','clipboard'); }catch(err){ toast('paste: '+err.message); } };
+    $('exStand').onclick=()=>{ p.rot=[90,0,0]; placeMesh(p); dropDown(p); syncPlacement(); commit('stand up'); };
+    drawSection(); return; }
   const s=p.section, t=s.type; let h='';
   if(t!=='round' && t!=='custom') h+=slider('sn',t==='super'?'corners':'points',2,16,1,s.n,v=>v)+slider('sk',t==='polygon'?'sharp':t==='super'?'shape':'deep',0,1,0.01,s.k);
   if(t==='custom'){ h+=`<div class="gtitle">start from draw's shapes</div><div class="row" id="prims">${['circle','superellipse','polygon','star','blob','rose'].map(n=>`<button data-prim="${n}" style="flex:1 1 30%;padding:4px 2px;font-size:11px">${n}</button>`).join('')}</div>
@@ -5336,8 +5662,17 @@ function syncSection(){ const p=selPart(); for(const b of $('stypes').children) 
       ${slider('secFold','fold',2,12,1,secFold,v=>v+'-fold')}${slider('secN','points',8,96,4,s.shape?s.shape.x.length:48,v=>v)}
       <div class="row"><button id="secFile" title="an .svg, or a .tvf saved in draw (or paste one from draw's copy)">from a drawing…</button><button id="secPaste" title="paste a shape copied in draw">paste</button><button id="secSave" title="save this section as a .tvf for draw">to draw</button></div>
       <div class="note">Drag the points; the curve passes through every one. Shapes from draw, or any SVG, come in here.</div>`; }
+  if(t==='corners'){ h+=`<div class="row"><button id="secToLeaves" title="hold it as a drawn curve of points to push and pull (its corners round off)">to drawn</button><button id="secCornersReset" title="start again from a square">square</button></div>
+      <div class="row"><button id="secFile" title="an .svg, or a .tvf saved in draw (or paste one from draw's copy)">from a drawing…</button><button id="secPaste" title="paste a shape copied in draw">paste</button><button id="secSave" title="save this section as a .tvf for draw, its corners kept">to draw</button></div>
+      <div class="note">The section as drawn: its corners stay sharp and its edges straight or the curves they were. Drag a corner; double-click one to make it smooth or sharp. Shapes from draw with corners come in here.</div>`; }
   h+=slider('sa','squash',0.15,1,0.01,s.squash);
   el.innerHTML=h;
+  if(t==='corners'){
+    $('secToLeaves').onclick=()=>{ const d=EXS.pts(s.corners); s.shape=normalizeShape(tvf.Shape.fromPoints(d.x.map((x,i)=>[x,d.y[i]]),48)).toJSON(); s.type='custom'; prepSection(p); rebuild(p); syncSection(); commit('section to drawn'); };
+    $('secCornersReset').onclick=()=>{ s.corners=cornersFromSection({section:{type:'polygon',n:4}}); prepSection(p); rebuild(p); syncSection(); commit('section: square'); };
+    $('secFile').onclick=()=>pickCurve('section'); $('secSave').onclick=()=>saveSectionTvf(p);
+    $('secPaste').onclick=async()=>{ try{ const tx=await navigator.clipboard.readText(); useCurveText(tx,'section','clipboard'); }catch(err){ toast('paste: '+err.message); } };
+  }
   bindSlider('sn',v=>{ s.n=v; prepSection(p); rebuild(p); drawSection(); },'section');
   bindSlider('sk',v=>{ s.k=v; prepSection(p); rebuild(p); drawSection(); },'section');
   bindSlider('sa',v=>{ s.squash=v; rebuild(p); drawSection(); },'section');
@@ -5365,19 +5700,35 @@ let curveTarget='section';
 function pickCurve(target){ curveTarget=target; $('fileCurve').click(); }
 $('fileCurve').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>useCurveText(rd.result,curveTarget,f.name); rd.readAsText(f); e.target.value=''; };
 $('olFromFile').onclick=()=>pickCurve('outline');
-/* every closed contour in the file, as point arrays (y up) */
+/* every closed contour in the file, as point arrays (y up). A contour drawn with corners
+   (a .tvf carrying draw's structure, TVF §2.9, or an SVG's lines and cubics) also brings the
+   shape as drawn, as `exact` (SECTIONS WITH CORNERS); its points are then the drawn outline's. */
 function curvesFromText(text){
   const t=text.trim();
-  if(/^TVF\s+\d+/m.test(t) && !t.startsWith('<')){ const r=parseTvfText(t);
-    return r.subpaths.map(sp=>{ const sh=new tvf.Shape(sp.leafX,sp.leafY), d=sh.sample(512); return {x:Array.from(d.x),y:Array.from(d.y)}; }); }
+  if(/^TVF\s+\d+/m.test(t) && !t.startsWith('<')){ const r=parseTvfText(t), ex=tvfStructure(t);
+    if(tvfStructure.edited) toast(tvfStructure.edited+' shape'+(tvfStructure.edited>1?'s were':' was')+' edited after draw saved '+(tvfStructure.edited>1?'them':'it')+': read as leaves');
+    return r.subpaths.map((sp,k)=>{ const E=ex[k];
+      if(E){ const d=EXS.pts(E); return {x:d.x,y:d.y,exact:E}; }
+      const sh=new tvf.Shape(sp.leafX,sp.leafY), d=sh.sample(512); return {x:Array.from(d.x),y:Array.from(d.y)}; }); }
+  const rings=svgRings(t);
+  if(rings&&rings.length) return rings.map(E=>{ const d=EXS.pts(E); return {x:d.x,y:d.y,exact:E}; });
   const r=parseSvgToPolyline(t); return r.subpaths.map(sp=>({x:Array.from(sp.x),y:Array.from(sp.y,v=>-v)}));
 }
 const polyArea=c=>{ let a=0; for(let i=0,n=c.x.length;i<n;i++){ const j=(i+1)%n; a+=c.x[i]*c.y[j]-c.x[j]*c.y[i]; } return Math.abs(a/2); };
 function useCurveText(text,target,label){
   const p=selPart(); if(!p){ toast('select a part first'); return; }
+  if(target==='extrude'){   // EXTRUDED PARTS: every shape in the drawing, holes and all
+    let regions; try{ regions=regionsFromText(text); }catch(err){ toast('could not read '+label+': '+err.message); return; }
+    if(!regions.length){ toast('no closed shape in '+label); return; }
+    p.extrude={regions:normalizeRegions(regions)}; p.outline=[[0,1],[1,1]]; p._origOutline=[[0,1],[1,1]]; p.core={kind:'lathe'}; p.cascade=null; p.sculpted=p.painted=false; p.hollow.on=false;
+    prepPart(p); rebuild(p); refreshAll(); commit('extruded from '+label);
+    const nh=regions.reduce((a,g)=>a+(g.holes||[]).length,0); toast(label+': '+regions.length+' shape'+(regions.length>1?'s':'')+(nh?', '+nh+' hole'+(nh>1?'s':''):'')+', extruded'); return; }
   let curves; try{ curves=curvesFromText(text); }catch(err){ toast('could not read '+label+': '+err.message); return; }
   if(!curves.length){ toast('no closed shape in '+label); return; }
   const c=curves.reduce((a,b)=>polyArea(b)>polyArea(a)?b:a);                 // the biggest contour
+  if(target==='section' && c.exact && EXS.sharpIdx(c.exact).length){   // corners kept: a corners section
+    p.section.type='corners'; p.section.corners=EXS.normalize(c.exact); prepSection(p); rebuild(p); syncSection(); commit('section from '+label);
+    toast('section from '+label+', its corners kept'+(tvfStructure.holes&&/^TVF/m.test(text)?' (holes left out: a section is one ring)':'')); return; }
   if(target==='section'){
     const pts=c.x.map((x,i)=>[x,c.y[i]]); const sh=normalizeShape(tvf.Shape.fromPoints(pts,Math.min(96,Math.max(24,p.section.shape?p.section.shape.x.length:48))));
     p.section.type='custom'; p.section.shape=sh.toJSON(); prepSection(p); rebuild(p); syncSection(); commit('section from '+label); toast('section from '+label);
@@ -5386,16 +5737,44 @@ function useCurveText(text,target,label){
        measured from its own centre line, is the outline */
     let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity; for(let i=0;i<c.x.length;i++){ minX=Math.min(minX,c.x[i]); maxX=Math.max(maxX,c.x[i]); minY=Math.min(minY,c.y[i]); maxY=Math.max(maxY,c.y[i]); }
     const H=Math.max(1e-6,maxY-minY), cx=(minX+maxX)/2, pts=[], n=c.x.length, K=14;
-    for(let s=0;s<=K;s++){ const h=clamp(s/K,0.002,0.998), y=minY+h*H; let w=0;
+    const widthAt=hh=>{ const y=minY+clamp(hh,0.002,0.998)*H; let w=0;
       for(let i=0;i<n;i++){ const j=(i+1)%n, y0=c.y[i], y1=c.y[j]; if((y0-y)*(y1-y)>0||y0===y1) continue; const x=c.x[i]+(c.x[j]-c.x[i])*(y-y0)/(y1-y0); w=Math.max(w,Math.abs(x-cx)); }
-      pts.push([s/K,+(w/H).toFixed(4)]); }
-    p.outline=pts; rebuild(p); drawOutline(); commit('outline from '+label); toast('outline from '+label);
+      return +(w/H).toFixed(4); };
+    if(c.exact){
+      /* A drawing with corners: a point at each corner's height, sharp where the corner is
+         (SHARP POINTS), and a few along each curved edge; none along a straight one, so a
+         straight side stays straight between its two sharp ends. */
+      const E=c.exact, sharp=new Set(EXS.sharpIdx(E)), m=E.x.length, cand=[[0,1],[1,1]];
+      for(let k=0;k<m;k++){ cand.push([(E.y[k]-minY)/H,sharp.has(k)?1:0]); const b=(k+1)%m, e=EXS.edge(E,k,b);
+        if(e) for(let q=1;q<8;q++){ const t=q/8,u=1-t; cand.push([(u*u*u*E.y[k]+3*u*u*t*e[1]+3*u*t*t*e[3]+t*t*t*E.y[b]-minY)/H,0]); }
+        const a=EXS.arc(E,k); if(a){ const a1=Math.atan2(a.t1y-a.cy,a.t1x-a.cx); let d=Math.atan2(a.t2y-a.cy,a.t2x-a.cx)-a1; while(d>PI) d-=TAU; while(d<-PI) d+=TAU;
+          for(let q=0;q<=6;q++) cand.push([(a.cy+a.r*Math.sin(a1+d*q/6)-minY)/H,0]); } }
+      cand.sort((a,b)=>a[0]-b[0]);
+      for(const [hh,sh] of cand){ const h=clamp(+hh.toFixed(4),0,1), last=pts[pts.length-1];
+        if(last&&h-last[0]<0.004){ if(sh&&last[2]!==1&&last[0]>0&&last[0]<1) last[2]=1; continue; }
+        pts.push(sh&&h>0&&h<1?[h,widthAt(h),1]:[h,widthAt(h)]); }
+      pts[0][0]=0; pts[pts.length-1][0]=1;   // a step (two corners at one height) is read by its outer edge
+    } else
+    for(let s=0;s<=K;s++) pts.push([s/K,widthAt(s/K)]);
+    p.outline=pts.length>48?pts.filter((q,i)=>q[2]===1||i%Math.ceil(pts.length/48)===0||i===pts.length-1):pts; rebuild(p); drawOutline(); commit('outline from '+label); toast('outline from '+label);
   }
 }
 /* the section out to draw: draw's own single-curve .tvf form */
-function saveSectionTvf(p){ const sh=p.section.shape; if(!sh) return; const N=sh.x.length, f=v=>(v*100).toFixed(4);
+function saveSectionTvf(p){ if(p.section.type==='corners'&&p.section.corners){ saveCornersTvf(p); return; } const sh=p.section.shape; if(!sh) return; const N=sh.x.length, f=v=>(v*100).toFixed(4);
   const txt=`TVF ${N} 1 2\n#meta name: ${p.name} section\n0 ${sh.x.map(f).join(' ')}\n0 ${sh.y.map(f).join(' ')}\n`;
   download((p.name||'section')+'.tvf',txt,'text/plain'); toast('saved the section as a .tvf for draw'); }
+
+/* A corners section goes out as draw writes an exact shape (TVF §2.9): leaves every reader can
+   read, the corners beside them, and the leaves' sums, so draw opens it with its corners. */
+function saveCornersTvf(p){ const E=p.section.corners, d=EXS.pts(E), J=tvf.Shape.fromPoints(d.x.map((x,i)=>[x,d.y[i]]),64).toJSON(), N=J.x.length;
+  const lv=v=>+(v*100).toPrecision(8), cv=v=>+(v*100).toPrecision(10), lx=J.x.map(lv), ly=J.y.map(lv), L=[`TVF ${N} 1 2`,'#meta type:curve','#meta closed:true','#meta channels:xy',`#meta name:${p.name} section`,'#meta exact:polygon',
+    '#meta corners:'+E.x.map((x,k)=>cv(x)+' '+cv(E.y[k])).join(' ')];
+  if(E.round&&E.round.some(r=>r>0)) L.push('#meta radii:'+E.round.map(r=>+(r*100).toPrecision(8)).join(' '));
+  if(E.smooth&&E.smooth.some(Boolean)) L.push('#meta smooth:'+E.smooth.map((v,k)=>v?k:-1).filter(k=>k>=0).join(' '));
+  if(E.ctrl&&E.ctrl.some(Boolean)) L.push('#meta curves:'+E.ctrl.map((c,k)=>c?k+' '+c.map(cv).join(' '):null).filter(Boolean).join(', '));
+  L.push('#meta leafsum:'+N+' '+leafSums(lx,ly).map(v=>+v.toPrecision(12)).join(' '));
+  L.push('0 '+lx.join(' '),'0 '+ly.join(' '));
+  download((p.name||'section')+'.tvf',L.join('\n')+'\n','text/plain'); toast('saved the section as a .tvf for draw, its corners kept'); }
 
 /* ══ PLACEMENT FIELDS ══ */
 const PF=[['px','pos',0,v=>v.toFixed(2)],['py','pos',1,v=>v.toFixed(2)],['pz','pos',2,v=>v.toFixed(2)],['pr','rot',1,v=>Math.round(v)+'°'],['pt','rot',0,v=>Math.round(v)+'°']];
@@ -5452,6 +5831,7 @@ function drawTool(){
     el.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>applyKind(b.dataset.kind));
   }
   else if(!p) el.innerHTML=`<div class="h">${T}</div>`+need;
+  else if(p.extrude&&(T==='sculpt'||T==='hollow')) el.innerHTML=`<div class="h">${T} <b>${escapeHtml(p.name)}</b></div><div class="note">${escapeHtml(p.name)} is an extruded drawing: it has no leaves to ${T==='sculpt'?'sculpt':'hollow'}. Its holes are drawn; change its shape in the section panel, and bend it with bend.</div>`;
   else if(T==='sculpt'){
     el.innerHTML=`<div class="h">sculpt <b>${escapeHtml(p.name)}</b></div>
       <div class="brushes">${BRUSHES.map(([m,l])=>`<button data-b="${m}" class="${sculptBrush===m?'on':''}">${l}</button>`).join('')}</div>
@@ -5539,6 +5919,7 @@ function drawAdvanced(){ const el=$('advPanel'), p=selPart();
 function applyKind(k){ const p=selPart();
   if(!p){ const q=partFrom(k); placeNew(q); addPart(q); dropDown(q); commit('add '+k); return; }
   const f=partFrom(k); Object.assign(p,{core:f.core,outline:f.outline,section:f.section,hollow:f.hollow,bend:{taper:0,bulge:0,twist:0,lean:0},cascade:null,sculpted:false,painted:false});
+  if(f.extrude) p.extrude=f.extrude; else delete p.extrude;
   p._origOutline=f._origOutline; prepPart(p); if(p.name==='part'||LATHE[p.name]||PRESETS[p.name.replace(' ','_')]) p.name=k.replace('_',' ');
   rebuild(p); refreshAll(); commit('shape: '+k); }
 
@@ -5603,7 +5984,8 @@ function importTvf3d(t,n,fresh){ const name=n.replace(/\.[^.]+$/,''), multi=pars
    hollowing are not part of a .tvf3d (it is one surface about a fixed axis). */
 function buildTVF3D(p){
   if(p.cascade) usePart(p);
-  const sq=p.section.squash, warn=[]; if(Math.abs(p.bend.lean)>1e-3) warn.push('lean'); if(p.hollow.on) warn.push('hollow');
+  const sq=p.section.squash, warn=[]; if(Math.abs(p.bend.lean)>1e-3) warn.push('lean'); if(p.hollow.on&&!p.extrude) warn.push('hollow');
+  if(p.extrude) warn.push('its holes and notches (an extruded drawing goes as its outer reach)');
   const rq=(phi,h)=>{ if(Math.abs(sq-1)<1e-6) return radiusAt(p,phi,h)/PRESET_SCALE;
     const th=Math.atan2(Math.sin(phi)/sq,Math.cos(phi)); return radiusAt(p,th,h)*Math.hypot(Math.cos(th),sq*Math.sin(th))/PRESET_SCALE; };
   const col=[0,0,0], cq=ch=>(phi,h)=>{ const th=Math.abs(sq-1)<1e-6?phi:Math.atan2(Math.sin(phi)/sq,Math.cos(phi)); colorAt(p,th,h,col); return col[ch]; };
@@ -6509,7 +6891,7 @@ window.__scene=SCN;
   /* What Claude is told. Every number here is the studio's own unit, so the answer drops
      straight into partFrom: a part is one unit tall before scaling, its outline radius is in
      the same units (0.5 spans a unit), and pos is the centre of its base. */
-  const KINDS=[...Object.keys(LATHE),...CLASSIC_OK()];
+  const KINDS=[...Object.keys(LATHE).filter(k=>k!=='extruded'),...CLASSIC_OK()];   // an extruded part needs a drawing, which Claude does not send
   const SYS=[
     'You build 3D objects for a shape studio. Every object is a set of PARTS. Each part is a solid of revolution around its own vertical axis: a profile (the outline) spun around, optionally with a non-round cross-section, then scaled, turned and placed.',
     'When you are asked to Build ONE object (not a SCENE) but what is asked for, or shown in the picture, is a PLACE (a village, a town, a street, a harbour, a landscape, a forest, a map, anything with many buildings or a stretch of land), do not build it from parts: reply exactly {"place": true} and nothing else. The studio then builds it as a scene, which has terrain, water, roads and many copies.',
@@ -6519,7 +6901,7 @@ window.__scene=SCN;
     '  "name": string           (short, e.g. "hat brim"; call a chess piece part after the piece, e.g. "knight base")',
     '  "shape": one of '+KINDS.map(k=>'"'+k+'"').join(', '),
     '                           (lathe starts: ball cylinder cone box vase bowl cup egg ring star flower column; the rest are sculpted classics, use them as they are)',
-    '  "outline"?: [[h, r], ...]  (lathe shapes only: the side profile, h from 0 at the base to 1 at the top in rising order, r the radius at that height, 0..0.5; 3 to 12 points; r near 0.01 closes to a point)',
+    '  "outline"?: [[h, r], ...]  (lathe shapes only: the side profile, h from 0 at the base to 1 at the top in rising order, r the radius at that height, 0..0.5; 3 to 12 points; r near 0.01 closes to a point. [h, r, 1] makes that point SHARP: a crisp shoulder, step, lip or rim, and between two sharp points the side is straight. Use it for anything turned or machined: a plinth\'s step, a cup\'s lip, a bolt\'s head)',
     '  "section"?: {"type": "round"|"polygon"|"star"|"petal"|"super", "n": 2..16, "k": 0..1, "squash": 0.15..1}',
     '                           (the cross-section: polygon with n sides (k=1 sharp corners, lower rounds them; a flat side faces +x), star with n points (k = depth), petal with n lobes, super = superellipse; squash flattens it front to back)',
     '  "bend"?: {"taper": -0.9..0.9, "bulge": -0.9..1.5, "twist": -1..1 (turns, bottom to top), "lean": -1..1}',
@@ -6599,7 +6981,8 @@ window.__scene=SCN;
   const r3=a=>a.map(v=>+(+v).toFixed(3));
   function describeScene(){ return JSON.stringify({parts:S.parts.map(p=>{ const o={id:p.id,name:p.name,
       shape:p.core.kind==='preset'?p.core.name:(p.core.kind==='lathe'?'lathe':p.core.kind), pos:r3(p.pos), rot:r3(p.rot), scale:r3(p.scale), color:p.paint.color};
-    if(p.core.kind==='lathe') o.outline=p.outline.map(r3);
+    if(p.extrude){ o.shape='extruded'; o.note='an extruded drawing (a sign, a letter, a frame): change only its pos, rot, scale, color and bend'; }
+    else if(p.core.kind==='lathe') o.outline=p.outline.map(r3);
     if(p.section.type!=='round') o.section={type:p.section.type,n:p.section.n,k:+p.section.k.toFixed(2),squash:+p.section.squash.toFixed(2)};
     if(Object.values(p.bend).some(v=>Math.abs(v)>1e-3)) o.bend=p.bend; if(p.hollow.on) o.hollow={wall:p.hollow.wall,floor:p.hollow.floor};
     if(p.detail) o.detail={pattern:p.detail.pattern,size:p.detail.size,depth:p.detail.depth,color:p.detail.color};
@@ -6616,7 +6999,7 @@ window.__scene=SCN;
        up and its towers 30 m along the nave (Oct 6: at ±20 the spires sank into the towers
        and the nave roof sat 5 m below the tops of its own walls). */
     if('pos' in q) o.pos=vec(q.pos,-200,200,[0,0,0]); if('rot' in q) o.rot=vec(q.rot,-360,360,[0,0,0]); if('scale' in q) o.scale=vec(q.scale,0.005,20,[1,1,1]);
-    if(Array.isArray(q.outline)){ const pts=q.outline.filter(x=>Array.isArray(x)&&x.length>=2).map(([h,r])=>[num(h,0,1,0),num(r,0.005,0.5,0.3)]).sort((a,b)=>a[0]-b[0]);
+    if(Array.isArray(q.outline)){ const pts=q.outline.filter(x=>Array.isArray(x)&&x.length>=2).map(([h,r,sh])=>sh===1?[num(h,0,1,0),num(r,0.005,0.5,0.3),1]:[num(h,0,1,0),num(r,0.005,0.5,0.3)]).sort((a,b)=>a[0]-b[0]);
       if(pts.length>=2){ pts[0][0]=0; pts[pts.length-1][0]=1; o.outline=pts.slice(0,16); } }
     if(q.section&&typeof q.section==='object'){ const t=['round','polygon','star','petal','super'].includes(q.section.type)?q.section.type:'round';
       o.section={type:t,n:Math.round(num(q.section.n,2,16,5)),k:num(q.section.k,0,1,0.6),squash:num(q.section.squash,0.15,1,1),shape:null}; }
@@ -6702,6 +7085,7 @@ window.__scene=SCN;
     for(const k of ['name','pos','rot','scale','paint','detail']) if(o[k]) p[k]=o[k];
     if(q.detail===null||q.detail===false){ delete p.detail; if(p._detailGen){ p.cascade=null; p.sculpted=p.painted=false; p._detailGen=false; } }
     let reshaped=false;
+    if(p.extrude){ delete o.outline; delete o.section; delete o.hollow; }   // its drawing is kept
     if(o.outline&&p.core.kind==='lathe'){ p.outline=o.outline; p._origOutline=JSON.parse(JSON.stringify(o.outline)); reshaped=true; }
     if(o.section){ p.section=o.section; reshaped=true; } if(o.bend){ p.bend=o.bend; reshaped=true; } if(o.hollow){ p.hollow=o.hollow; }
     if(reshaped){ p.cascade=null; p.sculpted=false; }
@@ -7093,7 +7477,8 @@ function loop(){ requestAnimationFrame(loop);
   SCN.tick(); if(!SCN.nav) orbit.update(); SCN.update(); renderer.render(scene,cam); }
 resize(); renderGallery(); loadExample('lighthouse'); loop();
 window.__studio={S,cam:()=>cam,orbit:()=>orbit,buildChessSet,exportChessSet,pieceOf,loadExample,select_,setEditing,partFrom,addPart,LATHE,EXAMPLES,jump,hist:()=>hist,hpos:()=>hpos,sceneData,loadScene,buildTVF3D,exportSTL,
-  useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D,importTvf3d,parseTVF3DParts};
+  useCurveText,radiusAt,usePart,fileAction,parseTVF3D,buildPieceTVF3D,importTvf3d,parseTVF3DParts,
+  extrudeGeometry,regionsFromText,normalizeRegions,EXS,meshThetas,meshHeights,outlineAt,secAt,tvfStructure,leafSums};
 
 </script>
 </body>

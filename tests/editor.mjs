@@ -166,9 +166,32 @@ try {
     await ev(() => { const e = document.getElementById('secN'); e.value = 64; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); });
     if ((await sel()).section.shape.x.length !== 64) throw new Error('resample to 64 points did not take');
   });
-  await step('drawing in: SVG star as a section', async () => {
+  await step('drawing in: SVG star as a section, its corners kept', async () => {
     await ev(t => __studio.useCurveText(t, 'section', 'star.svg'), SVG_STAR);
-    const s = await sel(); if (s.section.type !== 'custom' || !s.section.shape) throw new Error('no drawn section');
+    const s = await sel(); if (s.section.type !== 'corners' || !s.section.corners || s.section.corners.x.length !== 10) throw new Error('the star did not come in as its ten corners: ' + s.section.type);
+    // a column on each sharp corner, twice: 72 even angles, the 10 corners' own (two of them already on the even ones)
+    const cols = await ev(() => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel); return [__studio.EXS.sharpIdx(p.section.corners).length, __studio.meshThetas(p, 72).length]; });
+    if (cols[0] !== 10 || cols[1] !== 90) throw new Error('the mesh does not put two columns on each corner: ' + cols);
+    // a corner's tip is the section's farthest reach, its inner corner well inside: no rounding
+    const tips = await ev(() => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel), E = p.section.corners, a = k => Math.atan2(E.y[k], E.x[k]);
+      return [__studio.secAt(p, a(0)), __studio.secAt(p, a(1))]; });
+    if (!(tips[0] > 0.999 && tips[1] < 0.5)) throw new Error('the star\'s corners were rounded: tip ' + tips[0] + ', inner ' + tips[1]);
+  });
+  await step('section corners: drag one, double-click one smooth, to draw and back', async () => {
+    const before = JSON.stringify((await sel()).section.corners.x);
+    const b = await (await page.$('#section .cpt[data-c="2"]')).boundingBox();
+    await page.mouse.move(b.x + 4, b.y + 4); await page.mouse.down(); await page.mouse.move(b.x + 20, b.y + 10, { steps: 5 }); await page.mouse.up();
+    if (before === JSON.stringify((await sel()).section.corners.x)) throw new Error('the corner did not move');
+    const c = await (await page.$('#section .cpt[data-c="4"]')).boundingBox();
+    await page.mouse.dblclick(c.x + 4, c.y + 4);
+    if (!((await sel()).section.corners.smooth || [])[4]) throw new Error('double-click did not make the corner smooth');
+    const d = await download(() => page.click('#secSave'));
+    if (!/#meta exact:polygon/.test(d.text) || !/#meta corners:/.test(d.text) || !/#meta leafsum:/.test(d.text) || !/#meta smooth:4/.test(d.text)) throw new Error('the .tvf for draw lacks the corners: ' + d.text.slice(0, 200));
+    const back = await ev(t => { __studio.useCurveText(t, 'section', 'back.tvf'); const p = __studio.S.parts.find(q => q.id === __studio.S.sel); return [p.section.type, p.section.corners.x.length, (p.section.corners.smooth || [])[4]]; }, d.text);
+    if (back[0] !== 'corners' || back[1] !== 10 || back[2] !== 1) throw new Error('the section did not come back from its .tvf with its corners: ' + back);
+    // the same file with a leaf edited elsewhere: the leaves win, a drawn section
+    const lv = await ev(t => { __studio.useCurveText(t, 'section', 'edited.tvf'); return __studio.S.parts.find(q => q.id === __studio.S.sel).section.type; }, d.text.split('\n').map((l, k, a) => k === a.findIndex(x => /^0 /.test(x)) ? l.split(' ').map((w, i) => i === 3 ? String(+w + 5) : w).join(' ') : l).join('\n'));
+    if (lv !== 'custom') throw new Error('a .tvf whose leaves were edited elsewhere still came in as corners: ' + lv);
   });
   await step('drawing in: a .tvf from draw as a section', async () => {
     const tvf = await ev(() => { const sh = tvf.primitives.rose(40, { r: 100, petals: 4, depth: 0.3 }); return `TVF 40 1 2\n#meta name: rose\n0 ${Array.from(sh.x).join(' ')}\n0 ${Array.from(sh.y).join(' ')}\n`; });
@@ -178,7 +201,59 @@ try {
   await step('drawing in: SVG vase as an outline', async () => {
     await ev(t => __studio.useCurveText(t, 'outline', 'vase.svg'), SVG_VASE);
     const o = (await sel()).outline; if (o.length < 10) throw new Error('outline has ' + o.length + ' points');
-    if (!(o[7][1] > o[0][1] * 1.2)) throw new Error('the vase silhouette did not come through: ' + JSON.stringify(o.slice(0, 8)));
+    if (!(Math.max(...o.map(q => q[1])) > o[0][1] * 1.4)) throw new Error('the vase silhouette did not come through: ' + JSON.stringify(o.slice(0, 8)));
+    // the neck's corners are sharp points of the outline, and the straight neck above them straight
+    const neck = o.find(q => q[2] === 1); if (!neck || Math.abs(neck[0] - 0.85) > 0.01) throw new Error('the neck\'s corner is not a sharp point: ' + JSON.stringify(o));
+  });
+  await step('outline: a sharp point (alt-click and the button), straight between two', async () => {
+    const lin = await ev(() => __studio.outlineAt([[0, 0.3], [0.4, 0.3, 1], [0.6, 0.5, 1], [1, 0.5]], 0.5));
+    if (Math.abs(lin - 0.4) > 1e-12) throw new Error('between two sharp points the outline is not straight: ' + lin);
+    const curved = await ev(() => __studio.outlineAt([[0, 0.3], [0.4, 0.3], [0.6, 0.5], [1, 0.5]], 0.45));
+    if (Math.abs(curved - 0.325) < 1e-3) throw new Error('smooth points went straight too');
+    await ev(() => __studio.useCurveText(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>`, 'outline', 'ball.svg'));
+    const mid = await ev(() => { const o = __studio.S.parts.find(q => q.id === __studio.S.sel).outline; let b = 1; o.forEach((q, i) => { if (Math.abs(q[0] - 0.5) < Math.abs(o[b][0] - 0.5)) b = i; }); return b; });
+    const ptEl = await page.$(`#outline .pt[data-i="${mid}"]`); await ptEl.scrollIntoViewIfNeeded(); const pt = await ptEl.boundingBox();
+    await page.keyboard.down('Alt'); await page.mouse.click(pt.x + pt.width / 2, pt.y + pt.height / 2); await page.keyboard.up('Alt');
+    if ((await sel()).outline[mid][2] !== 1) throw new Error('alt-click did not make the point sharp');
+    const rings = await ev(m => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel); return __studio.meshHeights(p, 56).filter(h => h === p.outline[m][0]).length; }, mid);
+    if (rings !== 2) throw new Error('the mesh does not put two rings on the sharp point: ' + rings);
+    await page.click('#olSharp');
+    if ((await sel()).outline[mid][2] === 1) throw new Error('the sharp button did not make it smooth again');
+  });
+  await step('extruded part: added, a drawing with holes, its volume, stand up, to draw and back', async () => {
+    const prevSel = await ev(() => __studio.S.sel);
+    await page.selectOption('#addKind', 'extruded'); await page.click('#addPart'); await page.waitForTimeout(200);
+    const first = await ev(() => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel), g = p.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox;
+      return { ext: !!p.extrude, box: [b.min.x, b.min.y, b.max.x, b.max.y].map(v => +v.toFixed(4)) }; });
+    if (!first.ext || first.box.join() !== '-0.5,0,0.5,1') throw new Error('the extruded frame is not a unit drawing pushed up: ' + JSON.stringify(first));
+    // a square with a square hole (one compound path) and a ring of two curves
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><path fill-rule="evenodd" d="M10 10 H90 V90 H10 Z M30 30 V70 H70 V30 Z"/>'
+      + '<circle cx="150" cy="50" r="40"/><path d="M135 50 C135 30 165 30 165 50 C165 70 135 70 135 50 Z"/></svg>';
+    const r = await ev(t => { __studio.useCurveText(t, 'extrude', 'o.svg'); const p = __studio.S.parts.find(q => q.id === __studio.S.sel), E = __studio.EXS;
+      const area = R => { const d = E.pts(R); let a = 0; for (let i = 0, n = d.x.length; i < n; i++){ const j = (i + 1) % n; a += d.x[i] * d.y[j] - d.x[j] * d.y[i]; } return Math.abs(a / 2); };
+      const want = p.extrude.regions.reduce((s, g) => s + area(g.outer) - g.holes.reduce((a, h) => a + area(h), 0), 0);
+      // the mesh's signed volume (divergence theorem): positive and the drawing's area times its height only if every face faces out and the ends close it
+      const g = __studio.extrudeGeometry(p), P = g.attributes.position.array, I = g.index.array; let vol = 0;
+      for (let i = 0; i < I.length; i += 3){ const a = I[i] * 3, b = I[i + 1] * 3, c = I[i + 2] * 3;
+        vol += (P[a] * (P[b + 1] * P[c + 2] - P[b + 2] * P[c + 1]) - P[a + 1] * (P[b] * P[c + 2] - P[b + 2] * P[c]) + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c])) / 6; }
+      return { regions: p.extrude.regions.map(g => [g.outer.x.length, g.holes.length]), want, vol }; }, svg);
+    if (JSON.stringify(r.regions) !== '[[4,1],[4,1]]') throw new Error('not two shapes with a hole each: ' + JSON.stringify(r.regions));
+    if (!(r.vol > 0 && Math.abs(r.vol - r.want) < 1e-6 * Math.max(1, r.want))) throw new Error('the mesh does not enclose the drawing pushed up: volume ' + r.vol + ' against ' + r.want);
+    await page.click('#exStand'); await page.waitForTimeout(200);
+    const st = await ev(() => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel); p.mesh.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(p.mesh); return { rot: p.rot, minY: b.min.y }; });
+    if (st.rot[0] !== 90 || Math.abs(st.minY) > 1e-3) throw new Error('stand up did not stand it on the ground: ' + JSON.stringify(st));
+    const d = await download(() => page.click('#exSave'));
+    if ((d.text.match(/^TVF /mg) || []).length !== 2 || (d.text.match(/#meta holes:/g) || []).length !== 2 || !/#meta leafsum:/.test(d.text)) throw new Error('the .tvf for draw lacks its shapes or holes: ' + d.text.slice(0, 160));
+    const back = await ev(t => { __studio.useCurveText(t, 'extrude', 'back.tvf'); return __studio.S.parts.find(q => q.id === __studio.S.sel).extrude.regions.map(g => [g.outer.x.length, g.holes.length]); }, d.text);
+    if (JSON.stringify(back) !== '[[4,1],[4,1]]') throw new Error('the drawing did not come back from its .tvf: ' + JSON.stringify(back));
+    // a corner dragged moves it; sculpting is not offered
+    const before = await ev(() => JSON.stringify(__studio.S.parts.find(q => q.id === __studio.S.sel).extrude.regions[0].outer.x));
+    const el = await page.$('#section .cpt[data-x="0.0.1"]'); await el.scrollIntoViewIfNeeded(); const b = await el.boundingBox();
+    await page.mouse.move(b.x + 3, b.y + 3); await page.mouse.down(); await page.mouse.move(b.x + 15, b.y + 9, { steps: 4 }); await page.mouse.up();
+    if (before === await ev(() => JSON.stringify(__studio.S.parts.find(q => q.id === __studio.S.sel).extrude.regions[0].outer.x))) throw new Error('the corner did not move');
+    await page.click('.tool[data-tool="sculpt"]');
+    if (!/no leaves to sculpt/.test(await ev(() => document.getElementById('toolPanel').textContent))) throw new Error('the sculpt panel offered brushes for an extruded part');
+    await page.click('.tool[data-tool="shape"]'); await ev(id => __studio.select_(id), prevSel);
   });
   await step('section to draw (.tvf download)', async () => {
     const d = await download(() => page.click('#secSave'));
@@ -920,7 +995,8 @@ try {
       // the mesh, read on the grid, is what radiusAt and colorAt give point by point
       const g = buildGeometry(w, [48, 24], 2), Pos = g.attributes.position.array, Col = g.attributes.color.array; let gridErr = 0;
       usePart(w); rungCap = 2;
-      for (let n = 0; n < 30; n++){ const a = (n * 7) % 24, j = (n * 13) % 48, k = a * 48 + j, th = j / 48 * 2 * Math.PI, h = a / 23, rad = radiusAt(w, th, h), col = colorAt(w, th, h, [0, 0, 0]);
+      const T = meshThetas(w, 48);   // the mesh's own angles: a flat-sided wall has a column on each corner, twice
+      for (let n = 0; n < 30; n++){ const a = (n * 7) % 24, j = (n * 13) % T.length, k = a * T.length + j, th = T[j], h = a / 23, rad = radiusAt(w, th, h), col = colorAt(w, th, h, [0, 0, 0]);
         gridErr = Math.max(gridErr, Math.abs(Pos[k * 3] - rad * Math.cos(th)), Math.abs(Pos[k * 3 + 2] - rad * Math.sin(th)), Math.abs(Col[k * 3] - Math.max(0, Math.min(1, col[0])))); }
       rungCap = Infinity; g.dispose();
       const d = partData(w), back = partFromData(d), g1 = buildGeometry(w, [32, 12]), g2 = buildGeometry(back, [32, 12]); let same = 0;
@@ -1005,8 +1081,10 @@ try {
       await ev(h => __describe.applyScene(h, 'scene'), scene(false)); await settle();
       if (!(await shots())) throw new Error('the same scene without sway or bob changed between frames');
       await ev(h => __describe.applyScene(h, 'scene'), scene(true)); await page.waitForTimeout(1500); await shots();
-      const t0 = await ev(() => __scene.uTime.value); await page.waitForTimeout(300);
-      if (!((await ev(() => __scene.uTime.value)) > t0)) throw new Error('the scene clock did not run');
+      // the clock moves when a frame is drawn, and a frame of this scene in software GL can take most of
+      // a second (gaps of 270-920 ms measured): wait for it to move rather than sampling one 300 ms window
+      const t0 = await ev(() => __scene.uTime.value);
+      if (!(await page.waitForFunction(t => __scene.uTime.value > t, t0, { timeout: 5000 }).then(() => true, () => false))) throw new Error('the scene clock did not run');
       if (await shots()) throw new Error('the swaying scene did not move between frames');
       if (!/"vary": 0 to 0.2/.test(await ev(() => __describe.SCENE_SYS)) || !/"sway"/.test(await ev(() => __describe.SCENE_SYS))) throw new Error('the scene prompt does not offer vary and sway');
     } finally {   // back to the object view whatever happened, so a failure here does not fail the steps after it
