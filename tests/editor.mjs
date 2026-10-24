@@ -220,6 +220,16 @@ try {
     await page.click('#olSharp');
     if ((await sel()).outline[mid][2] === 1) throw new Error('the sharp button did not make it smooth again');
   });
+  await step('part kinds: every kind answers the whole interface, and parts are read to their kind', async () => {
+    const r = await ev(() => { const need = ['geometry', 'polar', 'outlineNote', 'sectionPanel', 'drawSection', 'toolNote', 'save', 'adopt', 'describe', 'keep', 'exportNotes'],
+        hasKeys = ['leaves', 'hollow', 'patterns', 'outline', 'sectionTypes'], K = __studio.PART_KINDS, L = __studio.LATHE;
+      const missing = Object.entries(K).flatMap(([n, k]) => [...need.filter(f => typeof k[f] !== 'function'), ...hasKeys.filter(h => typeof (k.has || {})[h] !== 'boolean'), ...(typeof k.describable === 'boolean' ? [] : ['describable'])].map(f => n + '.' + f));
+      return { missing, kinds: Object.keys(K), cyl: __studio.kindOf(__studio.partFrom('cylinder')).name, knight: __studio.kindOf(__studio.partFrom('knight')).name,
+        ext: __studio.kindOf(__studio.partFrom('extruded')).name, offered: Object.keys(L).filter(k => __studio.kindOf(L[k]).describable).includes('extruded') }; });
+    if (r.missing.length) throw new Error('kinds missing part of the interface: ' + r.missing.join(', '));
+    if (r.cyl !== 'lathe' || r.knight !== 'lathe' || r.ext !== 'extruded') throw new Error('parts read to the wrong kind: ' + JSON.stringify(r));
+    if (r.offered) throw new Error('describe it is offered the extruded kind');
+  });
   await step('extruded part: added, a drawing with holes, its volume, stand up, to draw and back', async () => {
     const prevSel = await ev(() => __studio.S.sel);
     await page.selectOption('#addKind', 'extruded'); await page.click('#addPart'); await page.waitForTimeout(200);

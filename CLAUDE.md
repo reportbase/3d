@@ -48,6 +48,13 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   section corner (and a flat-sided polygon's) and a ring on each sharp outline point, twice
   (`meshThetas`, `meshHeights`), so its faces shade apart: code that indexes a part's mesh must use
   those, not `j/NT`.
+- **Part kinds** (24 Oct 2026): a part is turned (`lathe`, whatever its core) or `extruded`, read from
+  its data by `kindOf(p)` (`p.extrude` makes it extruded; files carry no kind field). Everything that
+  differs by kind goes through `PART_KINDS[kind]`: `geometry`, `polar` (its reach, `p._sec`), `has`
+  (leaves, hollow, patterns, outline, sectionTypes), `outlineNote`, `sectionPanel`, `drawSection`,
+  `toolNote`, `save`/`adopt`, `describe`/`keep`, `exportNotes`, `describable`. Don't test `p.extrude`
+  outside the extruded kind's own code; add to the interface instead. A new kind is an entry there, a
+  line in `kindOf` and its panels; the smoke test checks every kind answers the whole interface.
 - **Extruded parts** (24 Oct 2026): `p.extrude = {regions: [{outer, holes}]}`, rings in draw's
   exact-shape record, normalised (`normalizeRegions`: centred, the larger side of the box 1). The drawing
   lies in the ground plane (x along x, y along -z) pushed up h 0..1; `buildGeometry` hands it to
