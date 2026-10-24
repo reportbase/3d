@@ -16,7 +16,9 @@ The screen has five areas:
   double-click it to **shape it in place**. The other parts fade to ghosts so
   you can still see the whole object; Esc steps back out.
 - **The 3D view** (centre): move / turn / size handles (W / E / R). With snap
-  on, a part settles onto whatever is under it when you let go.
+  on, a part being moved lines up with the others (sides touch, middles align, a gold line shows
+  each match), turns go in 15° steps and sizes in 5% steps, and it settles onto whatever is under
+  it when you let go. Click any placement value (x, height, z, turn, tip, size, tall) to type it.
 - **Side outline** (right): drag the points to change how wide the part is at
   each height. Click the line to add a point, and double-click a point to remove
   it. Alt-click a point, or press **sharp**, to make it a sharp point: a crisp
