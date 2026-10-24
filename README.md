@@ -111,6 +111,18 @@ rules, so describe ✦ can carry on from them ("add a road between the farms").
 **advanced** (top right) shows the engine's own controls: which rung the brush
 writes to, leaf counts, the kernel, aperture and the run.
 
+### Extruded parts
+
+**extruded** (in the add menu and the shape gallery) is a drawing pushed straight up instead
+of a shape turned on a lathe, so its outline can be anything: an L, a letter, a notched gear, a
+window frame, with holes. It starts as a square frame round a round window. In its section
+panel, **from a drawing…** or **paste** takes every shape in an `.svg` or a `.tvf` from draw,
+holes and all. Drag a corner;
+tap one twice to make it smooth or sharp. **tall** is its depth; **stand up** turns it to read
+from the front and puts it on the ground; **to draw** sends the drawing back, corners and holes
+kept. Bend works on it; it has no leaves to sculpt, brush-paint or hollow, and a `.tvf3d` holds
+only its outer reach.
+
 ### What a part is
 
     r(θ,h) = core(θ,h) · outline(h) · section(θ + twist·h) · taper·bulge(h)  +  sculpt(θ,h)

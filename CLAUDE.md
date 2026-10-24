@@ -48,6 +48,14 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   section corner (and a flat-sided polygon's) and a ring on each sharp outline point, twice
   (`meshThetas`, `meshHeights`), so its faces shade apart: code that indexes a part's mesh must use
   those, not `j/NT`.
+- **Extruded parts** (24 Oct 2026): `p.extrude = {regions: [{outer, holes}]}`, rings in draw's
+  exact-shape record, normalised (`normalizeRegions`: centred, the larger side of the box 1). The drawing
+  lies in the ground plane (x along x, y along -z) pushed up h 0..1; `buildGeometry` hands it to
+  `extrudeGeometry` (sides as runs between sharp corners, ends by `THREE.ShapeUtils.triangulateShape`,
+  every triangle wound outward: the smoke test checks the mesh's volume). `p._sec` is its outer reach
+  (`polarRegions`, not scaled to 1) and its outline `[[0,1],[1,1]]`, so `baseRadius` still answers for
+  a .tvf3d or a girth. No cascade: sculpting, brush paint, hollow and patterns skip it. Drawings come in
+  by `regionsFromText` (a draw .tvf's TVF §2.9 holes, or rings nested by containment).
 - **A part's radius** is
   `core · outline · section(θ + twist·h) · taper·bulge + sculpt`. See
   `baseRadius` and `radiusAt`. For a core (preset, `.tvf3d`, image), the outline

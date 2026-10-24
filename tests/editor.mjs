@@ -220,6 +220,41 @@ try {
     await page.click('#olSharp');
     if ((await sel()).outline[mid][2] === 1) throw new Error('the sharp button did not make it smooth again');
   });
+  await step('extruded part: added, a drawing with holes, its volume, stand up, to draw and back', async () => {
+    const prevSel = await ev(() => __studio.S.sel);
+    await page.selectOption('#addKind', 'extruded'); await page.click('#addPart'); await page.waitForTimeout(200);
+    const first = await ev(() => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel), g = p.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox;
+      return { ext: !!p.extrude, box: [b.min.x, b.min.y, b.max.x, b.max.y].map(v => +v.toFixed(4)) }; });
+    if (!first.ext || first.box.join() !== '-0.5,0,0.5,1') throw new Error('the extruded frame is not a unit drawing pushed up: ' + JSON.stringify(first));
+    // a square with a square hole (one compound path) and a ring of two curves
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><path fill-rule="evenodd" d="M10 10 H90 V90 H10 Z M30 30 V70 H70 V30 Z"/>'
+      + '<circle cx="150" cy="50" r="40"/><path d="M135 50 C135 30 165 30 165 50 C165 70 135 70 135 50 Z"/></svg>';
+    const r = await ev(t => { __studio.useCurveText(t, 'extrude', 'o.svg'); const p = __studio.S.parts.find(q => q.id === __studio.S.sel), E = __studio.EXS;
+      const area = R => { const d = E.pts(R); let a = 0; for (let i = 0, n = d.x.length; i < n; i++){ const j = (i + 1) % n; a += d.x[i] * d.y[j] - d.x[j] * d.y[i]; } return Math.abs(a / 2); };
+      const want = p.extrude.regions.reduce((s, g) => s + area(g.outer) - g.holes.reduce((a, h) => a + area(h), 0), 0);
+      // the mesh's signed volume (divergence theorem): positive and the drawing's area times its height only if every face faces out and the ends close it
+      const g = __studio.extrudeGeometry(p), P = g.attributes.position.array, I = g.index.array; let vol = 0;
+      for (let i = 0; i < I.length; i += 3){ const a = I[i] * 3, b = I[i + 1] * 3, c = I[i + 2] * 3;
+        vol += (P[a] * (P[b + 1] * P[c + 2] - P[b + 2] * P[c + 1]) - P[a + 1] * (P[b] * P[c + 2] - P[b + 2] * P[c]) + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c])) / 6; }
+      return { regions: p.extrude.regions.map(g => [g.outer.x.length, g.holes.length]), want, vol }; }, svg);
+    if (JSON.stringify(r.regions) !== '[[4,1],[4,1]]') throw new Error('not two shapes with a hole each: ' + JSON.stringify(r.regions));
+    if (!(r.vol > 0 && Math.abs(r.vol - r.want) < 1e-6 * Math.max(1, r.want))) throw new Error('the mesh does not enclose the drawing pushed up: volume ' + r.vol + ' against ' + r.want);
+    await page.click('#exStand'); await page.waitForTimeout(200);
+    const st = await ev(() => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel); p.mesh.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(p.mesh); return { rot: p.rot, minY: b.min.y }; });
+    if (st.rot[0] !== 90 || Math.abs(st.minY) > 1e-3) throw new Error('stand up did not stand it on the ground: ' + JSON.stringify(st));
+    const d = await download(() => page.click('#exSave'));
+    if ((d.text.match(/^TVF /mg) || []).length !== 2 || (d.text.match(/#meta holes:/g) || []).length !== 2 || !/#meta leafsum:/.test(d.text)) throw new Error('the .tvf for draw lacks its shapes or holes: ' + d.text.slice(0, 160));
+    const back = await ev(t => { __studio.useCurveText(t, 'extrude', 'back.tvf'); return __studio.S.parts.find(q => q.id === __studio.S.sel).extrude.regions.map(g => [g.outer.x.length, g.holes.length]); }, d.text);
+    if (JSON.stringify(back) !== '[[4,1],[4,1]]') throw new Error('the drawing did not come back from its .tvf: ' + JSON.stringify(back));
+    // a corner dragged moves it; sculpting is not offered
+    const before = await ev(() => JSON.stringify(__studio.S.parts.find(q => q.id === __studio.S.sel).extrude.regions[0].outer.x));
+    const el = await page.$('#section .cpt[data-x="0.0.1"]'); await el.scrollIntoViewIfNeeded(); const b = await el.boundingBox();
+    await page.mouse.move(b.x + 3, b.y + 3); await page.mouse.down(); await page.mouse.move(b.x + 15, b.y + 9, { steps: 4 }); await page.mouse.up();
+    if (before === await ev(() => JSON.stringify(__studio.S.parts.find(q => q.id === __studio.S.sel).extrude.regions[0].outer.x))) throw new Error('the corner did not move');
+    await page.click('.tool[data-tool="sculpt"]');
+    if (!/no leaves to sculpt/.test(await ev(() => document.getElementById('toolPanel').textContent))) throw new Error('the sculpt panel offered brushes for an extruded part');
+    await page.click('.tool[data-tool="shape"]'); await ev(id => __studio.select_(id), prevSel);
+  });
   await step('section to draw (.tvf download)', async () => {
     const d = await download(() => page.click('#secSave'));
     if (!/^TVF \d+ 1 2/.test(d.text)) throw new Error('not a draw .tvf: ' + d.text.slice(0, 30));
