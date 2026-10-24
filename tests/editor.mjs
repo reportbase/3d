@@ -1081,8 +1081,10 @@ try {
       await ev(h => __describe.applyScene(h, 'scene'), scene(false)); await settle();
       if (!(await shots())) throw new Error('the same scene without sway or bob changed between frames');
       await ev(h => __describe.applyScene(h, 'scene'), scene(true)); await page.waitForTimeout(1500); await shots();
-      const t0 = await ev(() => __scene.uTime.value); await page.waitForTimeout(300);
-      if (!((await ev(() => __scene.uTime.value)) > t0)) throw new Error('the scene clock did not run');
+      // the clock moves when a frame is drawn, and a frame of this scene in software GL can take most of
+      // a second (gaps of 270-920 ms measured): wait for it to move rather than sampling one 300 ms window
+      const t0 = await ev(() => __scene.uTime.value);
+      if (!(await page.waitForFunction(t => __scene.uTime.value > t, t0, { timeout: 5000 }).then(() => true, () => false))) throw new Error('the scene clock did not run');
       if (await shots()) throw new Error('the swaying scene did not move between frames');
       if (!/"vary": 0 to 0.2/.test(await ev(() => __describe.SCENE_SYS)) || !/"sway"/.test(await ev(() => __describe.SCENE_SYS))) throw new Error('the scene prompt does not offer vary and sway');
     } finally {   // back to the object view whatever happened, so a failure here does not fail the steps after it
