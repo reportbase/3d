@@ -38,6 +38,16 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   leaves) is set by `detailEng` for patterned parts, which it holds better; `'rbf'` is the old
   smooth kernel. Old files keep whatever they saved. Code that places or reads leaves in h
   goes through `leafH` and `hX`, never `(i + 0.5)/Nh`. See `bench/depth/H-RESULTS.md`.
+- **Corners and sharp points** (24 Oct 2026): a section of type `'corners'` holds the shape as
+  drawn (`section.corners = {x, y, round, smooth, ctrl}`, draw's exact-shape record, centred and
+  reaching 1), read by `EXS` (draw's outline rules written again: they are not a copied block, so
+  keep them agreeing with draw's `edgeCtrl`, `cornerArc`, `smoothTangent`). It comes from a draw
+  `.tvf` carrying TVF §2.9's structure (`tvfStructure`, with the `leafsum` check) or an SVG's
+  lines and cubics (`svgRings`), when the shape has a sharp corner. An outline point `[h, r, 1]` is
+  sharp (`outlineAt` leaves it straight toward each neighbour). The mesh puts a column on each sharp
+  section corner (and a flat-sided polygon's) and a ring on each sharp outline point, twice
+  (`meshThetas`, `meshHeights`), so its faces shade apart: code that indexes a part's mesh must use
+  those, not `j/NT`.
 - **A part's radius** is
   `core · outline · section(θ + twist·h) · taper·bulge + sculpt`. See
   `baseRadius` and `radiusAt`. For a core (preset, `.tvf3d`, image), the outline

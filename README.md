@@ -19,10 +19,16 @@ The screen has five areas:
   on, a part settles onto whatever is under it when you let go.
 - **Side outline** (right): drag the points to change how wide the part is at
   each height. Click the line to add a point, and double-click a point to remove
-  it. **from a drawing…** takes the outline from the silhouette of an `.svg`, or
-  of a `.tvf` saved in draw.
+  it. Alt-click a point, or press **sharp**, to make it a sharp point: a crisp
+  shoulder, step or rim, with the side straight between two sharp points.
+  **from a drawing…** takes the outline from the silhouette of an `.svg`, or
+  of a `.tvf` saved in draw; a drawing's corners become sharp points.
 - **Section** (right): the part's shape going around: round, polygon, star,
-  petals, supershape, or **drawn**. A drawn section is a curve whose points you
+  petals, supershape, **corners**, or **drawn**. A **corners** section is a shape as drawn:
+  its corners stay sharp and its edges straight or the curves they were. A shape from draw
+  or an SVG with a sharp corner comes in this way (draw's `.tvf` carries its corners beside
+  its leaves). Drag a corner; double-click one to make it smooth or sharp; **to draw** sends
+  it back with its corners. A drawn section is a curve whose points you
   drag. You can start it from draw's shapes (circle, superellipse, polygon,
   star, blob, rose), smooth it, give it n-fold symmetry, or mirror it. It can
   also come in from an `.svg`, a draw `.tvf`, or paste from draw, and go back
