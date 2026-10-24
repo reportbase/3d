@@ -220,6 +220,16 @@ try {
     await page.click('#olSharp');
     if ((await sel()).outline[mid][2] === 1) throw new Error('the sharp button did not make it smooth again');
   });
+  await step('one way up: a drawing pointing up points to the back, and goes back to draw pointing up', async () => {
+    const up = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 95,95 5,95"/></svg>';
+    const r = await ev(t => { __studio.useCurveText(t, 'section', 'up.svg'); const p = __studio.S.parts.find(q => q.id === __studio.S.sel);
+      return { type: p.section.type, back: __studio.secAt(p, 1.5 * Math.PI), front: __studio.secAt(p, 0.5 * Math.PI) }; }, up);
+    // the section panel is the part from above, +z (the front) down the panel: the tip belongs at the back, -z
+    if (r.type !== 'corners' || !(r.back > 0.99 && r.front < 0.8)) throw new Error('the drawing came in the wrong way up: ' + JSON.stringify(r));
+    const d = await download(() => page.click('#secSave'));
+    const c = (d.text.match(/#meta corners:(.*)/) || [])[1].trim().split(/\s+/).map(Number), ys = c.filter((_, i) => i % 2), top = ys.indexOf(Math.max(...ys));
+    if (!(Math.abs(c[2 * top]) < 1e-6 && ys.filter(y => y < 0).length === 2)) throw new Error('the drawing went back to draw the wrong way up: ' + c);
+  });
   await step('part kinds: every kind answers the whole interface, and parts are read to their kind', async () => {
     const r = await ev(() => { const need = ['geometry', 'polar', 'outlineNote', 'sectionPanel', 'drawSection', 'toolNote', 'save', 'adopt', 'describe', 'keep', 'exportNotes'],
         hasKeys = ['leaves', 'hollow', 'patterns', 'outline', 'sectionTypes'], K = __studio.PART_KINDS, L = __studio.LATHE;
@@ -264,6 +274,23 @@ try {
     await page.click('.tool[data-tool="sculpt"]');
     if (!/no leaves to sculpt/.test(await ev(() => document.getElementById('toolPanel').textContent))) throw new Error('the sculpt panel offered brushes for an extruded part');
     await page.click('.tool[data-tool="shape"]'); await ev(id => __studio.select_(id), prevSel);
+  });
+  await step('placing: typed values, and snapping to another part as it moves', async () => {
+    const prevSel = await ev(() => __studio.S.sel);
+    const typeIn = async (id, text, key = 'Enter') => { const el = await page.$('#v' + id); await el.scrollIntoViewIfNeeded(); await el.click(); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.type(text); await page.keyboard.press(key); await page.waitForTimeout(80); };
+    await typeIn('px', '1.25'); await typeIn('pr', '37'); await typeIn('psy', '0.003'); await typeIn('pz', '9', 'Escape');
+    const t = await ev(() => { const p = __studio.S.parts.find(q => q.id === __studio.S.sel); return { x: p.pos[0], z: p.pos[2], turn: p.rot[1], tall: p.scale[1] }; });
+    if (t.x !== 1.25 || t.turn !== 37 || t.tall !== 0.003) throw new Error('typed values not set: ' + JSON.stringify(t));
+    if (t.z === 9) throw new Error('Escape kept a typed value');
+    // two boxes: one moved to within a hair of the other's side snaps to touch it, its middle to the other's middle, with guides (well away from the scene's other parts)
+    const s = await ev(() => { const A = __studio.partFrom('box'), B = __studio.partFrom('box'); A.pos = [30, 0, 30]; __studio.addPart(A, false); __studio.addPart(B, false);
+      const box = q => { q.mesh.updateMatrixWorld(true); return new THREE.Box3().setFromObject(q.mesh); }, a = box(A), w = box(B).max.x - box(B).min.x;
+      B.pos = [a.max.x + w / 2 + 0.01, 0, 30.012]; const axes = __studio.snapAlign(B), b = box(B), guides = __studio.snapGuides();
+      B.pos = [47.013, 0, 44.987]; const far = __studio.snapAlign(B), guidesFar = __studio.snapGuides(), farPos = B.pos.slice();
+      return { touch: b.min.x - a.max.x, mid: (b.min.z + b.max.z) / 2 - (a.min.z + a.max.z) / 2, axes, guides, far, guidesFar, farPos }; });
+    if (Math.abs(s.touch) > 1e-9 || Math.abs(s.mid) > 1e-9 || s.guides !== 2 || s.axes.join() !== 'x,z') throw new Error('the moved box did not snap to the other: ' + JSON.stringify(s));
+    if (s.far.length || s.guidesFar || Math.abs(s.farPos[0] - 47) > 1e-9 || Math.abs(s.farPos[2] - 45) > 1e-9) throw new Error('far from anything, the box did not keep the grid: ' + JSON.stringify(s));
+    await ev(id => __studio.select_(id), prevSel);
   });
   await step('section to draw (.tvf download)', async () => {
     const d = await download(() => page.click('#secSave'));

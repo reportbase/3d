@@ -48,6 +48,13 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   section corner (and a flat-sided polygon's) and a ring on each sharp outline point, twice
   (`meshThetas`, `meshHeights`), so its faces shade apart: code that indexes a part's mesh must use
   those, not `j/NT`.
+- **One way up** (24 Oct 2026): the section panel is the part seen from above (+z, the front, down the
+  panel). A drawing's y runs up, so coming in it is turned to -z (`flipY`, and the primitives), and going
+  out to draw -z back to y (`saveSectionTvf`, `saveCornersTvf`): an arrow drawn pointing up points to the
+  back. Saved sections keep the way they look. Extruded drawings already lie y to -z.
+- **Placing** (24 Oct 2026): with snap on, a part moved by the gizmo snaps along x and z to other parts'
+  sides and middles within `SNAP_NEAR` × its camera distance, gold guides while dragging (`snapAlign`),
+  else the 5 cm grid; turns snap to 15°, sizes to 5%. Placement values are typed by clicking them (`TYPED`).
 - **Part kinds** (24 Oct 2026): a part is turned (`lathe`, whatever its core) or `extruded`, read from
   its data by `kindOf(p)` (`p.extrude` makes it extruded; files carry no kind field). Everything that
   differs by kind goes through `PART_KINDS[kind]`: `geometry`, `polar` (its reach, `p._sec`), `has`
