@@ -9,7 +9,9 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
   build step; keep it that way. Its scripts, in order:
   1. **tvf-core**, copied unchanged from draw (the top of draw's `tvf-core.js`, which
      `draw.html` loads; it used to be inlined in `draw.html`)
-  2. **the SVG importer and the `.tvf` reader**, copied unchanged from draw.html
+  2. **the SVG importer**, copied unchanged from draw's `svg-import.js` (which `draw.html`
+     loads; it was in `draw.html` until 12 Nov 2026), and **the `.tvf` reader**, copied
+     unchanged from draw.html
   3. **the rung engine** (cascade, kernels, presets, brushes, `.tvf3d` forward
      transform), from classic.html, nearly unchanged
   4. **the studio app**: parts, editors, tools, files, examples
