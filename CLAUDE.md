@@ -11,7 +11,7 @@ on a branch, as a PR, and the owner merges. Merging to `main` publishes.
      `draw.html` loads; it used to be inlined in `draw.html`)
   2. **the SVG importer**, copied unchanged from draw's `svg-import.js` (which `draw.html`
      loads; it was in `draw.html` until 12 Nov 2026), and **the `.tvf` reader**, copied
-     unchanged from draw.html
+     unchanged from draw's `tvf-reader.js` (moved out of `draw.html` the same day)
   3. **the rung engine** (cascade, kernels, presets, brushes, `.tvf3d` forward
      transform), from classic.html, nearly unchanged
   4. **the studio app**: parts, editors, tools, files, examples

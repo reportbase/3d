@@ -8,14 +8,14 @@ on:
 
 jobs:
   smoke:
-    # Pinned (12 Nov 2026): ubuntu-latest became 26.04, which Playwright 1.56.1 has no Chromium build for
-    # ("Playwright does not support chromium on ubuntu26.04-x64"), so the job fails before any test runs
-    # (draw's did). Move it on together with the playwright version in package.json.
-    runs-on: ubuntu-24.04
+    # On 12 Nov 2026 ubuntu-latest became 26.04, which Playwright 1.56.1 had no Chromium build for, and this was
+    # pinned to 24.04 for a day. package.json's playwright is 1.63.0 since, which has one. If a new runner image
+    # does it again, raise that version rather than pin the runner.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm install
