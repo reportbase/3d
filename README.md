@@ -154,6 +154,7 @@ become a 3D section or silhouette.
 | `index.html` | Forwards `/3d/` to `3d.html`. |
 | `tests/editor.mjs`, `tests/classic.mjs`, `tests/draw-sync.mjs` | The tests (see below). |
 | `CLAUDE.md` | Notes for Claude Code sessions working on this repo. |
+| `docs/` | The longer notes behind `CLAUDE.md`, by part: parts, describe it, scenes. |
 
 **Saving and exporting:**
 
