@@ -148,7 +148,7 @@ try {
         under: bar.getBoundingClientRect().bottom <= document.getElementById('view').getBoundingClientRect().top + 1,
         tiles: foot.querySelectorAll('.ptile:not(.add)').length, parts: document.querySelectorAll('#plist .pitem').length, add: !!foot.querySelector('.ptile.add') };
     });
-    if (r.tools !== 6 || r.chips !== 'mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
+    if (r.tools !== 6 || r.chips !== 'bParts,mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
       throw new Error('the bar and the foot: ' + JSON.stringify(r));
     await page.click('#pstrip .ptile:nth-child(3)');
     await page.waitForTimeout(200);
@@ -169,6 +169,45 @@ try {
       if ((await sel()).section.type !== t) throw new Error('section type did not change');
     });
   }
+  // 15 Nov 2026: a tool on the bar turns the foot to its values, and a tile does what the panel's control did
+  await step('a tool on the bar turns the foot to its values, a tile each', async () => {
+    const vis = () => page.evaluate(() => ['pstrip', 'tstrip'].map(id => getComputedStyle(document.getElementById(id)).display !== 'none' ? 1 : 0).join(''));
+    const tiles = () => page.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].map(t => t.dataset.t + (t.classList.contains('on') ? '*' : '')).join(' '));
+    const part = () => page.evaluate(() => { const S = __studio.S, p = S.parts.find(q => q.id === S.sel); return p && { bend: p.bend, color: p.paint.color, bands: p.paint.bands, hollow: p.hollow.on, wall: p.hollow.wall }; });
+    if (await vis() !== '10') throw new Error('the foot does not open on the parts: ' + await vis());
+    await page.click('#pstrip .ptile:nth-child(2)');
+    await page.click('.tool[data-tool="bend"]');
+    if (await vis() !== '01' || !/^straight\* taper flare bulge waist twist lean$/.test(await tiles())) throw new Error('bend\'s tiles: ' + await vis() + ' ' + await tiles());
+    await page.click('#tstrip [data-t="twist"]');
+    let p = await part();
+    if (p.bend.twist !== 0.5 || p.bend.taper !== 0 || !/twist\*/.test(await tiles())) throw new Error('the twist tile: ' + JSON.stringify(p) + ' ' + await tiles());
+    await page.click('#tstrip [data-t="straight"]');
+    if ((await part()).bend.twist !== 0) throw new Error('the straight tile left a twist');
+    await page.click('.tool[data-tool="paint"]');
+    await page.click('#tstrip [data-t="#2e8b57"]'); await page.click('#tstrip [data-t="bands-3"]');
+    p = await part();
+    if (p.color !== '#2e8b57' || p.bands !== 3 || !/#2e8b57\*.*bands-3\*/.test(await tiles())) throw new Error('paint\'s tiles: ' + JSON.stringify(p) + ' ' + await tiles());
+    await page.click('#tstrip [data-t="bands-0"]');
+    await page.click('.tool[data-tool="hollow"]');
+    await page.click('#tstrip [data-t="thick"]');
+    p = await part();
+    if (!p.hollow || p.wall !== 0.16) throw new Error('the thick wall tile: ' + JSON.stringify(p));
+    await page.click('#tstrip [data-t="solid"]');
+    if ((await part()).hollow) throw new Error('the solid tile left it hollow');
+    await page.click('.tool[data-tool="sculpt"]');
+    await page.click('#tstrip [data-t="smooth"]'); await page.click('#tstrip [data-t="size-large"]');
+    const sc = await page.evaluate(() => [document.querySelector('#toolPanel [data-b].on').dataset.b, document.getElementById('bsize').value].join());
+    if (sc !== 'smooth,0.5' || !/smooth\*.*size-large\*/.test(await tiles())) throw new Error('sculpt\'s tiles: ' + sc + ' ' + await tiles());
+    await page.click('#tstrip [data-t="pull"]'); await page.click('#tstrip [data-t="size-medium"]');     // the brush as it was, for the checks below
+    await page.click('.tool[data-tool="shape"]');
+    if (await page.evaluate(() => document.querySelectorAll('#tstrip .ptile img').length !== document.querySelectorAll('#toolPanel [data-kind]').length)) throw new Error('a shape tile for every kind');
+    await page.click('.tool[data-tool="shape"]');                // the lit tool pressed again gives the foot back
+    if (await vis() !== '10') throw new Error('the lit tool pressed again: ' + await vis());
+    await page.click('.tool[data-tool="detail"]'); await page.click('#bParts');
+    if (await vis() !== '10' || !await page.evaluate(() => document.getElementById('bParts').classList.contains('on'))) throw new Error('the Parts button: ' + await vis());
+    await page.click('.tool[data-tool="shape"]'); await page.click('#bParts');
+    for (let i = 0; i < 12 && await page.evaluate(() => !document.getElementById('undo').disabled); i++) await page.click('#undo');
+  });
   await step('drag an outline point', async () => {
     const before = JSON.stringify((await sel()).outline);
     const b = await (await page.$('#outline .pt[data-i="1"]')).boundingBox();

@@ -175,6 +175,13 @@
   .ptile svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
   .ptile.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(212,160,82,.35);color:var(--accent)}
   .ptile.edit{background:rgba(212,160,82,.14)}
+  /* THE FOOT IS THE TOOL'S VALUES: while a tool has the foot, its tiles stand where the parts did */
+  #tstrip{display:none} .foot.tooling #tstrip{display:flex} .foot.tooling #pstrip{display:none}
+  .ptile img{width:34px;height:34px;object-fit:contain;border-radius:6px}
+  .foot .ptile.on{background:rgba(212,160,82,.14);border-color:var(--accent);box-shadow:0 0 0 2px rgba(212,160,82,.35);color:var(--accent)}
+  .ptile:disabled{opacity:.35}
+  .tsep{flex:0 0 auto;width:1px;height:40px;background:var(--line2);margin:0 4px}
+  .tsay{font-size:12px;color:var(--dim);padding:0 12px;text-align:center}
   .hist{flex:0 1 auto;display:flex;gap:4px;justify-content:flex-end;overflow-x:auto;padding:4px 0;min-width:0;max-width:40%}
   .hist img{height:44px;width:66px;object-fit:cover;border-radius:4px;border:1px solid var(--line);cursor:pointer;flex:none;opacity:.6;background:#000}
   .hist img:hover{opacity:1;border-color:var(--accent2)}
@@ -226,6 +233,7 @@
          under it when pointed at, as draw's do; the foot is the parts, a tile each (THE FOOT IS THE PARTS). The
          side panels are as they were. Every button keeps its id and its handler. -->
     <div class="bar" id="bar">
+      <button id="bParts" class="obj-only on" title="the parts, along the foot">parts</button>
       <nav class="tools" id="tools"></nav>
       <span class="bsep obj-only"></span>
       <button id="mMove" class="on obj-only" title="move (W)">move</button>
@@ -364,7 +372,7 @@
 
   <!-- THE FOOT IS THE PARTS: a tile a part (tap to select, twice to shape it), a tile to add one, and the
        history's pictures at the right. Drawn by drawParts beside the list in the left panel. -->
-  <footer class="foot" id="foot"><div class="pstrip obj-only" id="pstrip"></div><div class="hist" id="hist"></div></footer>
+  <footer class="foot" id="foot"><div class="pstrip obj-only" id="pstrip"></div><div class="pstrip obj-only" id="tstrip"></div><div class="hist" id="hist"></div></footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -5953,7 +5961,7 @@ const ICON={ shape:'<path d="M12 3c4 0 5 3 4 6s2 4 2 7-3 5-6 5-6-2-6-5 3-4 2-7S8
   hollow:'<path d="M5 6c0 9 2 14 7 14s7-5 7-14"/><path d="M8 6c0 7 1 11 4 11s4-4 4-11"/>', detail:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>' };
 // THE BAR'S GLYPHS: the view's buttons were words over the picture; on the bar each is a glyph, and says its word
 // under it while pointed at or held (as draw's buttons say their names)
-{ const G={ mMove:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
+{ const G={ bParts:'<rect x="3" y="8" width="5" height="8" rx="1.5"/><rect x="9.5" y="8" width="5" height="8" rx="1.5"/><rect x="16" y="8" width="5" height="8" rx="1.5"/>', mMove:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
     mTurn:'<path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M17.5 2v4.5H13"/>', mSize:'<rect x="4" y="10" width="10" height="10" rx="1.5"/><path d="M14 4h6v6M20 4l-7 7"/>',
     snap:'<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M4 8h4M16 8h4"/>', frameAll:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
     navOrbit:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5"/>', navWalk:'<circle cx="12" cy="4.5" r="2"/><path d="M12 7v6l-3 7M12 13l3 7M8 10l4-2l4 2"/>',
@@ -5970,7 +5978,15 @@ const ICON={ shape:'<path d="M12 3c4 0 5 3 4 6s2 4 2 7-3 5-6 5-6-2-6-5 3-4 2-7S8
   window.addEventListener('pointerup',()=>setTimeout(hush,600)); $('bar').addEventListener('scroll',hush); }
 const TOOLS=['shape','sculpt','bend','paint','hollow','detail'];
 $('tools').innerHTML=TOOLS.map(t=>`<button class="tool" data-tool="${t}"><svg viewBox="0 0 24 24">${ICON[t]}</svg><span class="nm">${t}</span></button>`).join('');
-$('tools').addEventListener('click',e=>{ const b=e.target.closest('.tool'); if(!b) return; S.tool=b.dataset.tool; refreshAll(); });
+// THE FOOT IS THE TOOL'S VALUES (15 Nov 2026; draw's rule, "keep the options in the header and the footer is just for
+// the values of that option"): a tool pressed on the bar turns the foot to that tool's values, a tile each; the lit
+// tool pressed again, or the Parts button, gives the foot back to the parts. A tile presses the panel's own button or
+// sets its slider, so the panel is still the code that acts while it stands (it goes in a later step).
+let footShow='parts';
+function setFoot(m){ footShow=m; $('foot').classList.toggle('tooling',m==='tool'); $('bParts').classList.toggle('on',m==='parts'); }
+$('tools').addEventListener('click',e=>{ const b=e.target.closest('.tool'); if(!b) return;
+  setFoot(footShow==='tool' && S.tool===b.dataset.tool?'parts':'tool'); S.tool=b.dataset.tool; refreshAll(); });
+$('bParts').onclick=()=>{ setFoot('parts'); };
 const FMT={};
 const slider=(id,label,min,max,step,val,fmt=v=>(+v).toFixed(2))=>{ FMT[id]=fmt; return `<div class="field">${label}<input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="v${id}">${fmt(val)}</span></div>`; };
 function bindSlider(id,fn,label){ const el=$(id); if(!el) return; el.addEventListener('input',e=>{ const v=+e.target.value; fn(v); $('v'+id).textContent=FMT[id](v); }); if(label) el.addEventListener('change',()=>commit(label)); }
@@ -6049,8 +6065,57 @@ function drawTool(){
     bindSlider('det',v=>{ detail=v; for(const q of S.parts) rebuild(q); },'detail');
     $('addRung').onclick=()=>{ addRungTo(p); drawTool(); commit('finer level'); };
   }
-  drawAdvanced();
+  drawAdvanced(); drawToolStrip();
 }
+// the tool's tiles. A value that was a slider is a few tiles here, each a whole setting (draw: "just have buttons …
+// no sliders needed"); the slider itself is still in the panel for the values between.
+const T_GLYPH={ dot:r=>`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="${r}"/></svg>`, path:d=>`<svg viewBox="0 0 24 24"><path d="${d}"/></svg>` };
+function drawToolStrip(){ const el=$('tstrip'); if(!el) return; el.innerHTML='';
+  const P=$('toolPanel'), p=selPart(), T=S.tool, near=(a,b)=>Math.abs(a-b)<1e-6;
+  const tile=(key,inner,name,on,fn)=>{ const b=document.createElement('button'); b.className='ptile'+(on?' on':''); b.dataset.t=key; b.title=name;
+    b.innerHTML=inner+'<span class="nm"></span>'; b.querySelector('.nm').textContent=name; b.onclick=fn; el.appendChild(b); return b; };
+  const sep=()=>{ const i=document.createElement('span'); i.className='tsep'; el.appendChild(i); };
+  // a slider of the panel set as if dragged there and let go: its own listeners do the work and take the undo step
+  const setS=(id,v,done=true)=>{ const r=$(id); if(!r) return; r.value=v; r.dispatchEvent(new Event('input',{bubbles:true})); if(done) r.dispatchEvent(new Event('change',{bubbles:true})); };
+  const press=sel=>{ const b=P.querySelector(sel); if(b) b.click(); };
+  if(T==='shape'){ for(const b of P.querySelectorAll('[data-kind]')){ const k=b.dataset.kind;
+      tile(k,`<img alt="" src="${galleryImgs[k]||''}">`,k.replace('_',' '),false,()=>press(`[data-kind="${k}"]`)); } return; }
+  const note=!p?`Select a part to ${T} it.`:kindOf(p).toolNote(p,T);
+  if(note){ const d=document.createElement('div'); d.className='tsay'; d.textContent=note.replace(/<[^>]+>/g,''); el.appendChild(d); return; }
+  if(T==='sculpt'){
+    for(const b of P.querySelectorAll('[data-b]')){ const m=b.dataset.b; tile(m,T_GLYPH.path(BRUSH_GLYPH[m]||'M5 16c3-8 11-8 14 0'),b.textContent,sculptBrush===m,()=>press(`[data-b="${m}"]`)); }
+    sep(); for(const [k,name,r,g] of [['small','small',0.06,3],['medium','medium',0.18,5.5],['large','large',0.5,8.5]])
+      tile('size-'+k,T_GLYPH.dot(g),name,near(brushR,r),()=>{ setS('bsize',r,false); drawToolStrip(); });
+    sep(); for(const [k,name,v,g] of [['soft','soft',0.02,'M4 17c5 0 5-9 8-9s3 9 8 9'],['firm','firm',0.06,'M4 17c6 0 6-13 8-13s2 13 8 13']])
+      tile('str-'+k,T_GLYPH.path(g),name,near(brushS,v),()=>{ setS('bstr',v,false); drawToolStrip(); });
+  }
+  else if(T==='bend'){ const B=p.bend, Z={taper:0,bulge:0,twist:0,lean:0};
+    const set=o=>()=>{ const v={...Z,...o}, ks=Object.keys(v); ks.forEach((k,i)=>setS('b'+k,v[k],i===ks.length-1)); drawTool(); };
+    const is=o=>{ const v={...Z,...o}; return Object.keys(v).every(k=>near(B[k],v[k])); };
+    for(const [k,name,o,g] of [['straight','straight',{},'M9 4v16M15 4v16'],['taper','taper',{taper:0.5},'M7 20l3-16M17 20l-3-16'],['flare','flare',{taper:-0.5},'M10 20l-3-16M14 20l3-16'],
+        ['bulge','bulge',{bulge:0.6},'M9 4c-5 5-5 11 0 16M15 4c5 5 5 11 0 16'],['waist','waist',{bulge:-0.5},'M7 4c4 5 4 11 0 16M17 4c-4 5-4 11 0 16'],
+        ['twist','twist',{twist:0.5},'M8 4c0 6 8 6 8 8s-8 2-8 8M16 4c0 6-8 6-8 8s8 2 8 8'],['lean','lean',{lean:0.5},'M8 20c0-8 2-13 7-16M14 20c0-7 1-11 5-14']])
+      tile(k,T_GLYPH.path(g),name,is(o),set(o));
+  }
+  else if(T==='paint'){
+    for(const b of P.querySelectorAll('[data-c]')){ const c=b.dataset.c;
+      tile(c,`<span class="sw" style="background:${c}"></span>`,c,p.paint.color.toLowerCase()===c,()=>press(`[data-c="${c}"]`)); }
+    sep(); for(const [n,name] of [[0,'plain'],[3,'3 stripes'],[6,'6 stripes']])
+      tile('bands-'+n,T_GLYPH.path(n?(n===3?'M5 7h14M5 12h14M5 17h14':'M5 5h14M5 8h14M5 11h14M5 14h14M5 17h14M5 20h14'):'M6 5h12v14H6z'),name,p.paint.bands===n,()=>{ setS('pbands',n); drawToolStrip(); });
+  }
+  else if(T==='hollow'){ const H=p.hollow;
+    const set=(on,wall)=>()=>{ if(H.on!==on) press('#hon'); if(on) setS('hwall',wall); drawTool(); };
+    tile('solid',T_GLYPH.path('M6 5c0 9 2 15 6 15s6-6 6-15z'),'solid',!H.on,set(false));
+    for(const [k,name,w,d] of [['thin','thin',0.03,1.6],['medium','medium',0.08,2.8],['thick','thick',0.16,4]])
+      tile(k,T_GLYPH.path('M5 6c0 9 2 14 7 14s7-5 7-14M'+(5+d)+' 6c0 '+(9-d)+' 1 '+(14-d*1.6)+' '+(7-d)+' '+(14-d*1.6)+'s'+(7-d)+'-'+(5-d*0.6)+' '+(7-d)+'-'+(14-d*1.6)),name,H.on&&near(H.wall,w),set(true,w));
+  }
+  else if(T==='detail'){
+    ['smooth','medium','fine','finest'].forEach((name,v)=>tile('det-'+v,T_GLYPH.dot(9-v*2.2),name,detail===v,()=>{ setS('det',v,false); drawToolStrip(); }));
+    sep(); const a=tile('finer',T_GLYPH.path('M12 5v14M5 12h14'),'finer level',false,()=>press('#addRung')); a.disabled=p.eng.rungs>=6;
+  }
+}
+const BRUSH_GLYPH={ pull:'M4 18c5 0 5-11 8-11s3 11 8 11', push:'M4 7c5 0 5 11 8 11s3-11 8-11', smooth:'M4 13c3-3 5-3 8 0s5 3 8 0', flatten:'M4 16h5l2-6h2l2 6h5M4 9h16',
+  pinch:'M4 18c6 0 7-13 8-13s2 13 8 13', inflate:'M4 18c2 0 3-11 8-11s6 11 8 11', crease:'M4 8c5 0 7 9 8 9s3-9 8-9', grab:'M6 18c0-8 4-12 12-12M13 6h5v5' };
 function rungDimsFor(p,r){ return {Nt:p.eng.baseT*(1<<r), Nh:p.eng.baseH*(1<<r)}; }
 function addRungTo(p){ if(p.eng.rungs>=6) return; p.eng.rungs++; if(p.cascade){ const {Nt,Nh}=rungDimsFor(p,p.eng.rungs-1);
     p.cascade.push({Nt,Nh,v:new Float64Array(Nt*Nh),cR:new Float64Array(Nt*Nh),cG:new Float64Array(Nt*Nh),cB:new Float64Array(Nt*Nh),blocked:new Uint8Array(Nt*Nh)}); } }
