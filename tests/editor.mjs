@@ -1390,6 +1390,10 @@ try {
         sheets: [...document.querySelectorAll('.panel .sec')].filter(x => getComputedStyle(x).display !== 'none').map(x => x.id).join(), menu: vis('menuPop'), file: vis('fileBtn') }; });
     let s = await st();
     if (s.view !== s.win || s.foot !== 'parts' || s.sheets || s.menu || s.file || !/^19,19,true$/.test(s.bar)) throw new Error('as it opens: ' + JSON.stringify(s));
+    // the buttons are draw's chips, by its numbers: 32px on the bar with a 17px glyph, 72px tiles with a 20px corner, one lit
+    const look = await pg.evaluate(() => { const cs = e => getComputedStyle(e), t = document.querySelector('.tool'), g = t.querySelector('svg'), p = document.querySelector('#pstrip .ptile'), m = document.getElementById('menuBtn');
+      return [t.offsetWidth, t.offsetHeight, cs(t).borderRadius, cs(t).backgroundColor, g.getBoundingClientRect().width, p.offsetWidth, p.offsetHeight, cs(p).borderRadius, m.offsetWidth, [...document.querySelectorAll('#bar .on')].filter(b => getComputedStyle(b).display !== 'none').map(b => b.id || b.dataset.tool).join('+')].join(); });
+    if (look !== '32,32,9px,rgb(26, 26, 33),17,72,72,20px,32,bParts+mMove+snap') throw new Error("draw's chips: " + look);
     await tap('#pstrip .ptile:nth-child(2)');
     await tap('.tool[data-tool="paint"]');
     s = await st(); const [shown, count] = s.strip.split(',').map(Number);

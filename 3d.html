@@ -208,8 +208,8 @@
   body:not(.classic) .tools,body:not(.classic) .bar .seg{display:contents!important}
   body:not(.classic) .tool,body:not(.classic) .chip{width:38px;height:38px;border-radius:12px;background:rgba(24,24,31,.86)}
   body:not(.classic) .tool.on,body:not(.classic) .chip.on{background:var(--accent)}
-  body:not(.classic) #menuBtn{display:flex;position:absolute;right:10px;top:10px;width:38px;height:38px;padding:0;border-radius:12px;align-items:center;justify-content:center;
-    background:rgba(24,24,31,.86);border:1px solid var(--line2);pointer-events:auto}
+  body:not(.classic) #menuBtn{display:flex;position:absolute;right:10px;top:10px;align-items:center;justify-content:center;
+    pointer-events:auto}
   #menuBtn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
   #menuPop{position:fixed;top:56px;right:10px;z-index:45;display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:10px;width:230px;
     background:var(--bg2);border:1px solid var(--line2);border-radius:14px;box-shadow:0 14px 40px #000a}
@@ -230,6 +230,46 @@
   .foot[data-show="parts"] #pstrip,.foot[data-show="tool"] #tstrip{display:block}
   .foot[data-show="hist"] #hist{display:block;padding:0}
   .foot .hist img{height:56px;width:84px;opacity:.85}
+  /* DRAW'S BUTTONS (15 Nov 2026, Tom: "the buttons on the toolbar and footer of 3d look bad and are not the same as the
+     buttons in draw"). The ring was draw's and the buttons on it were this page's own: flat squares, a size of their
+     own, a caption crowding a small glyph. These are draw's chips, by its numbers: the bar's 32px (52 on touch and a
+     narrow window) with a 17px glyph, the strip's 72px tiles with a 20px corner, the same fill, hairline, two shadows
+     and raised top edge, the lift on hover and the press, the lit one gold with a dark glyph on the bar and a gold
+     ring on the strip. */
+  :root{--chip-bg:#1a1a21;--chip-bg-hover:#262630;--chip-fg:#e6e4ee;--chip-line:rgba(255,255,255,.18);--chip-line-hover:rgba(255,255,255,.34);--gold:#d4a052;--gold-dim:rgba(212,160,82,.5);
+    --chip-shadow:0 1px 2px rgba(0,0,0,.22),0 3px 8px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.06);
+    --chip-shadow-hover:0 2px 4px rgba(0,0,0,.26),0 6px 14px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.10);
+    --chip-shadow-down:inset 0 2px 5px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04)}
+  body .bar .tool,body .bar .chip,body #menuBtn{width:32px;height:32px;padding:6px;border-radius:9px;background:var(--chip-bg);color:var(--chip-fg);border:1px solid var(--chip-line);box-shadow:var(--chip-shadow);
+    transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  body .bar .tool svg,body .bar .chip svg,body #menuBtn svg{width:17px;height:17px;display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.55))}
+  body .bar .tool:hover,body .bar .chip:hover,body #menuBtn:hover{background:var(--chip-bg-hover);color:#fff;border-color:var(--chip-line-hover);box-shadow:var(--chip-shadow-hover)}
+  body .bar .tool:active:not(:disabled),body .bar .chip:active:not(:disabled),body #menuBtn:active{box-shadow:var(--chip-shadow-down)}
+  body .bar .tool.on,body .bar .chip.on{color:#14141a;background:var(--gold);border-color:rgba(212,160,82,.9);box-shadow:0 1px 2px rgba(0,0,0,.35),0 4px 14px rgba(212,160,82,.28),inset 0 1px 0 rgba(255,255,255,.35)}
+  body .bar .tool.on svg,body .bar .chip.on svg{filter:none}
+  body .bar .tool.on:hover,body .bar .chip.on:hover{background:#e8b96b;color:#14141a;border-color:var(--gold)}
+  body .bar .chip:disabled{opacity:1;box-shadow:none;border-color:rgba(255,255,255,.16)} body .bar .chip:disabled svg{opacity:.34}
+  body:not(.classic) .bar{top:8px;height:48px} body:not(.classic) #menuBtn{top:16px;right:12px}
+  body .foot .ptile{width:72px;height:72px;padding:2px 0 5px;gap:3px;border-radius:20px;background:var(--chip-bg);color:var(--chip-fg);border:1px solid var(--chip-line);box-shadow:var(--chip-shadow);
+    transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:transparent}
+  body .foot .ptile:hover{background:var(--chip-bg-hover);border-color:var(--chip-line-hover);box-shadow:var(--chip-shadow-hover)}
+  body .foot .ptile:active:not(:disabled){box-shadow:var(--chip-shadow-down)}
+  body .foot .ptile svg{width:34px;height:34px;stroke-width:1.5}
+  body .foot .ptile img{width:44px;height:44px}
+  body .foot .ptile .sw{width:38px;height:38px;border-radius:50%;border:1px solid var(--chip-line);box-shadow:none}
+  body .foot .ptile .nm{font:10px system-ui,sans-serif;line-height:1;color:#6e6e7a;max-width:66px}
+  body .foot .ptile.on,body .foot .ptile.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-dim);background:linear-gradient(rgba(212,160,82,.14),rgba(212,160,82,.14)),var(--chip-bg);color:var(--chip-fg)}
+  body .foot .ptile.on .nm,body .foot .ptile.sel .nm{color:var(--gold)}
+  body .foot .ptile.edit{background:linear-gradient(rgba(212,160,82,.30),rgba(212,160,82,.30)),var(--chip-bg)}
+  body:not(.classic) .foot{height:104px;background:none}
+  body:not(.classic) .panel .sec,body:not(.classic) #wanderC{bottom:112px}
+  .foot .hist img{height:64px;width:96px;border-radius:12px;border:1px solid var(--chip-line);opacity:1}
+  @media (pointer:coarse),(max-width:700px){
+    body:not(.classic) .bar .tool,body:not(.classic) .bar .chip,body:not(.classic) #menuBtn{width:52px;height:52px;border-radius:14px}
+    body:not(.classic) .bar .tool svg,body:not(.classic) .bar .chip svg,body:not(.classic) #menuBtn svg{width:26px;height:26px}
+    body:not(.classic) .bar{height:60px;right:72px} body:not(.classic) #menuBtn{top:12px}
+    body:not(.classic) .top{height:72px} body:not(.classic) .crumb{top:78px}
+  }
   .gtitle{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
   .brushes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
   .brushes button{padding:5px 2px;font-size:11px}
@@ -6105,7 +6145,9 @@ const FOOT_BTN={ parts:'bParts', scene:'bScene', outline:'bOutline', section:'bS
 const footHome=()=>document.body.classList.contains('scene-mode')?'scene':'parts';
 function closeSheets(){ for(const x of document.querySelectorAll('.panel .sec.open')) x.classList.remove('open'); }
 function toggleSheet(id){ const x=$(id), was=x.classList.contains('open'); closeSheets(); x.classList.toggle('open',!was); }
-function setFoot(m){ footShow=m; closeSheets(); $('foot').dataset.show=m==='parts'||m==='hist'?m:'tool';
+// one button of the bar is lit, the one whose values the foot holds (the checks' old header lights the tool in hand, as it did)
+function litTools(){ for(const b of document.querySelectorAll('.tool')) b.classList.toggle('on',b.dataset.tool===S.tool && (OLD_CHROME || footShow==='tool')); }
+function setFoot(m){ footShow=m; closeSheets(); litTools(); $('foot').dataset.show=m==='parts'||m==='hist'?m:'tool';
   for(const k in FOOT_BTN) $(FOOT_BTN[k]).classList.toggle('on',m===k);
   drawToolStrip(); for(const r of [RINGS.pstrip,RINGS.tstrip,RINGS.hist]) if(r) r.focus(0); }
 $('tools').addEventListener('click',e=>{ const b=e.target.closest('.tool'); if(!b) return;
@@ -6122,8 +6164,8 @@ const RINGS={};
     for(const x of [...document.querySelector('.top').children]) if(x.id!=='bar' && x.id!=='menuBtn' && x.tagName!=='INPUT') pop.appendChild(x);
     $('menuBtn').onclick=()=>{ pop.hidden=!pop.hidden; }; for(const id of ['vObject','vScene']) $(id).addEventListener('click',()=>{ pop.hidden=true; });
     window.addEventListener('pointerdown',e=>{ if(!pop.hidden && !e.target.closest('#menuPop,#menuBtn')) pop.hidden=true; },true); }
-  requestAnimationFrame(()=>{ if(!OLD_CHROME) RINGS.bar=makeRing(bar,'.tool,.chip',12,inView);
-    RINGS.pstrip=makeRing($('pstrip'),'.ptile',10); RINGS.tstrip=makeRing($('tstrip'),'.ptile',10); RINGS.hist=makeRing($('hist'),'img',8);
+  requestAnimationFrame(()=>{ if(!OLD_CHROME) RINGS.bar=makeRing(bar,'.tool,.chip',16,inView);
+    RINGS.pstrip=makeRing($('pstrip'),'.ptile',16); RINGS.tstrip=makeRing($('tstrip'),'.ptile',16); RINGS.hist=makeRing($('hist'),'img',8);
     // object or scene: the bar's buttons change, and the foot goes to that view's own tiles
     let was=document.body.classList.contains('scene-mode');
     new MutationObserver(()=>{ const now=document.body.classList.contains('scene-mode'); if(now===was) return; was=now; if(RINGS.bar) RINGS.bar.refresh(); setFoot(footHome()); }).observe(document.body,{attributes:true,attributeFilter:['class']});
@@ -6135,7 +6177,7 @@ const slider=(id,label,min,max,step,val,fmt=v=>(+v).toFixed(2))=>{ FMT[id]=fmt; 
 function bindSlider(id,fn,label){ const el=$(id); if(!el) return; el.addEventListener('input',e=>{ const v=+e.target.value; fn(v); $('v'+id).textContent=FMT[id](v); }); if(label) el.addEventListener('change',()=>commit(label)); }
 let galleryImgs={};
 function drawTool(){
-  for(const b of document.querySelectorAll('.tool')) b.classList.toggle('on',b.dataset.tool===S.tool);
+  litTools();
   const el=$('toolPanel'), p=selPart(), T=S.tool, need=`<div class="empty">Select a part to ${T} it.</div>`;
   const editing=p && S.editing===p.id;
   if(T==='shape'){
