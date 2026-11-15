@@ -94,6 +94,10 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
     (`more(id, name)`, `toggleSheet`; Escape or another button of the bar closes it). The sheets hold what tiles
     cannot: the outline and section to drag, the sliders' values between, the colour pickers, the scene's types and
     rules.
+  - The buttons are draw's chips (the same day: "the buttons on the toolbar and footer of 3d look bad and are not the same
+    as the buttons in draw"; DRAW'S BUTTONS, `--chip-*`): 32px on the bar with a 17px glyph (52px on touch and a narrow
+    window), 72px tiles with a 20px corner on the strip, draw's fill, hairline and shadows, the lit one gold on the bar
+    and ringed gold on the strip. One button of the bar is lit, the one whose values the foot holds (`litTools`).
   - The checks keep the columns and the old header (`body.classic`, set by `window.__classicChrome` in
     `tests/editor.mjs`), so what they press is where it was; the last step of `tests/editor.mjs` opens the page
     without it and checks the chrome itself. `window.__ui` (`rings`, `foot`, `setFoot`, `show(el)`: turn a ring to an
