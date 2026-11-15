@@ -76,20 +76,28 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   `place()` is seeded, so a scene always comes out the same. A new scene material needs
   `onBeforeCompile = wanderFrag` to be banded. Anything flat and large must be an area.
   Nothing may cut a vertical cliff. `rungGrid` must agree with `radiusAt`/`colorAt`.
-- **The interface is becoming draw's** (15 Nov 2026, Tom: "Could we use the draw UI to replace the 3d UI?", "Proceed").
-  Step one is in: the top bar (`#bar`) is a row of icon buttons, the six tools (`#tools`, `.tool`) and the view's
-  buttons (`.chip`: move, turn, size, snap, frame all, orbit, walk, fly, wander, wire, undo, redo), each saying its
-  name under it when pointed at; the foot (`#foot`) is the parts as tiles (`#pstrip`, drawn by `drawParts` beside the
-  panel's list) and the history's pictures. Every button kept its id and its handler. The side panels are as they
-  were. A new button on the bar needs a glyph in THE BAR'S GLYPHS.
-  Step two (the same day, "Merge and proceed"; THE FOOT IS THE TOOL'S VALUES): a tool pressed on the bar turns the foot
-  to that tool's values as tiles (`#tstrip`, `drawToolStrip`, run at the end of `drawTool`); the lit tool pressed again,
-  or the Parts button (`#bParts`, first on the bar), gives the foot back to the parts (`setFoot`, `footShow`). A tile
-  presses the tool panel's own button or sets its slider (`setS`), so `#toolPanel` is still the code that acts; what was
-  a slider is a few tiles, each a whole setting (sculpt: small, medium, large and soft, firm; bend: straight, taper,
-  flare, bulge, waist, twist, lean; paint: the swatches and plain, 3 or 6 stripes; hollow: solid, thin, medium, thick;
-  detail: the four levels and a finer level). A new control of a tool is a tile there too. Still to do: the panels
-  taken away (the colour pickers, the brush's symmetry and the clear buttons have no tile yet).
+- **The interface is draw's** (15 Nov 2026, Tom: "Could we use the draw UI to replace the 3d UI?", then, of the first
+  two steps, "this is all wrong. you must use the fish eye wrap around in the footer and toolbars. the draw program's
+  UI must be copied. settings should be on the bottom footer bar"; DRAW'S CHROME and DRAW'S RING in `3d.html`):
+  - The picture has the whole window. The top bar (`#bar`) is draw's ring of icon buttons (`makeRing`, with draw's
+    `boma` maths and its numbers: a centred row when the buttons fit, the fisheye ring that wraps when they do not),
+    each saying its name under it when pointed at; the menu's button (`#menuBtn`, pinned at the right) holds what is
+    not a tool of the picture: object or scene, file, examples, describe, advanced (`#menuPop`). A new button on the
+    bar needs a glyph in THE BAR'S GLYPHS.
+  - The foot is draw's strip, a ring of tiles, and it holds the values of the bar's button that is lit (`setFoot`,
+    `footShow`, `FOOT_BTN`; `drawToolStrip` draws them): the parts (`#pstrip`, with add, duplicate, delete), a tool's
+    values, the outline's, the section's kinds, the placement's, the history's pictures (`#hist`), and in a scene its
+    shuffle, frame and prefabs. The lit button pressed again gives the foot back to the parts (the scene's tiles in a
+    scene). A tile presses the panel's own button or sets its slider (`setS`, `mirror`), so the panels are still the
+    code that acts; what was a slider is a few tiles, each a whole setting. A new control is a tile there.
+  - A panel is no column: each `.sec` is a sheet that stands above the strip only when the strip's first tile asks
+    (`more(id, name)`, `toggleSheet`; Escape or another button of the bar closes it). The sheets hold what tiles
+    cannot: the outline and section to drag, the sliders' values between, the colour pickers, the scene's types and
+    rules.
+  - The checks keep the columns and the old header (`body.classic`, set by `window.__classicChrome` in
+    `tests/editor.mjs`), so what they press is where it was; the last step of `tests/editor.mjs` opens the page
+    without it and checks the chrome itself. `window.__ui` (`rings`, `foot`, `setFoot`, `show(el)`: turn a ring to an
+    item) is for the checks: a tile round the back of a ring has to be turned to before it is pressed.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
