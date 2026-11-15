@@ -53,7 +53,7 @@
   input[type=text]:focus{outline:none;border-color:var(--accent)}
   select{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:5px 8px;cursor:pointer}
 
-  .app{display:grid;height:100%;grid-template-columns:236px 1fr 280px;grid-template-rows:48px 1fr 64px;
+  .app{display:grid;height:100%;grid-template-columns:236px 1fr 280px;grid-template-rows:52px 1fr 88px;
        grid-template-areas:"top top top" "parts view side" "tools tools tools"}
   /* ── top bar ── */
   .top{grid-area:top;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--bg2)}
@@ -126,10 +126,6 @@
   .pitem .tag{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.6px}
   .view{grid-area:view;position:relative;background:radial-gradient(ellipse at 50% 35%,#16161d,#060608 70%)}
   .view canvas{display:block;width:100%;height:100%}
-  .vtools{position:absolute;top:10px;left:10px;display:flex;gap:4px;flex-wrap:wrap}
-  .vtools button{padding:5px 9px;font-size:12px;background:rgba(17,17,22,.88)}
-  .vtools button.on{background:var(--accent);color:#141418}
-  .vtools .sep{width:8px}
   .crumb{position:absolute;top:10px;right:10px;background:rgba(17,17,22,.88);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--dim)}
   .crumb b{color:var(--accent);font-weight:600}
   .hint{position:absolute;left:10px;bottom:10px;right:10px;color:var(--faint);font-size:11.5px;pointer-events:none;text-shadow:0 1px 2px #000}
@@ -151,11 +147,35 @@
   .stypes button{padding:4px 0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px}
   .stypes svg{width:26px;height:26px}
   .stypes path{fill:none;stroke:currentColor;stroke-width:1.6}
-  .tools{grid-area:tools;display:flex;align-items:center;gap:6px;padding:0 12px;border-top:1px solid var(--line);background:var(--bg2)}
-  .tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 12px;min-width:64px;font-size:11.5px;background:transparent;border-color:transparent}
-  .tool svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-  .tool.on{background:var(--bg4);border-color:var(--accent);color:var(--accent)}
-  .hist{flex:1;display:flex;gap:4px;justify-content:flex-end;overflow-x:auto;padding:4px 0;min-width:0}
+  /* THE BAR: draw's top bar, brought here. A row of icon buttons that pans sideways when the window is narrow; each
+     says its name under it when pointed at or held. The tools and the view's buttons are its buttons. */
+  .bar{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 2px;height:100%}
+  .bar::-webkit-scrollbar{display:none}
+  .tools{display:flex;align-items:center;gap:6px}
+  .bar .bsep{flex:0 0 1px;align-self:center;height:22px;background:var(--line2);margin:0 3px}
+  .bar .seg{flex:none;border:none;gap:6px;overflow:visible}
+  .tool,.chip{flex:0 0 auto;width:34px;height:34px;padding:0;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.04);border:1px solid var(--line2);color:var(--fg)}
+  .tool svg,.chip svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .tool.on,.chip.on{background:var(--accent);border-color:var(--accent);color:#141418}
+  .bar .seg button.chip{border:1px solid var(--line2);border-radius:10px;padding:0}
+  .bar .seg button.chip.on{border-color:var(--accent)}
+  .tool .nm,.chip .nm{position:fixed;transform:translate(-50%,0);left:var(--nx,-999px);top:var(--ny,-999px);background:var(--bg4);border:1px solid var(--line2);border-radius:5px;padding:3px 7px;font-size:11px;color:var(--fg);
+    white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:60}
+  .tool.say .nm,.chip.say .nm{opacity:1}
+  #wanderC{flex:none;white-space:nowrap;color:var(--dim)}
+  /* THE FOOT: the parts as tiles (draw's strip of shapes), and the history's pictures */
+  .foot{grid-area:tools;display:flex;align-items:center;gap:10px;padding:0 12px;border-top:1px solid var(--line);background:var(--bg2);min-width:0}
+  .pstrip{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;height:100%;justify-content:safe center}
+  .pstrip::-webkit-scrollbar{display:none}
+  .ptile{flex:0 0 auto;width:68px;height:68px;border-radius:16px;padding:6px 4px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+    background:rgba(255,255,255,.04);border:1px solid var(--line2);font-size:10.5px;color:var(--dim)}
+  .ptile .sw{width:30px;height:30px;border-radius:9px;box-shadow:inset 0 0 0 1px #0006}
+  .ptile .nm{max-width:60px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ptile svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+  .ptile.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(212,160,82,.35);color:var(--accent)}
+  .ptile.edit{background:rgba(212,160,82,.14)}
+  .hist{flex:0 1 auto;display:flex;gap:4px;justify-content:flex-end;overflow-x:auto;padding:4px 0;min-width:0;max-width:40%}
   .hist img{height:44px;width:66px;object-fit:cover;border-radius:4px;border:1px solid var(--line);cursor:pointer;flex:none;opacity:.6;background:#000}
   .hist img:hover{opacity:1;border-color:var(--accent2)}
   .hist img.cur{opacity:1;border-color:var(--accent)}
@@ -179,9 +199,15 @@
 
   @media (max-width:860px){
     html,body{overflow:auto}
-    .app{grid-template-columns:1fr;grid-template-rows:48px 52vh auto auto 64px;grid-template-areas:"top" "view" "side" "parts" "tools";height:auto}
+    .app{grid-template-columns:minmax(0,1fr);grid-template-rows:52px 52vh auto auto 88px;grid-template-areas:"top" "view" "side" "parts" "tools";height:auto}
     .parts,.side{border:none;border-top:1px solid var(--line);overflow:visible}
-    .tools{position:sticky;bottom:0;overflow-x:auto}
+    .foot{position:sticky;bottom:0;z-index:20}
+    /* a narrow window: the bar has a row of its own under the file, examples and describe */
+    .app{grid-template-rows:auto 52vh auto auto 88px}
+    .top{flex-wrap:wrap;padding:6px 8px;row-gap:6px}
+    .top .brand,.top .adv{display:none}
+    .top #example{max-width:112px}
+    .bar{flex:1 0 100%;order:9;height:38px}
     .crumb{top:auto;bottom:34px;right:10px}
     .crumb span{display:none}
     .hint{display:none}
@@ -194,6 +220,28 @@
   <header class="top">
     <div class="brand">3d<small>shape studio</small></div>
     <div class="seg" title="object: shape one object from parts. scene: a whole place, many copies of many objects"><button id="vObject" class="on">object</button><button id="vScene">scene</button></div>
+    <!-- THE BAR (15 Nov 2026, Tom, of draw's interface: "Could we use the draw UI to replace the 3d UI?", then
+         "Proceed"). The first step of bringing it here: the six tools, which stood along the foot, and the view's
+         buttons, which floated over the picture, are one row of icon buttons on the top bar, each saying its name
+         under it when pointed at, as draw's do; the foot is the parts, a tile each (THE FOOT IS THE PARTS). The
+         side panels are as they were. Every button keeps its id and its handler. -->
+    <div class="bar" id="bar">
+      <nav class="tools" id="tools"></nav>
+      <span class="bsep obj-only"></span>
+      <button id="mMove" class="on obj-only" title="move (W)">move</button>
+      <button id="mTurn" class="obj-only" title="turn (E)">turn</button>
+      <button id="mSize" class="obj-only" title="size and stretch (R)">size</button>
+      <span class="bsep obj-only"></span>
+      <button id="snap" class="on obj-only" title="snap to a grid, and onto parts below when you let go">snap</button>
+      <button id="frameAll" title="frame everything">frame all</button>
+      <span class="seg scene-only"><button id="navOrbit" class="on" title="turn around the scene and zoom">orbit</button><button id="navWalk" title="walk through the scene at eye height: W A S D or arrows, drag to look, Shift to run, Esc to stop">walk</button><button id="navFly" title="fly over the scene: W A S D or arrows, drag to look, Space and Q up and down, Shift for speed, Esc to stop">fly</button></span>
+      <button id="wanderBtn" class="scene-only" title="the wander view: every surface banded by octaves of its distance in your own eye height (the corner, one eye height away, in gold; nearer bands mirror farther ones), and motion seen as it arrives, late by its distance over the signals' speed">wander</button>
+      <label class="scene-only" id="wanderC" title="the signals' speed: how fast what happens reaches you">signals <input id="wanderCIn" type="range" min="0" max="1000"> <span id="wanderCVal"></span></label>
+      <button id="wire" class="obj-only" title="show the wireframe of the part you are shaping">wire</button>
+      <span class="bsep"></span>
+      <button id="undo" title="undo (Ctrl+Z)">&#8630;</button>
+      <button id="redo" title="redo (Ctrl+Shift+Z)">&#8631;</button>
+    </div>
     <div class="menuwrap"><button id="fileBtn">file &#9662;</button>
       <div class="dropdown" id="fileMenu" hidden>
         <button data-act="new">new, empty <span></span></button>
@@ -244,9 +292,6 @@
         </details>
       </div>
     </div>
-    <button id="undo" title="undo (Ctrl+Z)">&#8630;</button>
-    <button id="redo" title="redo (Ctrl+Shift+Z)">&#8631;</button>
-    <div class="grow"></div>
     <label class="adv"><input type="checkbox" id="advanced"> advanced</label>
     <!-- No accept filter on these two (Oct 7): a phone's picker knows nothing of .3da or .tvf3d,
          so it greyed the files out and none could be chosen. The contents decide instead. -->
@@ -289,18 +334,6 @@
   </aside>
 
   <main class="view" id="view">
-    <div class="vtools">
-      <button id="mMove" class="on obj-only" title="move (W)">move</button>
-      <button id="mTurn" class="obj-only" title="turn (E)">turn</button>
-      <button id="mSize" class="obj-only" title="size and stretch (R)">size</button>
-      <span class="sep obj-only"></span>
-      <button id="snap" class="on obj-only" title="snap to a grid, and onto parts below when you let go">snap</button>
-      <button id="frameAll" title="frame everything">frame all</button>
-      <span class="seg scene-only"><button id="navOrbit" class="on" title="turn around the scene and zoom">orbit</button><button id="navWalk" title="walk through the scene at eye height: W A S D or arrows, drag to look, Shift to run, Esc to stop">walk</button><button id="navFly" title="fly over the scene: W A S D or arrows, drag to look, Space and Q up and down, Shift for speed, Esc to stop">fly</button></span>
-      <button id="wanderBtn" class="scene-only" title="the wander view: every surface banded by octaves of its distance in your own eye height (the corner, one eye height away, in gold; nearer bands mirror farther ones), and motion seen as it arrives, late by its distance over the signals' speed">wander</button>
-      <label class="scene-only" id="wanderC" title="the signals' speed: how fast what happens reaches you">signals <input id="wanderCIn" type="range" min="0" max="1000"> <span id="wanderCVal"></span></label>
-      <button id="wire" class="obj-only" title="show the wireframe of the part you are shaping">wire</button>
-    </div>
     <div class="crumb obj-only" id="crumb"></div>
     <div class="toast" id="toast"></div>
     <div class="hint obj-only" id="hint"></div>
@@ -329,7 +362,9 @@
     <div class="sec adv-only" id="advPanel" style="flex-direction:column"></div>
   </aside>
 
-  <nav class="tools" id="tools"></nav>
+  <!-- THE FOOT IS THE PARTS: a tile a part (tap to select, twice to shape it), a tile to add one, and the
+       history's pictures at the right. Drawn by drawParts beside the list in the left panel. -->
+  <footer class="foot" id="foot"><div class="pstrip obj-only" id="pstrip"></div><div class="hist" id="hist"></div></footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -5894,7 +5929,15 @@ function drawParts(){ const el=$('plist'); el.innerHTML=''; $('pcount').textCont
   for(const p of S.parts){ const d=document.createElement('div'); d.className='pitem'+(p.id===S.sel?' sel':'')+(p.id===S.editing?' edit':'');
     d.innerHTML=`<span class="sw" style="background:${p.paint.color}"></span><span class="nm"></span>${p.id===S.editing?'<span class="tag">shaping</span>':''}`;
     d.querySelector('.nm').textContent=p.name; d.onclick=()=>select_(p.id); d.ondblclick=()=>setEditing(p.id); el.appendChild(d); }
-  $('dupPart').disabled=$('delPart').disabled=!selPart(); }
+  $('dupPart').disabled=$('delPart').disabled=!selPart();
+  // THE FOOT IS THE PARTS: the same parts as tiles along the foot, the selected one ringed, and a tile to add one
+  const fs=$('pstrip'); if(fs){ fs.innerHTML='';
+    for(const p of S.parts){ const b=document.createElement('button'); b.className='ptile'+(p.id===S.sel?' sel':'')+(p.id===S.editing?' edit':'');
+      b.innerHTML='<span class="sw" style="background:'+p.paint.color+'"></span><span class="nm"></span>'; b.querySelector('.nm').textContent=p.name; b.title=p.name;
+      b.onclick=()=>select_(p.id); b.ondblclick=()=>setEditing(p.id); fs.appendChild(b); }
+    const add=document.createElement('button'); add.className='ptile add'; add.id='ptAdd'; add.title='add a part (the kind chosen in the parts panel)';
+    add.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="nm">add</span>'; add.onclick=()=>$('addPart').click(); fs.appendChild(add);
+    const cur=fs.querySelector('.sel'); if(cur && cur.scrollIntoView) cur.scrollIntoView({block:'nearest',inline:'nearest'}); } }
 function kindOptions(){ return `<optgroup label="shapes">${Object.keys(LATHE).map(k=>`<option>${k}</option>`).join('')}</optgroup><optgroup label="classic">${CLASSIC_OK().map(k=>`<option value="${k}">${k.replace('_',' ')}</option>`).join('')}</optgroup>`; }
 $('addKind').innerHTML=kindOptions();
 function placeNew(p){ const b=boxOf(S.parts); if(!b.isEmpty()) p.pos=[b.max.x+0.5,0,0]; p.scale=[0.7,0.7,0.7]; }
@@ -5908,8 +5951,25 @@ $('dupPart').onclick=duplicate; $('delPart').onclick=del;
 const ICON={ shape:'<path d="M12 3c4 0 5 3 4 6s2 4 2 7-3 5-6 5-6-2-6-5 3-4 2-7S8 3 12 3z"/>', sculpt:'<path d="M4 20l7-7"/><path d="M14 4l6 6-5 5-6-6z"/>',
   bend:'<path d="M8 3c0 6 8 6 8 9s-8 3-8 9"/>', paint:'<path d="M5 19c2 0 3-1 3-3s1-3 3-3"/><path d="M11 13l8-8 1 1-8 8"/>',
   hollow:'<path d="M5 6c0 9 2 14 7 14s7-5 7-14"/><path d="M8 6c0 7 1 11 4 11s4-4 4-11"/>', detail:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>' };
+// THE BAR'S GLYPHS: the view's buttons were words over the picture; on the bar each is a glyph, and says its word
+// under it while pointed at or held (as draw's buttons say their names)
+{ const G={ mMove:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
+    mTurn:'<path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M17.5 2v4.5H13"/>', mSize:'<rect x="4" y="10" width="10" height="10" rx="1.5"/><path d="M14 4h6v6M20 4l-7 7"/>',
+    snap:'<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M4 8h4M16 8h4"/>', frameAll:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
+    navOrbit:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5"/>', navWalk:'<circle cx="12" cy="4.5" r="2"/><path d="M12 7v6l-3 7M12 13l3 7M8 10l4-2l4 2"/>',
+    navFly:'<path d="M3 12l18-7l-5 14l-4-6z"/><path d="M12 13l9-8"/>', wanderBtn:'<circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="9.5"/>',
+    wire:'<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5l8-4.5"/>', undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+    redo:'<path d="M15 14l5-5l-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>' };
+  for(const id in G){ const b=$(id); if(!b) continue; const word=id==='undo'?'undo':id==='redo'?'redo':(b.textContent.trim()||id); b.classList.add('chip');
+    b.innerHTML='<svg viewBox="0 0 24 24">'+G[id]+'</svg><span class="nm">'+word+'</span>'; }
+  // the name under a button: placed from the button's own box (the bar pans, so it is not laid out inside it)
+  const say=b=>{ const r=b.getBoundingClientRect(), n=b.querySelector('.nm'); if(!n) return; n.style.setProperty('--nx',(r.left+r.width/2)+'px'); n.style.setProperty('--ny',(r.bottom+5)+'px'); b.classList.add('say'); };
+  const hush=()=>{ for(const b of document.querySelectorAll('.say')) b.classList.remove('say'); };
+  $('bar').addEventListener('pointerover',e=>{ const b=e.target.closest('.tool,.chip'); hush(); if(b) say(b); });
+  $('bar').addEventListener('pointerleave',hush); $('bar').addEventListener('pointerdown',e=>{ const b=e.target.closest('.tool,.chip'); if(b && e.pointerType!=='mouse') say(b); });
+  window.addEventListener('pointerup',()=>setTimeout(hush,600)); $('bar').addEventListener('scroll',hush); }
 const TOOLS=['shape','sculpt','bend','paint','hollow','detail'];
-$('tools').innerHTML=TOOLS.map(t=>`<button class="tool" data-tool="${t}"><svg viewBox="0 0 24 24">${ICON[t]}</svg>${t}</button>`).join('')+'<div class="hist" id="hist"></div>';
+$('tools').innerHTML=TOOLS.map(t=>`<button class="tool" data-tool="${t}"><svg viewBox="0 0 24 24">${ICON[t]}</svg><span class="nm">${t}</span></button>`).join('');
 $('tools').addEventListener('click',e=>{ const b=e.target.closest('.tool'); if(!b) return; S.tool=b.dataset.tool; refreshAll(); });
 const FMT={};
 const slider=(id,label,min,max,step,val,fmt=v=>(+v).toFixed(2))=>{ FMT[id]=fmt; return `<div class="field">${label}<input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="v${id}">${fmt(val)}</span></div>`; };
