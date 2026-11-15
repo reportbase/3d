@@ -81,8 +81,15 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   buttons (`.chip`: move, turn, size, snap, frame all, orbit, walk, fly, wander, wire, undo, redo), each saying its
   name under it when pointed at; the foot (`#foot`) is the parts as tiles (`#pstrip`, drawn by `drawParts` beside the
   panel's list) and the history's pictures. Every button kept its id and its handler. The side panels are as they
-  were; the next steps move each tool's panel into tiles in the foot, then take the panels away. A new button on the
-  bar needs a glyph in THE BAR'S GLYPHS.
+  were. A new button on the bar needs a glyph in THE BAR'S GLYPHS.
+  Step two (the same day, "Merge and proceed"; THE FOOT IS THE TOOL'S VALUES): a tool pressed on the bar turns the foot
+  to that tool's values as tiles (`#tstrip`, `drawToolStrip`, run at the end of `drawTool`); the lit tool pressed again,
+  or the Parts button (`#bParts`, first on the bar), gives the foot back to the parts (`setFoot`, `footShow`). A tile
+  presses the tool panel's own button or sets its slider (`setS`), so `#toolPanel` is still the code that acts; what was
+  a slider is a few tiles, each a whole setting (sculpt: small, medium, large and soft, firm; bend: straight, taper,
+  flare, bulge, waist, twist, lean; paint: the swatches and plain, 3 or 6 stripes; hollow: solid, thin, medium, thick;
+  detail: the four levels and a finer level). A new control of a tool is a tile there too. Still to do: the panels
+  taken away (the colour pickers, the brush's symmetry and the clear buttons have no tile yet).
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
