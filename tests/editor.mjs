@@ -52,6 +52,13 @@ if (process.env.CHROMIUM_PATH) launch.executablePath = process.env.CHROMIUM_PATH
 const browser = await chromium.launch(launch);
 const context = await browser.newContext({ viewport: { width: 1360, height: 820 }, acceptDownloads: true });
 const page = await context.newPage();
+// The checks keep the side panels standing and the old header (body.classic): what they press is where it was. The
+// page as it opens for a visitor, draw's chrome, has its own step at the end, on a page without this.
+await page.addInitScript(() => { window.__classicChrome = true; });
+const libRoutes = async pg => { if (!process.env.LIBS_DIR) return; const lib = f => readFile(join(process.env.LIBS_DIR, 'three', f));
+  await pg.route(/three\.js\/r128\/three\.min\.js/, async r => r.fulfill({ contentType: 'text/javascript', body: await lib('build/three.min.js') }));
+  for (const c of ['OrbitControls', 'TransformControls'])
+    await pg.route(new RegExp(c + '\\.js'), async r => r.fulfill({ contentType: 'text/javascript', body: await lib('examples/js/controls/' + c + '.js') })); };
 // LIBS_DIR=path/node_modules: serve three.js r128 and its controls from a local
 // three@0.128.0, for a sandbox where the CDNs are blocked.
 if (process.env.LIBS_DIR){
@@ -107,6 +114,7 @@ const shaderErrors = [];   // a scene material whose shader did not compile show
 page.on('console', m => { if (m.type() === 'error'){ console.log(`  console (${current}): ${m.text().slice(0, 200)}`); if (/Shader Error|ERROR: 0:/.test(m.text())) shaderErrors.push(m.text().slice(0, 300)); } });
 
 async function step(name, fn){
+  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;     // ONLY='words of a step's name' runs the steps that stand alone
   current = name; const before = failures.length;
   try { await fn(); } catch (e){ failures.push(`[${name}] ${e.message.split('\n')[0]}`); }
   await page.waitForTimeout(80);
@@ -148,7 +156,7 @@ try {
         under: bar.getBoundingClientRect().bottom <= document.getElementById('view').getBoundingClientRect().top + 1,
         tiles: foot.querySelectorAll('.ptile:not(.add)').length, parts: document.querySelectorAll('#plist .pitem').length, add: !!foot.querySelector('.ptile.add') };
     });
-    if (r.tools !== 6 || r.chips !== 'bParts,mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
+    if (r.tools !== 6 || r.chips !== 'bParts,bScene,bOutline,bSection,bPlace,mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,bHist,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
       throw new Error('the bar and the foot: ' + JSON.stringify(r));
     await page.click('#pstrip .ptile:nth-child(3)');
     await page.waitForTimeout(200);
@@ -172,33 +180,34 @@ try {
   // 15 Nov 2026: a tool on the bar turns the foot to its values, and a tile does what the panel's control did
   await step('a tool on the bar turns the foot to its values, a tile each', async () => {
     const vis = () => page.evaluate(() => ['pstrip', 'tstrip'].map(id => getComputedStyle(document.getElementById(id)).display !== 'none' ? 1 : 0).join(''));
-    const tiles = () => page.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].map(t => t.dataset.t + (t.classList.contains('on') ? '*' : '')).join(' '));
+    const tiles = () => page.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].filter(t => !/^more/.test(t.dataset.t)).map(t => t.dataset.t + (t.classList.contains('on') ? '*' : '')).join(' '));
+    const tap = async sel => { await page.evaluate(q => __ui.show(document.querySelector(q)), sel); await page.click(sel); };      // the ring turned to the tile first
     const part = () => page.evaluate(() => { const S = __studio.S, p = S.parts.find(q => q.id === S.sel); return p && { bend: p.bend, color: p.paint.color, bands: p.paint.bands, hollow: p.hollow.on, wall: p.hollow.wall }; });
     if (await vis() !== '10') throw new Error('the foot does not open on the parts: ' + await vis());
     await page.click('#pstrip .ptile:nth-child(2)');
     await page.click('.tool[data-tool="bend"]');
     if (await vis() !== '01' || !/^straight\* taper flare bulge waist twist lean$/.test(await tiles())) throw new Error('bend\'s tiles: ' + await vis() + ' ' + await tiles());
-    await page.click('#tstrip [data-t="twist"]');
+    await tap('#tstrip [data-t="twist"]');
     let p = await part();
     if (p.bend.twist !== 0.5 || p.bend.taper !== 0 || !/twist\*/.test(await tiles())) throw new Error('the twist tile: ' + JSON.stringify(p) + ' ' + await tiles());
-    await page.click('#tstrip [data-t="straight"]');
+    await tap('#tstrip [data-t="straight"]');
     if ((await part()).bend.twist !== 0) throw new Error('the straight tile left a twist');
     await page.click('.tool[data-tool="paint"]');
-    await page.click('#tstrip [data-t="#2e8b57"]'); await page.click('#tstrip [data-t="bands-3"]');
+    await tap('#tstrip [data-t="#2e8b57"]'); await tap('#tstrip [data-t="bands-3"]');
     p = await part();
     if (p.color !== '#2e8b57' || p.bands !== 3 || !/#2e8b57\*.*bands-3\*/.test(await tiles())) throw new Error('paint\'s tiles: ' + JSON.stringify(p) + ' ' + await tiles());
-    await page.click('#tstrip [data-t="bands-0"]');
+    await tap('#tstrip [data-t="bands-0"]');
     await page.click('.tool[data-tool="hollow"]');
-    await page.click('#tstrip [data-t="thick"]');
+    await tap('#tstrip [data-t="thick"]');
     p = await part();
     if (!p.hollow || p.wall !== 0.16) throw new Error('the thick wall tile: ' + JSON.stringify(p));
-    await page.click('#tstrip [data-t="solid"]');
+    await tap('#tstrip [data-t="solid"]');
     if ((await part()).hollow) throw new Error('the solid tile left it hollow');
     await page.click('.tool[data-tool="sculpt"]');
-    await page.click('#tstrip [data-t="smooth"]'); await page.click('#tstrip [data-t="size-large"]');
+    await tap('#tstrip [data-t="smooth"]'); await tap('#tstrip [data-t="size-large"]');
     const sc = await page.evaluate(() => [document.querySelector('#toolPanel [data-b].on').dataset.b, document.getElementById('bsize').value].join());
     if (sc !== 'smooth,0.5' || !/smooth\*.*size-large\*/.test(await tiles())) throw new Error('sculpt\'s tiles: ' + sc + ' ' + await tiles());
-    await page.click('#tstrip [data-t="pull"]'); await page.click('#tstrip [data-t="size-medium"]');     // the brush as it was, for the checks below
+    await tap('#tstrip [data-t="pull"]'); await tap('#tstrip [data-t="size-medium"]');     // the brush as it was, for the checks below
     await page.click('.tool[data-tool="shape"]');
     if (await page.evaluate(() => document.querySelectorAll('#tstrip .ptile img').length !== document.querySelectorAll('#toolPanel [data-kind]').length)) throw new Error('a shape tile for every kind');
     await page.click('.tool[data-tool="shape"]');                // the lit tool pressed again gives the foot back
@@ -1369,6 +1378,51 @@ try {
   await step('undo and redo', async () => {
     const n = await parts(); await page.click('#undo'); if (await parts() === n) throw new Error('undo changed nothing');
     await page.click('#redo'); if (await parts() !== n) throw new Error('redo did not come back');
+  });
+  // 15 Nov 2026 (Tom: "you must use the fish eye wrap around in the footer and toolbars. the draw program's UI must be
+  // copied. settings should be on the bottom footer bar"): the page as it opens, without the checks' panels
+  await step("draw's chrome: the picture has the window, the bar and the foot are rings, a panel is a sheet", async () => {
+    const pg = await context.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
+    await libRoutes(pg); await pg.goto(base + PAGE); await pg.waitForFunction(() => window.__studio && window.__ui && __ui.rings.tstrip && __studio.S.parts.length, null, { timeout: 60000 });
+    const tap = async sel => { await pg.evaluate(q => __ui.show(document.querySelector(q)), sel); await pg.click(sel); };
+    const st = () => pg.evaluate(() => { const v = document.getElementById('view').getBoundingClientRect(), R = __ui.rings, vis = id => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0; };
+      return { view: [v.width, v.height].join(), win: [innerWidth, innerHeight].join(), foot: __ui.foot, bar: [R.bar.shown, R.bar.count, R.bar.flat].join(), strip: [R.tstrip.shown, R.tstrip.count, R.tstrip.flat].join(),
+        sheets: [...document.querySelectorAll('.panel .sec')].filter(x => getComputedStyle(x).display !== 'none').map(x => x.id).join(), menu: vis('menuPop'), file: vis('fileBtn') }; });
+    let s = await st();
+    if (s.view !== s.win || s.foot !== 'parts' || s.sheets || s.menu || s.file || !/^19,19,true$/.test(s.bar)) throw new Error('as it opens: ' + JSON.stringify(s));
+    await tap('#pstrip .ptile:nth-child(2)');
+    await tap('.tool[data-tool="paint"]');
+    s = await st(); const [shown, count] = s.strip.split(',').map(Number);
+    if (s.foot !== 'tool' || !/false$/.test(s.strip) || !(shown < count) || s.sheets) throw new Error('the paint tiles should be a ring that wraps: ' + JSON.stringify(s));
+    // a tile round the back of the ring comes when the ring is turned to it, and a drag turns the ring
+    await tap('#tstrip [data-t="#2e8b57"]');
+    if (await pg.evaluate(() => { const S = __studio.S; return S.parts.find(q => q.id === S.sel).paint.color; }) !== '#2e8b57') throw new Error('a tile of the ring did not colour the part');
+    const a0 = await pg.evaluate(() => __ui.rings.tstrip.angle), box = await pg.locator('#tstrip').boundingBox();
+    await pg.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await pg.mouse.down(); await pg.mouse.move(box.x + box.width / 2 - 220, box.y + box.height / 2, { steps: 6 }); await pg.mouse.up();
+    if (await pg.evaluate(() => __ui.rings.tstrip.angle) === a0) throw new Error('a drag did not turn the foot');
+    await tap('#tstrip [data-t="more:toolPanel"]');
+    s = await st(); if (s.sheets !== 'toolPanel') throw new Error('the sliders tile: ' + JSON.stringify(s));
+    await pg.keyboard.press('Escape'); if ((await st()).sheets) throw new Error('Escape left the sheet up');
+    await tap('#bParts'); await tap('#pstrip .ptile:nth-child(2)');          // (Escape also steps out of the part)
+    await tap('#bSection');
+    const sec = await pg.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].map(t => t.dataset.t).join());
+    if (!/^more:sectionSec,round,/.test(sec)) throw new Error('the section tiles: ' + sec);
+    await tap('#tstrip [data-t="star"]');
+    if (await pg.evaluate(() => { const S = __studio.S; return S.parts.find(q => q.id === S.sel).section.type; }) !== 'star') throw new Error('the star tile did not set the section');
+    await tap('#undo'); await tap('#undo');
+    await tap('#bOutline'); await tap('#tstrip [data-t="more:outlineSec"]'); if ((await st()).sheets !== 'outlineSec') throw new Error('the outline sheet');
+    await tap('#bPlace'); s = await st(); if (s.foot !== 'place' || s.sheets) throw new Error('place: ' + JSON.stringify(s));
+    await tap('#bPlace'); if ((await st()).foot !== 'parts') throw new Error('the lit button pressed again');
+    await pg.click('#menuBtn'); s = await st(); if (!s.menu || !s.file) throw new Error('the menu: ' + JSON.stringify(s));
+    await pg.click('#vScene'); await pg.waitForFunction(() => __ui.foot === 'scene');
+    s = await st(); const tiles = await pg.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].map(t => t.dataset.t).join());
+    if (s.menu || !/^more:sceneSec,shuffle,frame,more:sceneRules,prefab-0/.test(tiles) || +s.bar.split(',')[1] >= 19) throw new Error('the scene: ' + JSON.stringify(s) + ' ' + tiles);
+    // a phone: the bar cannot hold its buttons, so it is the ring that wraps
+    await pg.setViewportSize({ width: 390, height: 760 }); await pg.click('#menuBtn'); await pg.click('#vObject'); await pg.waitForFunction(() => __ui.foot === 'parts' && !__ui.rings.bar.flat);
+    s = await st(); const b = s.bar.split(','); if (!(+b[0] < +b[1]) || s.view !== '390,760') throw new Error('a phone: ' + JSON.stringify(s));
+    await tap('#bHist'); if ((await st()).foot !== 'hist') throw new Error('the history button'); await tap('.tool[data-tool="hollow"]'); if ((await st()).foot !== 'tool') throw new Error('a button round the back of the bar');
+    if (errs.length) throw new Error('page errors: ' + errs.join(' | '));
+    await pg.close();
   });
 } catch (e){
   failures.push(`[${current}] ${e.message.split('\n')[0]}`);

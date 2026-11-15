@@ -176,7 +176,6 @@
   .ptile.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(212,160,82,.35);color:var(--accent)}
   .ptile.edit{background:rgba(212,160,82,.14)}
   /* THE FOOT IS THE TOOL'S VALUES: while a tool has the foot, its tiles stand where the parts did */
-  #tstrip{display:none} .foot.tooling #tstrip{display:flex} .foot.tooling #pstrip{display:none}
   .ptile img{width:34px;height:34px;object-fit:contain;border-radius:6px}
   .foot .ptile.on{background:rgba(212,160,82,.14);border-color:var(--accent);box-shadow:0 0 0 2px rgba(212,160,82,.35);color:var(--accent)}
   .ptile:disabled{opacity:.35}
@@ -189,6 +188,48 @@
   .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
   .gallery button{padding:3px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10.5px;color:var(--dim)}
   .gallery img{width:100%;aspect-ratio:1;border-radius:4px;background:var(--bg)}
+  /* DRAW'S CHROME (15 Nov 2026, Tom: "you must use the fish eye wrap around in the footer and toolbars. the draw
+     program's UI must be copied. settings should be on the bottom footer bar"). The picture has the whole window; the
+     top bar is draw's ring of buttons with the menu's button pinned at its right; the foot is draw's strip, a ring of
+     tiles; and a panel is not a column any more but a sheet that stands above the strip when one of its tiles asks.
+     body.classic (the checks) keeps the columns and the old header, so what the checks press is where it was. */
+  .ring{position:relative;overflow:hidden;touch-action:none;cursor:grab}
+  .ring.grabbing,.ring.grabbing *{cursor:grabbing}
+  .ring .ri{position:absolute;top:50%;left:0;margin:0;transform:translate(-50%,-50%)}
+  body .ring .ring-off{display:none!important}
+  .ring .tsep{display:none}
+  .ring .tsay{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%)}
+  #menuBtn{display:none}
+  body:not(.classic){overflow:hidden}
+  body:not(.classic) .app{display:block;height:100%}
+  body:not(.classic) .top{position:fixed;top:0;left:0;right:0;height:58px;z-index:30;display:block;padding:0;border:none;background:linear-gradient(rgba(8,8,10,.8),transparent);pointer-events:none}
+  body:not(.classic) .bar{position:absolute;left:6px;right:58px;top:6px;height:46px;padding:0;display:block;pointer-events:auto}
+  body:not(.classic) .bar .bsep{display:none}
+  body:not(.classic) .tools,body:not(.classic) .bar .seg{display:contents!important}
+  body:not(.classic) .tool,body:not(.classic) .chip{width:38px;height:38px;border-radius:12px;background:rgba(24,24,31,.86)}
+  body:not(.classic) .tool.on,body:not(.classic) .chip.on{background:var(--accent)}
+  body:not(.classic) #menuBtn{display:flex;position:absolute;right:10px;top:10px;width:38px;height:38px;padding:0;border-radius:12px;align-items:center;justify-content:center;
+    background:rgba(24,24,31,.86);border:1px solid var(--line2);pointer-events:auto}
+  #menuBtn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+  #menuPop{position:fixed;top:56px;right:10px;z-index:45;display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:10px;width:230px;
+    background:var(--bg2);border:1px solid var(--line2);border-radius:14px;box-shadow:0 14px 40px #000a}
+  #menuPop[hidden]{display:none}
+  #menuPop .brand{display:block;margin:0 0 2px 2px} #menuPop .seg button{flex:1} #menuPop .menuwrap>button,#menuPop select{width:100%;text-align:left}
+  #menuPop .dropdown{left:auto;right:0} #menuPop .adv{display:flex}
+  body:not(.classic) .view{position:fixed;left:0;top:0;right:0;bottom:0}
+  body:not(.classic) .crumb{top:64px;bottom:auto} body:not(.classic) .hint{bottom:106px}
+  body:not(.classic) .foot{position:fixed;left:0;right:0;bottom:0;height:96px;z-index:30;padding:0;border:none;background:linear-gradient(transparent,rgba(8,8,10,.82));pointer-events:none}
+  body:not(.classic) .foot>*{pointer-events:auto}
+  body:not(.classic) .panel{display:contents}
+  body:not(.classic) .panel .sec{position:fixed;z-index:35;left:50%;bottom:104px;transform:translateX(-50%);width:min(330px,calc(100vw - 20px));max-height:calc(100vh - 180px);
+    overflow:auto;background:var(--bg2);border:1px solid var(--line2);border-radius:14px;box-shadow:0 14px 40px #000a}
+  body:not(.classic) .panel .sec:not(.open){display:none!important}
+  body:not(.classic) #wanderC{position:fixed;z-index:31;left:50%;bottom:104px;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:6px 10px}
+  /* the foot's strips: one shows at a time (data-show), each a ring */
+  .foot .pstrip,.foot .hist{display:none;flex:1 1 auto;height:100%;max-width:none}
+  .foot[data-show="parts"] #pstrip,.foot[data-show="tool"] #tstrip{display:block}
+  .foot[data-show="hist"] #hist{display:block;padding:0}
+  .foot .hist img{height:56px;width:84px;opacity:.85}
   .gtitle{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
   .brushes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
   .brushes button{padding:5px 2px;font-size:11px}
@@ -223,18 +264,23 @@
 </style>
 </head>
 <body>
+<script>/* the checks keep the side panels standing (tests/editor.mjs sets this before the page loads): see DRAW'S CHROME */
+if(window.__classicChrome) document.body.classList.add('classic');</script>
 <div class="app">
   <header class="top">
     <div class="brand">3d<small>shape studio</small></div>
     <div class="seg" title="object: shape one object from parts. scene: a whole place, many copies of many objects"><button id="vObject" class="on">object</button><button id="vScene">scene</button></div>
-    <!-- THE BAR (15 Nov 2026, Tom, of draw's interface: "Could we use the draw UI to replace the 3d UI?", then
-         "Proceed"). The first step of bringing it here: the six tools, which stood along the foot, and the view's
-         buttons, which floated over the picture, are one row of icon buttons on the top bar, each saying its name
-         under it when pointed at, as draw's do; the foot is the parts, a tile each (THE FOOT IS THE PARTS). The
-         side panels are as they were. Every button keeps its id and its handler. -->
+    <!-- THE BAR (15 Nov 2026, Tom, of draw's interface: "Could we use the draw UI to replace the 3d UI?"): draw's
+         top bar, a ring of icon buttons, each saying its name under it when pointed at. A button of the bar turns the
+         foot to its values (THE FOOT IS THE TOOL'S VALUES); the panels are sheets above the foot (DRAW'S CHROME).
+         Every button keeps its id and its handler. -->
     <div class="bar" id="bar">
       <button id="bParts" class="obj-only on" title="the parts, along the foot">parts</button>
+      <button id="bScene" class="scene-only" title="the scene: its types, its prefabs and its rules, along the foot">scene</button>
       <nav class="tools" id="tools"></nav>
+      <button id="bOutline" class="obj-only" title="the part's side outline">outline</button>
+      <button id="bSection" class="obj-only" title="the part's section: its shape going around">section</button>
+      <button id="bPlace" class="obj-only" title="where the part stands: drop it down, frame it, its sliders">place</button>
       <span class="bsep obj-only"></span>
       <button id="mMove" class="on obj-only" title="move (W)">move</button>
       <button id="mTurn" class="obj-only" title="turn (E)">turn</button>
@@ -247,6 +293,7 @@
       <label class="scene-only" id="wanderC" title="the signals' speed: how fast what happens reaches you">signals <input id="wanderCIn" type="range" min="0" max="1000"> <span id="wanderCVal"></span></label>
       <button id="wire" class="obj-only" title="show the wireframe of the part you are shaping">wire</button>
       <span class="bsep"></span>
+      <button id="bHist" title="the history's pictures, along the foot: press one to go back to it">history</button>
       <button id="undo" title="undo (Ctrl+Z)">&#8630;</button>
       <button id="redo" title="redo (Ctrl+Shift+Z)">&#8631;</button>
     </div>
@@ -301,6 +348,7 @@
       </div>
     </div>
     <label class="adv"><input type="checkbox" id="advanced"> advanced</label>
+    <button id="menuBtn" title="menu: object or scene, file, examples, describe"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
     <!-- No accept filter on these two (Oct 7): a phone's picker knows nothing of .3da or .tvf3d,
          so it greyed the files out and none could be chosen. The contents decide instead. -->
     <input type="file" id="fileOpen" hidden>
@@ -320,7 +368,7 @@
       <div class="h">prefabs <span class="note">pick one, then click the ground</span></div>
       <div class="libgrid" id="scLib"></div>
     </div>
-    <div class="sec obj-only">
+    <div class="sec obj-only" id="partsSec">
       <div class="h">parts <span id="pcount"></span></div>
       <div class="plist" id="plist"></div>
       <div class="row"><select id="addKind" style="flex:1;min-width:0"></select><button id="addPart" style="flex:none">+ add</button></div>
@@ -355,12 +403,12 @@
       <div class="h">placement rules</div>
       <div class="rules" id="scRules"><div class="note">The rules that place the copies show here.</div></div>
     </div>
-    <div class="sec obj-only">
+    <div class="sec obj-only" id="outlineSec">
       <div class="h">side outline <span class="note">drag · click to add · double-click to remove</span></div>
       <svg class="ed" id="outline" viewBox="0 0 240 250"></svg>
       <div class="row"><button id="olFromFile" title="take the outline from the right half of a drawing: an .svg, or a .tvf saved in draw">from a drawing…</button><button id="olSharp" title="the point last touched: sharp (a shoulder, a step, a rim) or smooth. Alt-click a point does the same">sharp</button><button id="olReset" title="back to the part's own outline">reset</button></div>
     </div>
-    <div class="sec obj-only">
+    <div class="sec obj-only" id="sectionSec">
       <div class="h">section <span class="note">its shape going around</span></div>
       <div class="stypes" id="stypes"></div>
       <svg class="ed" id="section" viewBox="0 0 240 170"></svg>
@@ -372,7 +420,7 @@
 
   <!-- THE FOOT IS THE PARTS: a tile a part (tap to select, twice to shape it), a tile to add one, and the
        history's pictures at the right. Drawn by drawParts beside the list in the left panel. -->
-  <footer class="foot" id="foot"><div class="pstrip obj-only" id="pstrip"></div><div class="pstrip obj-only" id="tstrip"></div><div class="hist" id="hist"></div></footer>
+  <footer class="foot" id="foot" data-show="parts"><div class="pstrip obj-only" id="pstrip"></div><div class="pstrip" id="tstrip"></div><div class="hist" id="hist"></div></footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -5945,6 +5993,10 @@ function drawParts(){ const el=$('plist'); el.innerHTML=''; $('pcount').textCont
       b.onclick=()=>select_(p.id); b.ondblclick=()=>setEditing(p.id); fs.appendChild(b); }
     const add=document.createElement('button'); add.className='ptile add'; add.id='ptAdd'; add.title='add a part (the kind chosen in the parts panel)';
     add.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="nm">add</span>'; add.onclick=()=>$('addPart').click(); fs.appendChild(add);
+    // the panel's other two buttons, as tiles after it (the panel is a sheet now, and these should not need it)
+    for(const [id,name,d] of [['dupPart','duplicate','M8 8h11v11H8zM5 16V5h11'],['delPart','delete','M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13']]){
+      const b=document.createElement('button'); b.className='ptile add act'; b.dataset.t=id; b.title=name; b.disabled=!selPart();
+      b.innerHTML='<svg viewBox="0 0 24 24"><path d="'+d+'"/></svg><span class="nm">'+name+'</span>'; b.onclick=()=>$(id).click(); fs.appendChild(b); }
     const cur=fs.querySelector('.sel'); if(cur && cur.scrollIntoView) cur.scrollIntoView({block:'nearest',inline:'nearest'}); } }
 function kindOptions(){ return `<optgroup label="shapes">${Object.keys(LATHE).map(k=>`<option>${k}</option>`).join('')}</optgroup><optgroup label="classic">${CLASSIC_OK().map(k=>`<option value="${k}">${k.replace('_',' ')}</option>`).join('')}</optgroup>`; }
 $('addKind').innerHTML=kindOptions();
@@ -5961,7 +6013,9 @@ const ICON={ shape:'<path d="M12 3c4 0 5 3 4 6s2 4 2 7-3 5-6 5-6-2-6-5 3-4 2-7S8
   hollow:'<path d="M5 6c0 9 2 14 7 14s7-5 7-14"/><path d="M8 6c0 7 1 11 4 11s4-4 4-11"/>', detail:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>' };
 // THE BAR'S GLYPHS: the view's buttons were words over the picture; on the bar each is a glyph, and says its word
 // under it while pointed at or held (as draw's buttons say their names)
-{ const G={ bParts:'<rect x="3" y="8" width="5" height="8" rx="1.5"/><rect x="9.5" y="8" width="5" height="8" rx="1.5"/><rect x="16" y="8" width="5" height="8" rx="1.5"/>', mMove:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
+{ const G={ bScene:'<path d="M3 18l5-8l4 5l3-4l6 7z"/><circle cx="17" cy="6" r="2"/>', bOutline:'<path d="M12 3v18"/><path d="M12 4c5 1 7 5 5 9s-1 6-5 7"/>',
+    bSection:'<path d="M12 3l2.6 5.6l6.1.7l-4.5 4.2l1.2 6l-5.4-3l-5.4 3l1.2-6L3.3 9.3l6.1-.7z"/>', bPlace:'<path d="M12 21s6-6 6-11a6 6 0 0 0-12 0c0 5 6 11 6 11z"/><circle cx="12" cy="10" r="2"/>',
+    bHist:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>', bParts:'<rect x="3" y="8" width="5" height="8" rx="1.5"/><rect x="9.5" y="8" width="5" height="8" rx="1.5"/><rect x="16" y="8" width="5" height="8" rx="1.5"/>', mMove:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
     mTurn:'<path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M17.5 2v4.5H13"/>', mSize:'<rect x="4" y="10" width="10" height="10" rx="1.5"/><path d="M14 4h6v6M20 4l-7 7"/>',
     snap:'<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M4 8h4M16 8h4"/>', frameAll:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
     navOrbit:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5"/>', navWalk:'<circle cx="12" cy="4.5" r="2"/><path d="M12 7v6l-3 7M12 13l3 7M8 10l4-2l4 2"/>',
@@ -5982,11 +6036,100 @@ $('tools').innerHTML=TOOLS.map(t=>`<button class="tool" data-tool="${t}"><svg vi
 // the values of that option"): a tool pressed on the bar turns the foot to that tool's values, a tile each; the lit
 // tool pressed again, or the Parts button, gives the foot back to the parts. A tile presses the panel's own button or
 // sets its slider, so the panel is still the code that acts while it stands (it goes in a later step).
+// DRAW'S RING. This is draw's makeRing and the boma maths under it (draw.html, "the button rings"), brought here with
+// its numbers: the items stand where boma.fisheye.project puts them around a focus angle, a drag turns the ring and a
+// throw carries it, the wheel steps it, and far enough round the first item comes back, so nothing is ever off the
+// end. When every item fits it is a centred row and does not turn. What differs is only what must: which elements are
+// its items (sel), the air between them (GAP), and a culled item is hidden by a class, since this page's own rules
+// show and hide by !important.
+const boma={ PSI:2/Math.PI,
+  fisheye:{ project(index,angle,size,itemExtent){ const extent=size*itemExtent*boma.PSI; return (Math.tan(angle+index*Math.PI/size)+1)*0.5*extent-extent*0.5; } },
+  normalizeAngle(a){ return ((a%Math.PI)+Math.PI)%Math.PI; },
+  getCenteredIndex(angle,n){ const i=Math.round(-angle*n/Math.PI); return ((i%n)+n)%n; },
+  angleDelta(a,b){ let d=(a-b)%Math.PI; if(d>Math.PI/2) d-=Math.PI; if(d<-Math.PI/2) d+=Math.PI; return d; },
+  realDimension(focus,N,aperture){ if(N<=0) return {indices:[]}; const inc=Math.PI/N, a0=Math.floor((Math.atan(-aperture)-focus)/inc), a1=Math.ceil((Math.atan(aperture)-focus)/inc), indices=[];
+    for(let i=a0;i<=a1;i++) indices.push(((i%N)+N)%N); return {indices}; } };
+const RING_THROW_MS=140, RING_FRICTION=0.88, RING_V_MAX=0.055, RING_V_MIN=0.0012, WHEEL_SPIN_GAIN=0.3;
+const pixelsToAngle=(px,vw)=>(px/Math.max(1,vw))*Math.PI;
+function makeRing(strip,sel,GAP=16,live=()=>true){ if(!strip) return null; strip.classList.add('ring');
+  let angle=0, raf=0, _item=0, vel=0, spin=null;
+  const items=()=>[...strip.querySelectorAll(sel)].filter(live);
+  const itemExtent=()=>{ if(_item) return _item; let w=0; for(const b of items()) if(b.offsetWidth>w) w=b.offsetWidth; return w?(_item=w+GAP):32+GAP; };
+  const forget=()=>{ _item=0; };
+  const virtualWidth=()=>items().length*itemExtent()*boma.PSI;
+  function layout(){ const btns=items(), n=btns.length; if(!n) return; const W=strip.clientWidth; if(!W) return; const half=W/2, ITEM=itemExtent(), vw=n*ITEM*boma.PSI;
+    for(const b of btns) b.classList.add('ri');
+    const chipW=Math.max(8,ITEM-GAP), pitch=Math.min(ITEM,W/n);
+    if(pitch>=chipW+5){ angle=0; const x0=(W-n*pitch)/2+pitch/2;                  // everything fits: a centred row, no window to bound
+      btns.forEach((b,i)=>{ b.classList.remove('ring-off'); b.style.left=(x0+i*pitch)+'px'; b.style.zIndex='100'; }); return; }
+    const aperture=Math.min(1,(W+4*ITEM)/vw), best={};
+    for(const i of boma.realDimension(angle,n,aperture).indices){ if(i>=n) continue; const pos=boma.fisheye.project(i,angle,n,ITEM); if(!isFinite(pos)) continue;
+      if(!(i in best) || Math.abs(pos)<Math.abs(best[i])) best[i]=pos; }       // named twice when the window wraps: the nearer one
+    btns.forEach((b,i)=>{ const p=best[i], x=p==null?null:p+half; if(x==null || x<-ITEM || x>W+ITEM){ b.classList.add('ring-off'); return; }
+      b.classList.remove('ring-off'); b.style.left=x+'px'; b.style.zIndex=String(100-Math.round(Math.min(1,Math.abs(p)/half)*60)); }); }
+  const stop=()=>{ if(raf){ cancelAnimationFrame(raf); raf=0; } vel=0; };
+  const glide=v=>{ stop(); vel=Math.max(-RING_V_MAX,Math.min(RING_V_MAX,v||0)); if(!isFinite(vel) || Math.abs(vel)<RING_V_MIN){ vel=0; return; }
+    const step=()=>{ angle=boma.normalizeAngle(angle+vel); layout(); vel*=RING_FRICTION; if(Math.abs(vel)<RING_V_MIN){ raf=0; vel=0; return; } raf=requestAnimationFrame(step); };
+    raf=requestAnimationFrame(step); };
+  strip.addEventListener('pointerdown',e=>{ stop(); if(e.button!==0 || e.target.closest('input,select,textarea')) return; spin={x:e.clientX,start:angle,id:e.pointerId,active:false,t:performance.now(),a:angle,v:0}; });
+  window.addEventListener('pointermove',e=>{ if(!spin || e.pointerId!==spin.id) return;
+    if(e.buttons!==0) spin.sawButtons=true; else if(spin.sawButtons){ endSpin(e,true); return; }
+    const dx=e.clientX-spin.x;
+    if(!spin.active){ if(Math.abs(dx)<4) return; spin.active=true; try{ strip.setPointerCapture(spin.id); }catch(_){} strip.classList.add('grabbing'); }
+    angle=boma.normalizeAngle(spin.start+pixelsToAngle(dx,virtualWidth()));
+    const now=performance.now(), inst=(boma.angleDelta(angle,spin.a)/Math.max(1,now-spin.t))*16; spin.v=spin.v*0.4+inst*0.6; spin.t=now; spin.a=angle; spin.moved=now;
+    layout(); e.preventDefault(); });
+  const endSpin=(e,stale)=>{ if(!spin || (e && e.pointerId!==spin.id)) return; const was=spin.active, fresh=spin.moved && (performance.now()-spin.moved)<RING_THROW_MS, v=(stale===true && !fresh)?0:spin.v;
+    if(was){ try{ strip.releasePointerCapture(spin.id); }catch(_){} } spin=null; if(was) glide(v); strip.classList.remove('grabbing'); if(!was) return;   // never travelled: it was a click
+    const kill=ev=>{ ev.stopPropagation(); ev.preventDefault(); }; strip.addEventListener('click',kill,{capture:true,once:true}); setTimeout(()=>strip.removeEventListener('click',kill,true),0); };
+  window.addEventListener('pointerup',endSpin); window.addEventListener('pointercancel',e=>endSpin(e,true)); window.addEventListener('blur',()=>endSpin(null,true));
+  strip.addEventListener('wheel',e=>{ const u={0:1,1:16,2:100}[e.deltaMode]||1, dx=e.deltaX*u, dy=e.deltaY*u, px=(Math.abs(dx)>Math.abs(dy)?dx:dy)*WHEEL_SPIN_GAIN; if(!px) return;
+    e.preventDefault(); stop(); angle=boma.normalizeAngle(angle-pixelsToAngle(px,virtualWidth())); layout(); },{passive:false});
+  const refresh=()=>{ forget(); layout(); };
+  window.addEventListener('resize',refresh); requestAnimationFrame(refresh); window.addEventListener('load',()=>requestAnimationFrame(refresh));
+  if(typeof ResizeObserver==='function'){ let last=-1; new ResizeObserver(()=>{ const w=strip.clientWidth; if(w && w!==last){ last=w; refresh(); } }).observe(strip); }
+  // what the strip holds is drawn again often (a part selected, a tile lit): the ring lays the new items out where the old stood
+  new MutationObserver(refresh).observe(strip,{childList:true});
+  return { layout, refresh, focus(i){ const n=items().length; if(!n) return; stop(); angle=boma.normalizeAngle(-i*Math.PI/n); layout(); },
+    show(el){ const i=items().indexOf(el); if(i>=0) this.focus(i); },
+    get angle(){ return angle; }, get flat(){ const n=items().length; return !n || Math.min(itemExtent(),strip.clientWidth/n)>=itemExtent()-GAP+5; },
+    get shown(){ return items().filter(b=>!b.classList.contains('ring-off')).length; }, get count(){ return items().length; } }; }
+const OLD_CHROME=document.body.classList.contains('classic');
+// THE FOOT IS THE TOOL'S VALUES (15 Nov 2026; draw's rule, "keep the options in the header and the footer is just for
+// the values of that option"): a button of the bar turns the foot to its values, a tile each; pressed again while lit
+// it gives the foot back to the parts (to the scene's own tiles in a scene). A tile presses the panel's own button or
+// sets its slider, so the panels are still the code that acts; a panel itself is a sheet above the strip, opened by
+// the strip's first tile where there is more to set than tiles hold (an outline to drag, a slider's values between).
 let footShow='parts';
-function setFoot(m){ footShow=m; $('foot').classList.toggle('tooling',m==='tool'); $('bParts').classList.toggle('on',m==='parts'); }
+const FOOT_BTN={ parts:'bParts', scene:'bScene', outline:'bOutline', section:'bSection', place:'bPlace', hist:'bHist' };
+const footHome=()=>document.body.classList.contains('scene-mode')?'scene':'parts';
+function closeSheets(){ for(const x of document.querySelectorAll('.panel .sec.open')) x.classList.remove('open'); }
+function toggleSheet(id){ const x=$(id), was=x.classList.contains('open'); closeSheets(); x.classList.toggle('open',!was); }
+function setFoot(m){ footShow=m; closeSheets(); $('foot').dataset.show=m==='parts'||m==='hist'?m:'tool';
+  for(const k in FOOT_BTN) $(FOOT_BTN[k]).classList.toggle('on',m===k);
+  drawToolStrip(); for(const r of [RINGS.pstrip,RINGS.tstrip,RINGS.hist]) if(r) r.focus(0); }
 $('tools').addEventListener('click',e=>{ const b=e.target.closest('.tool'); if(!b) return;
-  setFoot(footShow==='tool' && S.tool===b.dataset.tool?'parts':'tool'); S.tool=b.dataset.tool; refreshAll(); });
-$('bParts').onclick=()=>{ setFoot('parts'); };
+  const again=footShow==='tool' && S.tool===b.dataset.tool; S.tool=b.dataset.tool; refreshAll(); setFoot(again?footHome():'tool'); });
+for(const k in FOOT_BTN) $(FOOT_BTN[k]).onclick=()=>setFoot(footShow===k?footHome():k);
+window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheets(); });
+const RINGS={};
+{ // the bar's buttons stand in it one by one (the orbit, walk and fly group is opened out), and the ring takes the ones this view has
+  const bar=$('bar'), inView=b=>!b.matches('body.scene-mode .obj-only, body.scene-mode .tool, body:not(.scene-mode) .scene-only');
+  if(!OLD_CHROME){ for(const g of [...bar.querySelectorAll('.seg')]){ for(const b of [...g.children]){ b.classList.add(...[...g.classList].filter(c=>c==='scene-only'||c==='obj-only')); bar.insertBefore(b,g); } g.remove(); }
+    document.body.appendChild($('wanderC'));
+    // THE MENU: what is not a tool of the picture (object or scene, file, examples, describe, advanced) is behind one button, as draw's is
+    const pop=document.createElement('div'); pop.id='menuPop'; pop.hidden=true; document.body.appendChild(pop);
+    for(const x of [...document.querySelector('.top').children]) if(x.id!=='bar' && x.id!=='menuBtn' && x.tagName!=='INPUT') pop.appendChild(x);
+    $('menuBtn').onclick=()=>{ pop.hidden=!pop.hidden; }; for(const id of ['vObject','vScene']) $(id).addEventListener('click',()=>{ pop.hidden=true; });
+    window.addEventListener('pointerdown',e=>{ if(!pop.hidden && !e.target.closest('#menuPop,#menuBtn')) pop.hidden=true; },true); }
+  requestAnimationFrame(()=>{ if(!OLD_CHROME) RINGS.bar=makeRing(bar,'.tool,.chip',12,inView);
+    RINGS.pstrip=makeRing($('pstrip'),'.ptile',10); RINGS.tstrip=makeRing($('tstrip'),'.ptile',10); RINGS.hist=makeRing($('hist'),'img',8);
+    // object or scene: the bar's buttons change, and the foot goes to that view's own tiles
+    let was=document.body.classList.contains('scene-mode');
+    new MutationObserver(()=>{ const now=document.body.classList.contains('scene-mode'); if(now===was) return; was=now; if(RINGS.bar) RINGS.bar.refresh(); setFoot(footHome()); }).observe(document.body,{attributes:true,attributeFilter:['class']});
+    new MutationObserver(()=>{ if(footShow==='scene') drawToolStrip(); }).observe($('scLib'),{childList:true});
+    if(was) setFoot('scene'); }); }
+window.__ui={ rings:RINGS, get foot(){ return footShow; }, setFoot, show(el){ const h=el.closest('.ring'); for(const k in RINGS) if(RINGS[k] && $(k)===h) RINGS[k].show(el); } };
 const FMT={};
 const slider=(id,label,min,max,step,val,fmt=v=>(+v).toFixed(2))=>{ FMT[id]=fmt; return `<div class="field">${label}<input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="v${id}">${fmt(val)}</span></div>`; };
 function bindSlider(id,fn,label){ const el=$(id); if(!el) return; el.addEventListener('input',e=>{ const v=+e.target.value; fn(v); $('v'+id).textContent=FMT[id](v); }); if(label) el.addEventListener('change',()=>commit(label)); }
@@ -6078,10 +6221,23 @@ function drawToolStrip(){ const el=$('tstrip'); if(!el) return; el.innerHTML='';
   // a slider of the panel set as if dragged there and let go: its own listeners do the work and take the undo step
   const setS=(id,v,done=true)=>{ const r=$(id); if(!r) return; r.value=v; r.dispatchEvent(new Event('input',{bubbles:true})); if(done) r.dispatchEvent(new Event('change',{bubbles:true})); };
   const press=sel=>{ const b=P.querySelector(sel); if(b) b.click(); };
+  // the strip's first tile where a panel holds more than tiles do: it stands the panel above the strip, as a sheet
+  const more=(id,name)=>{ if(OLD_CHROME) return; tile('more:'+id,T_GLYPH.path('M5 7h14M5 12h14M5 17h14M9 5v4M15 10v4M8 15v4'),name,$(id).classList.contains('open'),()=>{ toggleSheet(id); drawToolStrip(); }); };
+  const mirror=(b,key,inner,name)=>{ const t=tile(key,inner,name||b.textContent.trim(),b.classList.contains('on'),()=>{ b.click(); drawToolStrip(); }); t.disabled=b.disabled; return t; };
+  if(footShow==='parts' || footShow==='hist') return;
+  if(footShow==='outline'){ more('outlineSec','edit');
+    mirror($('olFromFile'),'from',T_GLYPH.path('M6 4h8l4 4v12H6zM14 4v4h4'),'from a drawing'); mirror($('olSharp'),'sharp',T_GLYPH.path('M5 19L12 5l7 14')); mirror($('olReset'),'reset',T_GLYPH.path('M20 12a8 8 0 1 1-3-6.2M17.5 2v4.5H13')); return; }
+  if(footShow==='section'){ more('sectionSec','edit'); if($('stypes').style.display!=='none') for(const b of $('stypes').children) mirror(b,b.dataset.t,(b.querySelector('svg')||{outerHTML:''}).outerHTML); return; }
+  if(footShow==='place'){ more('xformSec','sliders'); mirror($('toFloor'),'floor',T_GLYPH.path('M12 4v11M8 11l4 4l4-4M5 20h14'),'drop down'); mirror($('frame'),'frame',T_GLYPH.path('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'));
+    if(p) tile('quarter',T_GLYPH.path('M19 12a7 7 0 1 1-7-7M12 2l3 3l-3 3'),'quarter turn',false,()=>{ const r=$('pr'); let v=(+r.value||0)+90; if(v>180) v-=360; setS('pr',v); }); return; }
+  if(footShow==='scene'){ more('sceneSec','types'); mirror($('scShuffle'),'shuffle',T_GLYPH.path('M4 7h4l8 10h4M4 17h4l8-10h4M18 5l2 2l-2 2M18 15l2 2l-2 2')); mirror($('scFrame'),'frame',T_GLYPH.path('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'));
+    more('sceneRules','rules');
+    [...$('scLib').children].forEach((b,i)=>{ const im=b.querySelector('img,canvas,svg'); mirror(b,'prefab-'+i,im&&im.tagName==='IMG'?'<img alt="" src="'+im.src+'">':T_GLYPH.path('M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12v9M4 7.5l8 4.5l8-4.5'),b.textContent.trim()); }); return; }
   if(T==='shape'){ for(const b of P.querySelectorAll('[data-kind]')){ const k=b.dataset.kind;
       tile(k,`<img alt="" src="${galleryImgs[k]||''}">`,k.replace('_',' '),false,()=>press(`[data-kind="${k}"]`)); } return; }
   const note=!p?`Select a part to ${T} it.`:kindOf(p).toolNote(p,T);
   if(note){ const d=document.createElement('div'); d.className='tsay'; d.textContent=note.replace(/<[^>]+>/g,''); el.appendChild(d); return; }
+  more('toolPanel','sliders');
   if(T==='sculpt'){
     for(const b of P.querySelectorAll('[data-b]')){ const m=b.dataset.b; tile(m,T_GLYPH.path(BRUSH_GLYPH[m]||'M5 16c3-8 11-8 14 0'),b.textContent,sculptBrush===m,()=>press(`[data-b="${m}"]`)); }
     sep(); for(const [k,name,r,g] of [['small','small',0.06,3],['medium','medium',0.18,5.5],['large','large',0.5,8.5]])
