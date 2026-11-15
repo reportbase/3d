@@ -137,6 +137,32 @@ try {
     });
   }
   await step('select a part from the list', () => page.click('.pitem:nth-child(2)'));
+  // THE BAR AND THE FOOT (15 Nov 2026, the first step of draw's interface here): the six tools and the view's buttons
+  // are icon buttons on the top bar; the foot holds a tile a part and a tile to add one; a tile selects its part, and
+  // the list in the panel and the tile agree on which is selected
+  await step('the bar holds the tools and the view buttons; the foot is the parts', async () => {
+    const r = await page.evaluate(() => {
+      const bar = document.getElementById('bar'), foot = document.getElementById('pstrip');
+      return { tools: bar.querySelectorAll('.tool').length, chips: [...bar.querySelectorAll('.chip')].map(b => b.id).join(),
+        glyphs: [...bar.querySelectorAll('.tool, .chip')].every(b => b.querySelector('svg') && b.querySelector('.nm').textContent.trim()),
+        under: bar.getBoundingClientRect().bottom <= document.getElementById('view').getBoundingClientRect().top + 1,
+        tiles: foot.querySelectorAll('.ptile:not(.add)').length, parts: document.querySelectorAll('#plist .pitem').length, add: !!foot.querySelector('.ptile.add') };
+    });
+    if (r.tools !== 6 || r.chips !== 'mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
+      throw new Error('the bar and the foot: ' + JSON.stringify(r));
+    await page.click('#pstrip .ptile:nth-child(3)');
+    await page.waitForTimeout(200);
+    const s2 = await page.evaluate(() => [[...document.querySelectorAll('#pstrip .ptile')].findIndex(t => t.classList.contains('sel')), [...document.querySelectorAll('#plist .pitem')].findIndex(t => t.classList.contains('sel'))].join());
+    if (s2 !== '2,2') throw new Error('a tile pressed selected ' + s2);
+    const n0 = r.tiles;
+    await page.click('#ptAdd');
+    await page.waitForTimeout(300);
+    const n1 = await page.evaluate(() => document.querySelectorAll('#pstrip .ptile:not(.add)').length);
+    if (n1 !== n0 + 1) throw new Error('the add tile: ' + n0 + ' parts, then ' + n1);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(300);
+    await page.click('.pitem:nth-child(2)');
+  });
   for (const t of ['round', 'polygon', 'star', 'petal', 'super', 'custom']){
     await step(`section ${t}`, async () => {
       await page.click(`#stypes [data-t="${t}"]`);

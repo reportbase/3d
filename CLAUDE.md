@@ -76,6 +76,13 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   `place()` is seeded, so a scene always comes out the same. A new scene material needs
   `onBeforeCompile = wanderFrag` to be banded. Anything flat and large must be an area.
   Nothing may cut a vertical cliff. `rungGrid` must agree with `radiusAt`/`colorAt`.
+- **The interface is becoming draw's** (15 Nov 2026, Tom: "Could we use the draw UI to replace the 3d UI?", "Proceed").
+  Step one is in: the top bar (`#bar`) is a row of icon buttons, the six tools (`#tools`, `.tool`) and the view's
+  buttons (`.chip`: move, turn, size, snap, frame all, orbit, walk, fly, wander, wire, undo, redo), each saying its
+  name under it when pointed at; the foot (`#foot`) is the parts as tiles (`#pstrip`, drawn by `drawParts` beside the
+  panel's list) and the history's pictures. Every button kept its id and its handler. The side panels are as they
+  were; the next steps move each tool's panel into tiles in the foot, then take the panels away. A new button on the
+  bar needs a glyph in THE BAR'S GLYPHS.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
