@@ -52,9 +52,35 @@ if (process.env.CHROMIUM_PATH) launch.executablePath = process.env.CHROMIUM_PATH
 const browser = await chromium.launch(launch);
 const context = await browser.newContext({ viewport: { width: 1360, height: 820 }, acceptDownloads: true });
 const page = await context.newPage();
-// The checks keep the side panels standing and the old header (body.classic): what they press is where it was. The
-// page as it opens for a visitor, draw's chrome, has its own step at the end, on a page without this.
-await page.addInitScript(() => { window.__classicChrome = true; });
+// THE CHECKS RUN IN THE PAGE AS A VISITOR HAS IT (16 Nov 2026, Tom: "1 2 3 4 5", the third, "Port the tests to the new
+// layout"). They kept the side panels standing and the old header (body.classic) so what they pressed was where it was,
+// and so missed what only draw's chrome could get wrong: the button that ends the editing of a scene's type stood
+// behind the bar, where nothing could press it. CLASSIC=1 runs them the old way.
+const NEWCHROME = !process.env.CLASSIC;
+if (!NEWCHROME) await page.addInitScript(() => { window.__classicChrome = true; });
+// REACHING A CONTROL IN DRAW'S CHROME. A control the columns always showed may now be round the back of a
+// ring, in a sheet that is down, or in the menu. Before a check presses, fills or chooses it, the page is asked to bring
+// it: the ring is turned to it, its sheet is stood up, the menu is opened; what was opened for the press is put away after.
+if (NEWCHROME){
+  if (process.env.TMO) page.setDefaultTimeout(+process.env.TMO);
+  const reach = sel => page.evaluate(sel => { const e = document.querySelector(sel); if (!e) return null; const got = {};
+    const pop = e.closest('#menuPop'); if (pop && pop.hidden){ pop.hidden = false; got.menu = true; }
+    const sec = e.closest('.sec'); if (sec && !sec.classList.contains('open')){ for (const x of document.querySelectorAll('.panel .sec.open')) x.classList.remove('open'); sec.classList.add('open'); got.sec = sec.id; }
+    for (let d = e.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) if (!d.open){ d.open = true; }
+    if (e.closest('.ring') && window.__ui) __ui.show(e);
+    return got; }, sel).catch(() => null);
+  const away = got => got && page.evaluate(got => { if (got.sec){ const x = document.getElementById(got.sec); if (x) x.classList.remove('open'); }
+    if (got.menu){ const p = document.getElementById('menuPop'); if (p) p.hidden = true; } }, got).catch(() => {});
+  for (const m of ['click', 'fill', 'selectOption', 'dblclick', 'check', 'hover']){ const real = page[m].bind(page);
+    page[m] = async (sel, ...rest) => { const got = typeof sel === 'string' ? await reach(sel) : null; try { return await real(sel, ...rest); }
+      catch (e){ if (typeof sel === 'string') e.message = e.message.split('\n')[0] + ' ' + sel + ' ' + await page.evaluate(sel => { const e = document.querySelector(sel); if (!e) return 'is not in the page'; const r = e.getBoundingClientRect(), t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return JSON.stringify({ at: [r.x, r.y, r.width, r.height].map(Math.round), over: t && (t.id || t.className), off: e.disabled, body: document.body.className }); }, sel).catch(() => ''); throw e; }
+      finally { await away(got); } }; }
+  // an element asked for by itself (page.$) is to be measured and dragged: what was stood up for it stays until another is reached
+  let held = null; const drop = async () => { const h = held; held = null; await away(h); };
+  const real$ = page.$.bind(page); page.$ = async sel => { await drop(); const got = await reach(sel); if (got && (got.sec || got.menu)) held = got; return real$(sel); };
+  for (const m of ['click', 'fill', 'selectOption', 'dblclick', 'check', 'hover']){ const r = page[m]; page[m] = async (...a) => { await drop(); return r(...a); }; }
+}
 const libRoutes = async pg => { if (!process.env.LIBS_DIR) return; const lib = f => readFile(join(process.env.LIBS_DIR, 'three', f));
   await pg.route(/three\.js\/r128\/three\.min\.js/, async r => r.fulfill({ contentType: 'text/javascript', body: await lib('build/three.min.js') }));
   for (const c of ['OrbitControls', 'TransformControls'])
@@ -153,7 +179,7 @@ try {
       const bar = document.getElementById('bar'), foot = document.getElementById('pstrip');
       return { tools: bar.querySelectorAll('.tool').length, chips: [...bar.querySelectorAll('.chip')].map(b => b.id).join(),
         glyphs: [...bar.querySelectorAll('.tool, .chip')].every(b => b.querySelector('svg') && b.querySelector('.nm').textContent.trim()),
-        under: bar.getBoundingClientRect().bottom <= document.getElementById('view').getBoundingClientRect().top + 1,
+        under: bar.getBoundingClientRect().bottom <= 80 && document.getElementById('view').getBoundingClientRect().top <= 1,      // the picture has the window, the bar over its top
         tiles: foot.querySelectorAll('.ptile:not(.add)').length, parts: document.querySelectorAll('#plist .pitem').length, add: !!foot.querySelector('.ptile.add') };
     });
     if (r.tools !== 6 || r.chips !== 'bParts,bScene,bOutline,bSection,bPlace,mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,bHist,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
@@ -800,8 +826,8 @@ try {
     if (Math.hypot(c2.x - c.x, c2.z - c.z) < 0.5) throw new Error('W did not move');
     if (Math.abs(c2.y - g2 - 1.7) > 0.05) throw new Error('walking left eye height');
     await page.click('#navFly');
-    await page.keyboard.down(' '); await page.waitForTimeout(600); await page.keyboard.up(' ');
-    const c3 = await ev(() => __studio.cam().position.y);
+    // held until it has risen, not for a count of seconds: the picture has the whole window now and a frame takes longer
+    await page.keyboard.down(' '); let c3 = c2.y; for (let k = 0; k < 8 && !(c3 > c2.y + 2); k++){ await page.waitForTimeout(400); c3 = await ev(() => __studio.cam().position.y); } await page.keyboard.up(' ');
     if (!(c3 > c2.y + 2)) throw new Error('Space did not rise when flying: ' + c2.y + ' → ' + c3);
     await page.keyboard.press('Escape');
     if (await ev(() => !!__scene.nav || !__studio.orbit().enabled)) throw new Error('Esc did not return to orbiting');
@@ -1411,7 +1437,7 @@ try {
     if (await pg.evaluate(() => { const S = __studio.S; return S.parts.find(q => q.id === S.sel).paint.color; }) !== '#123456') throw new Error("the colour's tile did not colour the part");
     await tap('.tool[data-tool="bend"]'); await tap('#tstrip [data-t="dial:btwist"]');
     await pg.evaluate(() => { const i = document.querySelector('#fdial input'); i.value = 0.3; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); });
-    const dl = await pg.evaluate(() => { const S = __studio.S, d = document.getElementById('fdial'); return [S.parts.find(q => q.id === S.sel).bend.twist, d.hidden, document.getElementById('btwist').value, /0\.30/.test(document.querySelector('[data-dial="btwist"] .nm').textContent)].join(); });
+    const dl = await pg.evaluate(() => { const S = __studio.S, d = document.getElementById('fdial'); return [S.parts.find(q => q.id === S.sel).bend.twist, d.hidden, document.getElementById('btwist').value, /0\.30/.test(document.querySelector('[data-dial="btwist"] .dval').textContent)].join(); });
     if (dl !== '0.3,false,0.3,true') throw new Error('the dial: ' + dl);
     await tap('#tstrip [data-t="dial:btwist"]'); if (await pg.evaluate(() => !document.getElementById('fdial').hidden)) throw new Error('the lit dial pressed again should put its slider away');
     await tap('#bOutline'); await tap('#tstrip [data-t="more:outlineSec"]'); if ((await st()).sheets !== 'outlineSec') throw new Error('the outline sheet');

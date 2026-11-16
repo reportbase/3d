@@ -104,10 +104,16 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
     as the buttons in draw"; DRAW'S BUTTONS, `--chip-*`): 32px on the bar with a 17px glyph (52px on touch and a narrow
     window), 72px tiles with a 20px corner on the strip, draw's fill, hairline and shadows, the lit one gold on the bar
     and ringed gold on the strip. One button of the bar is lit, the one whose values the foot holds (`litTools`).
-  - The checks keep the columns and the old header (`body.classic`, set by `window.__classicChrome` in
-    `tests/editor.mjs`), so what they press is where it was; the last step of `tests/editor.mjs` opens the page
-    without it and checks the chrome itself. `window.__ui` (`rings`, `foot`, `setFoot`, `show(el)`: turn a ring to an
-    item) is for the checks: a tile round the back of a ring has to be turned to before it is pressed.
+  - The checks run in the chrome itself (16 Nov 2026, "3": "Port the tests to the new layout"): `tests/editor.mjs`
+    brings a control before it presses it (`reach`: the ring turned to it, its sheet stood up, the menu opened, and put
+    away after), so a check still names the panel's own button. `CLASSIC=1` runs them with the columns and the old
+    header (`body.classic`, `window.__classicChrome`), which the page still carries. `window.__ui` (`rings`, `foot`,
+    `setFoot`, `show(el)`: turn a ring to an item) is for the checks: a tile round the back of a ring has to be turned
+    to before it is pressed. A check waits on what it wants, not on a count of seconds: the picture has the whole
+    window and a frame takes longer.
+  - A dial's tile is its own picture (the same day, "2"; `DIAL_G`): what the slider changes, over a small track whose
+    knob stands at the value, the value above in gold and the name alone beneath. A new dial needs a picture there.
+    A sheet and a dial do not stand together, and the crumb goes while a sheet is up (the phone pass, "1").
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
