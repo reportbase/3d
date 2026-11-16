@@ -55,13 +55,11 @@ const page = await context.newPage();
 // THE CHECKS RUN IN THE PAGE AS A VISITOR HAS IT (16 Nov 2026, Tom: "1 2 3 4 5", the third, "Port the tests to the new
 // layout"). They kept the side panels standing and the old header (body.classic) so what they pressed was where it was,
 // and so missed what only draw's chrome could get wrong: the button that ends the editing of a scene's type stood
-// behind the bar, where nothing could press it. CLASSIC=1 runs them the old way.
-const NEWCHROME = !process.env.CLASSIC;
-if (!NEWCHROME) await page.addInitScript(() => { window.__classicChrome = true; });
+// behind the bar, where nothing could press it. The columns left the page the same day ("1" of "1 2 3 4 5 7").
 // REACHING A CONTROL IN DRAW'S CHROME. A control the columns always showed may now be round the back of a
 // ring, in a sheet that is down, or in the menu. Before a check presses, fills or chooses it, the page is asked to bring
 // it: the ring is turned to it, its sheet is stood up, the menu is opened; what was opened for the press is put away after.
-if (NEWCHROME){
+{
   if (process.env.TMO) page.setDefaultTimeout(+process.env.TMO);
   const reach = sel => page.evaluate(sel => { const e = document.querySelector(sel); if (!e) return null; const got = {};
     const pop = e.closest('#menuPop'); if (pop && pop.hidden){ pop.hidden = false; got.menu = true; }
@@ -741,7 +739,10 @@ try {
   });
   await step('scene: edit a type and every copy changes', async () => {
     const before = await ev(() => __studio.S.parts.length);
-    await ev(() => { const i = __scene.data().types.findIndex(t => t.name === 'house'); document.querySelector('#scTypes button[data-i="' + i + '"]').click(); });
+    // a type is a tile of the foot, saying how many copies stand; pressing it opens the type (16 Nov 2026)
+    const tt = await ev(() => { const i = __scene.data().types.findIndex(t => t.name === 'house'), t = document.querySelector('#tstrip [data-t="type-' + i + '"]');
+      if (!t) return 'no tile'; const said = t.querySelector('.nm').textContent + ' ' + t.querySelector('.dval').textContent; __ui.show(t); t.click(); return said; });
+    if (tt !== 'house × 10') throw new Error("the type's tile: " + tt);
     if (await ev(() => document.body.classList.contains('scene-mode'))) throw new Error('editing a type did not open the studio');
     const names = await ev(() => __studio.S.parts.map(p => p.name).join(','));
     if (names !== 'walls,roof,door') throw new Error('the type opened as ' + names);
