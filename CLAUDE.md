@@ -106,11 +106,14 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
     and ringed gold on the strip. One button of the bar is lit, the one whose values the foot holds (`litTools`).
   - The checks run in the chrome itself (16 Nov 2026, "3": "Port the tests to the new layout"): `tests/editor.mjs`
     brings a control before it presses it (`reach`: the ring turned to it, its sheet stood up, the menu opened, and put
-    away after), so a check still names the panel's own button. `CLASSIC=1` runs them with the columns and the old
-    header (`body.classic`, `window.__classicChrome`), which the page still carries. `window.__ui` (`rings`, `foot`,
-    `setFoot`, `show(el)`: turn a ring to an item) is for the checks: a tile round the back of a ring has to be turned
-    to before it is pressed. A check waits on what it wants, not on a count of seconds: the picture has the whole
-    window and a frame takes longer.
+    away after), so a check still names the panel's own button. The columns and the old header (`body.classic`) left
+    the page the same day ("1" of "1 2 3 4 5 7"); there is one interface. `window.__ui` (`rings`, `foot`, `setFoot`,
+    `show(el)`: turn a ring to an item) is for the checks: a tile round the back of a ring has to be turned to before
+    it is pressed. A check waits on what it wants, not on a count of seconds: the picture has the whole window and a
+    frame takes longer.
+  - The scene's types are tiles (the same day, "3"; THE SCENE'S TYPES ARE TILES in `drawToolStrip`): `type-N`, saying
+    `× count`, pressing the list's own edit button (a prefab's type is a disabled tile); the sheet (`about`) keeps the
+    name and the numbers. The walking hint and the prefab's stand above the strip and fold to the window (`.navhint`).
   - A dial's tile is its own picture (the same day, "2"; `DIAL_G`): what the slider changes, over a small track whose
     knob stands at the value, the value above in gold and the name alone beneath. A new dial needs a picture there.
     A sheet and a dial do not stand together, and the crumb goes while a sheet is up (the phone pass, "1").

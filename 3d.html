@@ -82,11 +82,15 @@
   .typeback{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--accent);color:#141418;border-color:var(--accent);font-weight:600;z-index:5}
   .typeback[hidden]{display:none}
   /* under draw's bar, not behind it (16 Nov 2026: the checks, run in the chrome itself, could not press it; nor could a visitor) */
-  body:not(.classic) .typeback{top:64px;z-index:32;border-radius:12px;padding:7px 14px}
+  body .typeback{top:64px;z-index:32;border-radius:12px;padding:7px 14px}
   .libgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
   .libgrid button{padding:5px 2px;font-size:11px}
   .navhint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#000a;color:#e8e4da;padding:6px 12px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:5}
   .navhint[hidden]{display:none}
+  /* above draw's strip, not behind it, and folded to the window's width (the scene on a phone, 16 Nov 2026: the walking
+     hint and the prefab's ran under the tiles in one long line) */
+  body .navhint{bottom:108px;max-width:calc(100vw - 24px);white-space:normal;text-align:center;box-sizing:border-box}
+  body:has(.panel .sec.open) .navhint{display:none}
   .aipop{width:340px;padding:10px;gap:8px}
   .aipop textarea{width:100%;min-height:84px;resize:vertical;background:var(--bg2);color:var(--fg);border:1px solid var(--line2);border-radius:6px;padding:8px;font:inherit;font-size:13px}
   .aipop .row{display:flex;gap:6px;align-items:center}
@@ -194,7 +198,7 @@
      program's UI must be copied. settings should be on the bottom footer bar"). The picture has the whole window; the
      top bar is draw's ring of buttons with the menu's button pinned at its right; the foot is draw's strip, a ring of
      tiles; and a panel is not a column any more but a sheet that stands above the strip when one of its tiles asks.
-     body.classic (the checks) keeps the columns and the old header, so what the checks press is where it was. */
+     The columns and the old header were kept for the checks (body.classic) until 16 Nov 2026; the checks run in this now. */
   .ring{position:relative;overflow:hidden;touch-action:none;cursor:grab}
   .ring.grabbing,.ring.grabbing *{cursor:grabbing}
   .ring .ri{position:absolute;top:50%;left:0;margin:0;transform:translate(-50%,-50%)}
@@ -202,15 +206,15 @@
   .ring .tsep{display:none}
   .ring .tsay{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%)}
   #menuBtn{display:none}
-  body:not(.classic){overflow:hidden}
-  body:not(.classic) .app{display:block;height:100%}
-  body:not(.classic) .top{position:fixed;top:0;left:0;right:0;height:58px;z-index:30;display:block;padding:0;border:none;background:linear-gradient(rgba(8,8,10,.8),transparent);pointer-events:none}
-  body:not(.classic) .bar{position:absolute;left:6px;right:58px;top:6px;height:46px;padding:0;display:block;pointer-events:auto}
-  body:not(.classic) .bar .bsep{display:none}
-  body:not(.classic) .tools,body:not(.classic) .bar .seg{display:contents!important}
-  body:not(.classic) .tool,body:not(.classic) .chip{width:38px;height:38px;border-radius:12px;background:rgba(24,24,31,.86)}
-  body:not(.classic) .tool.on,body:not(.classic) .chip.on{background:var(--accent)}
-  body:not(.classic) #menuBtn{display:flex;position:absolute;right:10px;top:10px;align-items:center;justify-content:center;
+  body{overflow:hidden}
+  body .app{display:block;height:100%}
+  body .top{position:fixed;top:0;left:0;right:0;height:58px;z-index:30;display:block;padding:0;border:none;background:linear-gradient(rgba(8,8,10,.8),transparent);pointer-events:none}
+  body .bar{position:absolute;left:6px;right:58px;top:6px;height:46px;padding:0;display:block;pointer-events:auto}
+  body .bar .bsep{display:none}
+  body .tools,body .bar .seg{display:contents!important}
+  body .tool,body .chip{width:38px;height:38px;border-radius:12px;background:rgba(24,24,31,.86)}
+  body .tool.on,body .chip.on{background:var(--accent)}
+  body #menuBtn{display:flex;position:absolute;right:10px;top:10px;align-items:center;justify-content:center;
     pointer-events:auto}
   #menuBtn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
   #menuPop{position:fixed;top:56px;right:10px;z-index:45;display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:10px;width:230px;
@@ -218,15 +222,15 @@
   #menuPop[hidden]{display:none}
   #menuPop .brand{display:block;margin:0 0 2px 2px} #menuPop .seg button{flex:1} #menuPop .menuwrap>button,#menuPop select{width:100%;text-align:left}
   #menuPop .dropdown{left:auto;right:0} #menuPop .adv{display:flex}
-  body:not(.classic) .view{position:fixed;left:0;top:0;right:0;bottom:0}
-  body:not(.classic) .crumb{top:64px;bottom:auto} body:not(.classic) .hint{bottom:106px}
-  body:not(.classic) .foot{position:fixed;left:0;right:0;bottom:0;height:96px;z-index:30;padding:0;border:none;background:linear-gradient(transparent,rgba(8,8,10,.82));pointer-events:none}
-  body:not(.classic) .foot>*{pointer-events:auto}
-  body:not(.classic) .panel{display:contents}
-  body:not(.classic) .panel .sec{position:fixed;z-index:35;left:50%;bottom:104px;transform:translateX(-50%);width:min(330px,calc(100vw - 20px));max-height:calc(100vh - 180px);
+  body .view{position:fixed;left:0;top:0;right:0;bottom:0}
+  body .crumb{top:64px;bottom:auto} body .hint{bottom:106px}
+  body .foot{position:fixed;left:0;right:0;bottom:0;height:96px;z-index:30;padding:0;border:none;background:linear-gradient(transparent,rgba(8,8,10,.82));pointer-events:none}
+  body .foot>*{pointer-events:auto}
+  body .panel{display:contents}
+  body .panel .sec{position:fixed;z-index:35;left:50%;bottom:104px;transform:translateX(-50%);width:min(330px,calc(100vw - 20px));max-height:calc(100vh - 180px);
     overflow:auto;background:var(--bg2);border:1px solid var(--line2);border-radius:14px;box-shadow:0 14px 40px #000a}
-  body:not(.classic) .panel .sec:not(.open){display:none!important}
-  body:not(.classic) #wanderC{position:fixed;z-index:31;left:50%;bottom:104px;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:6px 10px}
+  body .panel .sec:not(.open){display:none!important}
+  body #wanderC{position:fixed;z-index:31;left:50%;bottom:104px;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:6px 10px}
   /* the foot's strips: one shows at a time (data-show), each a ring */
   .foot .pstrip,.foot .hist{display:none;flex:1 1 auto;height:100%;max-width:none}
   .foot[data-show="parts"] #pstrip,.foot[data-show="tool"] #tstrip{display:block}
@@ -251,7 +255,7 @@
   body .bar .tool.on svg,body .bar .chip.on svg{filter:none}
   body .bar .tool.on:hover,body .bar .chip.on:hover{background:#e8b96b;color:#14141a;border-color:var(--gold)}
   body .bar .chip:disabled{opacity:1;box-shadow:none;border-color:rgba(255,255,255,.16)} body .bar .chip:disabled svg{opacity:.34}
-  body:not(.classic) .bar{top:8px;height:48px} body:not(.classic) #menuBtn{top:16px;right:12px}
+  body .bar{top:8px;height:48px} body #menuBtn{top:16px;right:12px}
   body .foot .ptile{width:72px;height:72px;padding:2px 0 5px;gap:3px;border-radius:20px;background:var(--chip-bg);color:var(--chip-fg);border:1px solid var(--chip-line);box-shadow:var(--chip-shadow);
     transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:transparent}
   body .foot .ptile:hover{background:var(--chip-bg-hover);border-color:var(--chip-line-hover);box-shadow:var(--chip-shadow-hover)}
@@ -263,8 +267,8 @@
   body .foot .ptile.on,body .foot .ptile.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-dim);background:linear-gradient(rgba(212,160,82,.14),rgba(212,160,82,.14)),var(--chip-bg);color:var(--chip-fg)}
   body .foot .ptile.on .nm,body .foot .ptile.sel .nm{color:var(--gold)}
   body .foot .ptile.edit{background:linear-gradient(rgba(212,160,82,.30),rgba(212,160,82,.30)),var(--chip-bg)}
-  body:not(.classic) .foot{height:104px;background:none}
-  body:not(.classic) .panel .sec,body:not(.classic) #wanderC{bottom:112px}
+  body .foot{height:104px;background:none}
+  body .panel .sec,body #wanderC{bottom:112px}
   /* THE DIAL (16 Nov 2026): a slider's tile, pressed, stands its one slider just above the strip; a colour's tile is its picker */
   #fdial{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;width:min(460px,calc(100vw - 24px));padding:8px 12px;margin-bottom:6px;
     background:var(--chip-bg);border:1px solid var(--chip-line);border-radius:14px;box-shadow:var(--chip-shadow);font-size:12px;color:var(--chip-fg);pointer-events:auto}
@@ -273,14 +277,14 @@
   .ptile .dval{font:9px system-ui,sans-serif;line-height:1;color:var(--gold);max-width:66px;white-space:nowrap;overflow:hidden}
   .ptile svg .trk{opacity:.35} .ptile svg .knob{fill:var(--gold);stroke:none}
   /* a sheet up has the corner the crumb stood in (a phone's sheet is as wide as the window) */
-  body:not(.classic):has(.panel .sec.open) .crumb{display:none}
+  body:has(.panel .sec.open) .crumb{display:none}
   .ptile .tpick{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0}
   .foot .hist img{height:64px;width:96px;border-radius:12px;border:1px solid var(--chip-line);opacity:1}
   @media (pointer:coarse),(max-width:700px){
-    body:not(.classic) .bar .tool,body:not(.classic) .bar .chip,body:not(.classic) #menuBtn{width:52px;height:52px;border-radius:14px}
-    body:not(.classic) .bar .tool svg,body:not(.classic) .bar .chip svg,body:not(.classic) #menuBtn svg{width:26px;height:26px}
-    body:not(.classic) .bar{height:60px;right:72px} body:not(.classic) #menuBtn{top:12px}
-    body:not(.classic) .top{height:72px} body:not(.classic) .crumb{top:78px}
+    body .bar .tool,body .bar .chip,body #menuBtn{width:52px;height:52px;border-radius:14px}
+    body .bar .tool svg,body .bar .chip svg,body #menuBtn svg{width:26px;height:26px}
+    body .bar{height:60px;right:72px} body #menuBtn{top:12px}
+    body .top{height:72px} body .crumb{top:78px}
   }
   .gtitle{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
   .brushes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
@@ -316,8 +320,6 @@
 </style>
 </head>
 <body>
-<script>/* the checks keep the side panels standing (tests/editor.mjs sets this before the page loads): see DRAW'S CHROME */
-if(window.__classicChrome) document.body.classList.add('classic');</script>
 <div class="app">
   <header class="top">
     <div class="brand">3d<small>shape studio</small></div>
@@ -6146,7 +6148,6 @@ function makeRing(strip,sel,GAP=16,live=()=>true){ if(!strip) return null; strip
     show(el){ const i=items().indexOf(el); if(i>=0) this.focus(i); },
     get angle(){ return angle; }, get flat(){ const n=items().length; return !n || Math.min(itemExtent(),strip.clientWidth/n)>=itemExtent()-GAP+5; },
     get shown(){ return items().filter(b=>!b.classList.contains('ring-off')).length; }, get count(){ return items().length; } }; }
-const OLD_CHROME=document.body.classList.contains('classic');
 // THE FOOT IS THE TOOL'S VALUES (15 Nov 2026; draw's rule, "keep the options in the header and the footer is just for
 // the values of that option"): a button of the bar turns the foot to its values, a tile each; pressed again while lit
 // it gives the foot back to the parts (to the scene's own tiles in a scene). A tile presses the panel's own button or
@@ -6159,30 +6160,30 @@ function closeSheets(){ for(const x of document.querySelectorAll('.panel .sec.op
 function toggleSheet(id){ const x=$(id), was=x.classList.contains('open'); closeSheets(); x.classList.toggle('open',!was);
   if(!was && dialId){ dialId=null; drawToolStrip(); } }      // a sheet and a dial do not stand together: the sheet has the room
 // one button of the bar is lit, the one whose values the foot holds (the checks' old header lights the tool in hand, as it did)
-function litTools(){ for(const b of document.querySelectorAll('.tool')) b.classList.toggle('on',b.dataset.tool===S.tool && (OLD_CHROME || footShow==='tool')); }
+function litTools(){ for(const b of document.querySelectorAll('.tool')) b.classList.toggle('on',b.dataset.tool===S.tool && footShow==='tool'); }
 function setFoot(m){ footShow=m; dialId=null; closeSheets(); litTools(); $('foot').dataset.show=m==='parts'||m==='hist'?m:'tool';
   for(const k in FOOT_BTN) $(FOOT_BTN[k]).classList.toggle('on',m===k);
   drawToolStrip(); for(const r of [RINGS.pstrip,RINGS.tstrip,RINGS.hist]) if(r) r.focus(0); }
 $('tools').addEventListener('click',e=>{ const b=e.target.closest('.tool'); if(!b) return;
   const again=footShow==='tool' && S.tool===b.dataset.tool; S.tool=b.dataset.tool; refreshAll(); setFoot(again?footHome():'tool'); });
 for(const k in FOOT_BTN) $(FOOT_BTN[k]).onclick=()=>setFoot(footShow===k?footHome():k);
-window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheets(); });
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeSheets(); drawToolStrip(); } });   // and the tile that asked for the sheet is put out
 const RINGS={};
 { // the bar's buttons stand in it one by one (the orbit, walk and fly group is opened out), and the ring takes the ones this view has
   const bar=$('bar'), inView=b=>!b.matches('body.scene-mode .obj-only, body.scene-mode .tool, body:not(.scene-mode) .scene-only');
-  if(!OLD_CHROME){ for(const g of [...bar.querySelectorAll('.seg')]){ for(const b of [...g.children]){ b.classList.add(...[...g.classList].filter(c=>c==='scene-only'||c==='obj-only')); bar.insertBefore(b,g); } g.remove(); }
+  { for(const g of [...bar.querySelectorAll('.seg')]){ for(const b of [...g.children]){ b.classList.add(...[...g.classList].filter(c=>c==='scene-only'||c==='obj-only')); bar.insertBefore(b,g); } g.remove(); }
     document.body.appendChild($('wanderC'));
     // THE MENU: what is not a tool of the picture (object or scene, file, examples, describe, advanced) is behind one button, as draw's is
     const pop=document.createElement('div'); pop.id='menuPop'; pop.hidden=true; document.body.appendChild(pop);
     for(const x of [...document.querySelector('.top').children]) if(x.id!=='bar' && x.id!=='menuBtn' && x.tagName!=='INPUT') pop.appendChild(x);
     $('menuBtn').onclick=()=>{ pop.hidden=!pop.hidden; }; for(const id of ['vObject','vScene']) $(id).addEventListener('click',()=>{ pop.hidden=true; });
     window.addEventListener('pointerdown',e=>{ if(!pop.hidden && !e.target.closest('#menuPop,#menuBtn')) pop.hidden=true; },true); }
-  requestAnimationFrame(()=>{ if(!OLD_CHROME) RINGS.bar=makeRing(bar,'.tool,.chip',16,inView);
+  requestAnimationFrame(()=>{ RINGS.bar=makeRing(bar,'.tool,.chip',16,inView);
     RINGS.pstrip=makeRing($('pstrip'),'.ptile',16); RINGS.tstrip=makeRing($('tstrip'),'.ptile',16); RINGS.hist=makeRing($('hist'),'img',8);
     // object or scene: the bar's buttons change, and the foot goes to that view's own tiles
     let was=document.body.classList.contains('scene-mode');
     new MutationObserver(()=>{ const now=document.body.classList.contains('scene-mode'); if(now===was) return; was=now; if(RINGS.bar) RINGS.bar.refresh(); setFoot(footHome()); }).observe(document.body,{attributes:true,attributeFilter:['class']});
-    new MutationObserver(()=>{ if(footShow==='scene') drawToolStrip(); }).observe($('scLib'),{childList:true});
+    for(const id of ['scLib','scTypes']) new MutationObserver(()=>{ if(footShow==='scene') drawToolStrip(); }).observe($(id),{childList:true});
     if(was) setFoot('scene'); }); }
 window.__ui={ rings:RINGS, get foot(){ return footShow; }, setFoot, show(el){ const h=el.closest('.ring'); for(const k in RINGS) if(RINGS[k] && $(k)===h) RINGS[k].show(el); } };
 const FMT={};
@@ -6289,7 +6290,7 @@ function drawToolStrip(){ const el=$('tstrip'); if(!el) return; el.innerHTML='';
   const setS=(id,v,done=true)=>{ const r=$(id); if(!r) return; r.value=v; r.dispatchEvent(new Event('input',{bubbles:true})); if(done) r.dispatchEvent(new Event('change',{bubbles:true})); };
   const press=sel=>{ const b=P.querySelector(sel); if(b) b.click(); };
   // the strip's first tile where a panel holds more than tiles do: it stands the panel above the strip, as a sheet
-  const more=(id,name)=>{ if(OLD_CHROME) return; tile('more:'+id,T_GLYPH.path('M5 7h14M5 12h14M5 17h14M9 5v4M15 10v4M8 15v4'),name,$(id).classList.contains('open'),()=>{ toggleSheet(id); drawToolStrip(); }); };
+  const more=(id,name)=>{ tile('more:'+id,T_GLYPH.path('M5 7h14M5 12h14M5 17h14M9 5v4M15 10v4M8 15v4'),name,$(id).classList.contains('open'),()=>{ toggleSheet(id); drawToolStrip(); }); };
   const mirror=(b,key,inner,name)=>{ const t=tile(key,inner,name||b.textContent.trim(),b.classList.contains('on'),()=>{ b.click(); drawToolStrip(); }); t.disabled=b.disabled; return t; };
   // THE PANELS' REST, IN THE FOOT (16 Nov 2026, Tom: "Proceed with your recommendations", the sixth: "Finish moving the
   // panels into the footer"). What tiles could not hold kept the tool's panel and the placement's as sheets: sliders,
@@ -6321,8 +6322,16 @@ function drawToolStrip(){ const el=$('tstrip'); if(!el) return; el.innerHTML='';
       for(const [id,name] of [['px','x'],['py','height'],['pz','z'],['pr','turn'],['pt','tip'],['ps','size'],['psy','tall']]) dial(id,name); }
     mirror($('toFloor'),'floor',T_GLYPH.path('M12 4v11M8 11l4 4l4-4M5 20h14'),'drop down'); mirror($('frame'),'frame',T_GLYPH.path('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'));
     if(p) tile('quarter',T_GLYPH.path('M19 12a7 7 0 1 1-7-7M12 2l3 3l-3 3'),'quarter turn',false,()=>{ const r=$('pr'); let v=(+r.value||0)+90; if(v>180) v-=360; setS('pr',v); }); return; }
-  if(footShow==='scene'){ more('sceneSec','types'); mirror($('scShuffle'),'shuffle',T_GLYPH.path('M4 7h4l8 10h4M4 17h4l8-10h4M18 5l2 2l-2 2M18 15l2 2l-2 2')); mirror($('scFrame'),'frame',T_GLYPH.path('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'));
+  // THE SCENE'S TYPES ARE TILES (16 Nov 2026, Tom: "1 2 3 4 5 7", the third: "Each type could be a tile in the footer,
+  // like the parts are"). A type was a line of a list in a sheet, with its edit button; it is a tile now, saying how
+  // many copies stand, and pressing it opens the type in the studio as the line's button did (a prefab's type, a group
+  // of rules, has nothing to open and is a tile that only says so). The sheet keeps the scene's name and its numbers.
+  if(footShow==='scene'){ more('sceneSec','about'); mirror($('scShuffle'),'shuffle',T_GLYPH.path('M4 7h4l8 10h4M4 17h4l8-10h4M18 5l2 2l-2 2M18 15l2 2l-2 2')); mirror($('scFrame'),'frame',T_GLYPH.path('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'));
     more('sceneRules','rules');
+    [...$('scTypes').children].forEach((row,i)=>{ const b=row.querySelector('button[data-i]'), nm=row.firstChild.firstChild.textContent.trim(), n=(row.querySelector('.note').textContent.match(/×\s*(\d+)/)||[])[1]||'';
+      const t=tile('type-'+i,'<span class="dval"></span>'+T_GLYPH.path(b?'M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12v9M4 7.5l8 4.5l8-4.5':'M4 8l8-4l8 4l-8 4zM4 12l8 4l8-4M4 16l8 4l8-4'),nm,false,()=>{ if(b) b.click(); });
+      t.classList.add('dial'); t.querySelector('.dval').textContent='× '+n; t.title=b?nm+': open this type in the studio; when you are done, every copy updates':nm+': a prefab, a group of rules'; if(!b) t.disabled=true; });
+    if($('scTypes').children.length) sep();
     [...$('scLib').children].forEach((b,i)=>{ const im=b.querySelector('img,canvas,svg'); mirror(b,'prefab-'+i,im&&im.tagName==='IMG'?'<img alt="" src="'+im.src+'">':T_GLYPH.path('M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12v9M4 7.5l8 4.5l8-4.5'),b.textContent.trim()); }); return; }
   if(T==='shape'){ for(const b of P.querySelectorAll('[data-kind]')){ const k=b.dataset.kind;
       tile(k,`<img alt="" src="${galleryImgs[k]||''}">`,k.replace('_',' '),false,()=>press(`[data-kind="${k}"]`)); } return; }
