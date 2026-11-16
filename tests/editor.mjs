@@ -186,7 +186,7 @@ try {
     if (await vis() !== '10') throw new Error('the foot does not open on the parts: ' + await vis());
     await page.click('#pstrip .ptile:nth-child(2)');
     await page.click('.tool[data-tool="bend"]');
-    if (await vis() !== '01' || !/^straight\* taper flare bulge waist twist lean$/.test(await tiles())) throw new Error('bend\'s tiles: ' + await vis() + ' ' + await tiles());
+    if (await vis() !== '01' || !/^straight\* taper flare bulge waist twist lean dial:btaper dial:bbulge dial:btwist dial:blean$/.test(await tiles())) throw new Error('bend\'s tiles: ' + await vis() + ' ' + await tiles());
     await tap('#tstrip [data-t="twist"]');
     let p = await part();
     if (p.bend.twist !== 0.5 || p.bend.taper !== 0 || !/twist\*/.test(await tiles())) throw new Error('the twist tile: ' + JSON.stringify(p) + ' ' + await tiles());
@@ -1404,8 +1404,17 @@ try {
     const a0 = await pg.evaluate(() => __ui.rings.tstrip.angle), box = await pg.locator('#tstrip').boundingBox();
     await pg.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await pg.mouse.down(); await pg.mouse.move(box.x + box.width / 2 - 220, box.y + box.height / 2, { steps: 6 }); await pg.mouse.up();
     if (await pg.evaluate(() => __ui.rings.tstrip.angle) === a0) throw new Error('a drag did not turn the foot');
-    await tap('#tstrip [data-t="more:toolPanel"]');
-    s = await st(); if (s.sheets !== 'toolPanel') throw new Error('the sliders tile: ' + JSON.stringify(s));
+    // the panel's sliders and pickers are tiles (16 Nov 2026): a slider's tile stands its one slider above the strip, and it
+    // writes the panel's own; a colour's tile is the picker. No tile asks for the tool's sheet any more
+    if (await pg.evaluate(() => !!document.querySelector('#tstrip [data-t="more:toolPanel"]'))) throw new Error('the tool still has a sheet tile');
+    await pg.evaluate(() => { const i = document.querySelector('#tstrip [data-t="color:pcol"] .tpick'); i.value = '#123456'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); });
+    if (await pg.evaluate(() => { const S = __studio.S; return S.parts.find(q => q.id === S.sel).paint.color; }) !== '#123456') throw new Error("the colour's tile did not colour the part");
+    await tap('.tool[data-tool="bend"]'); await tap('#tstrip [data-t="dial:btwist"]');
+    await pg.evaluate(() => { const i = document.querySelector('#fdial input'); i.value = 0.3; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); });
+    const dl = await pg.evaluate(() => { const S = __studio.S, d = document.getElementById('fdial'); return [S.parts.find(q => q.id === S.sel).bend.twist, d.hidden, document.getElementById('btwist').value, /0\.30/.test(document.querySelector('[data-dial="btwist"] .nm').textContent)].join(); });
+    if (dl !== '0.3,false,0.3,true') throw new Error('the dial: ' + dl);
+    await tap('#tstrip [data-t="dial:btwist"]'); if (await pg.evaluate(() => !document.getElementById('fdial').hidden)) throw new Error('the lit dial pressed again should put its slider away');
+    await tap('#bOutline'); await tap('#tstrip [data-t="more:outlineSec"]'); if ((await st()).sheets !== 'outlineSec') throw new Error('the outline sheet');
     await pg.keyboard.press('Escape'); if ((await st()).sheets) throw new Error('Escape left the sheet up');
     await tap('#bParts'); await tap('#pstrip .ptile:nth-child(2)');          // (Escape also steps out of the part)
     await tap('#bSection');
@@ -1416,6 +1425,8 @@ try {
     await tap('#undo'); await tap('#undo');
     await tap('#bOutline'); await tap('#tstrip [data-t="more:outlineSec"]'); if ((await st()).sheets !== 'outlineSec') throw new Error('the outline sheet');
     await tap('#bPlace'); s = await st(); if (s.foot !== 'place' || s.sheets) throw new Error('place: ' + JSON.stringify(s));
+    const pl = await pg.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].map(t => t.dataset.t).join());
+    if (!/^name,dial:px,dial:py,dial:pz,dial:pr,dial:pt,dial:ps,dial:psy,/.test(pl)) throw new Error('the placement tiles: ' + pl);
     await tap('#bPlace'); if ((await st()).foot !== 'parts') throw new Error('the lit button pressed again');
     await pg.click('#menuBtn'); s = await st(); if (!s.menu || !s.file) throw new Error('the menu: ' + JSON.stringify(s));
     await pg.click('#vScene'); await pg.waitForFunction(() => __ui.foot === 'scene');
