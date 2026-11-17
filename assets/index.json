@@ -1,0 +1,214 @@
+{
+ "format": "3d-library",
+ "version": 1,
+ "objects": [
+  {
+   "name": "bumper",
+   "file": "bumper.tvf3d",
+   "kind": "prop",
+   "from": "games",
+   "parts": 3,
+   "thumb": "thumbs/bumper.jpg"
+  },
+  {
+   "name": "pipe",
+   "file": "pipe.tvf3d",
+   "kind": "prop",
+   "from": "games",
+   "parts": 2,
+   "thumb": "thumbs/pipe.jpg"
+  },
+  {
+   "name": "rock",
+   "file": "rock.tvf3d",
+   "kind": "prop",
+   "from": "games",
+   "parts": 3,
+   "thumb": "thumbs/rock.jpg"
+  },
+  {
+   "name": "windmill",
+   "file": "windmill.tvf3d",
+   "kind": "prop",
+   "from": "games",
+   "parts": 11,
+   "thumb": "thumbs/windmill.jpg"
+  },
+  {
+   "name": "sun-blue",
+   "file": "sun-blue.tvf3d",
+   "kind": "sun",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/sun-blue.jpg"
+  },
+  {
+   "name": "sun-orange",
+   "file": "sun-orange.tvf3d",
+   "kind": "sun",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/sun-orange.jpg"
+  },
+  {
+   "name": "sun-red",
+   "file": "sun-red.tvf3d",
+   "kind": "sun",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/sun-red.jpg"
+  },
+  {
+   "name": "sun-white",
+   "file": "sun-white.tvf3d",
+   "kind": "sun",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/sun-white.jpg"
+  },
+  {
+   "name": "sun-yellow",
+   "file": "sun-yellow.tvf3d",
+   "kind": "sun",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/sun-yellow.jpg"
+  },
+  {
+   "name": "planet-alien",
+   "file": "planet-alien.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-alien.jpg"
+  },
+  {
+   "name": "planet-jupiter",
+   "file": "planet-jupiter.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-jupiter.jpg"
+  },
+  {
+   "name": "planet-lava",
+   "file": "planet-lava.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-lava.jpg"
+  },
+  {
+   "name": "planet-mars",
+   "file": "planet-mars.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-mars.jpg"
+  },
+  {
+   "name": "planet-neptune",
+   "file": "planet-neptune.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-neptune.jpg"
+  },
+  {
+   "name": "planet-ocean",
+   "file": "planet-ocean.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-ocean.jpg"
+  },
+  {
+   "name": "planet-saturn",
+   "file": "planet-saturn.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-saturn.jpg"
+  },
+  {
+   "name": "planet-terra",
+   "file": "planet-terra.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-terra.jpg"
+  },
+  {
+   "name": "planet-uranus",
+   "file": "planet-uranus.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-uranus.jpg"
+  },
+  {
+   "name": "planet-venus",
+   "file": "planet-venus.tvf3d",
+   "kind": "planet",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/planet-venus.jpg"
+  },
+  {
+   "name": "moon-callisto",
+   "file": "moon-callisto.tvf3d",
+   "kind": "moon",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/moon-callisto.jpg"
+  },
+  {
+   "name": "moon-ice",
+   "file": "moon-ice.tvf3d",
+   "kind": "moon",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/moon-ice.jpg"
+  },
+  {
+   "name": "moon-io",
+   "file": "moon-io.tvf3d",
+   "kind": "moon",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/moon-io.jpg"
+  },
+  {
+   "name": "moon-luna",
+   "file": "moon-luna.tvf3d",
+   "kind": "moon",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/moon-luna.jpg"
+  },
+  {
+   "name": "moon-rust",
+   "file": "moon-rust.tvf3d",
+   "kind": "moon",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/moon-rust.jpg"
+  },
+  {
+   "name": "asteroid-dark",
+   "file": "asteroid-dark.tvf3d",
+   "kind": "asteroid",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/asteroid-dark.jpg"
+  },
+  {
+   "name": "asteroid-grey",
+   "file": "asteroid-grey.tvf3d",
+   "kind": "asteroid",
+   "from": "wander",
+   "parts": 1,
+   "thumb": "thumbs/asteroid-grey.jpg"
+  }
+ ]
+}
