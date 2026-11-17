@@ -117,6 +117,9 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   - A dial's tile is its own picture (the same day, "2"; `DIAL_G`): what the slider changes, over a small track whose
     knob stands at the value, the value above in gold and the name alone beneath. A new dial needs a picture there.
     A sheet and a dial do not stand together, and the crumb goes while a sheet is up (the phone pass, "1").
+  - No words stand over the picture (17 Nov 2026: "remove text readouts such as 'drag to look' around"; NO WORDS OVER THE
+    PICTURE): `.hint`, `.navhint` (walking, placing) and `.crumb` are written but not shown. A new hint is a button's
+    name or a tile, not a line of text on the picture.
 - Comments explain *why*, in plain sentences; match the file's existing voice.
 
 ## Testing
