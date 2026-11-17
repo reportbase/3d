@@ -278,6 +278,11 @@
   .ptile svg .trk{opacity:.35} .ptile svg .knob{fill:var(--gold);stroke:none}
   /* a sheet up has the corner the crumb stood in (a phone's sheet is as wide as the window) */
   body:has(.panel .sec.open) .crumb{display:none}
+  /* NO WORDS OVER THE PICTURE (17 Nov 2026, Tom: "remove text readouts such as 'drag to look' around"). The hint at the foot of
+     the picture ("Drag to look around · scroll to zoom ..."), the walking and placing hints and the crumb in the corner were
+     lines of text standing on the picture; the bar's buttons say their names and the foot holds the values, as in draw. They
+     are still written (the checks read them, and the crumb's part name), only not shown. */
+  body .hint,body .navhint,body .crumb{display:none!important}
   .ptile .tpick{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0}
   .foot .hist img{height:64px;width:96px;border-radius:12px;border:1px solid var(--chip-line);opacity:1}
   @media (pointer:coarse),(max-width:700px){
