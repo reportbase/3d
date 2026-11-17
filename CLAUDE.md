@@ -42,6 +42,8 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   **generated**: after adding, changing or removing a file there run `npm run library` (`tools/library.mjs`, which
   opens each in the studio; `LIBS_DIR` as the tests take it), or `npm test` fails. The studio's Library button
   (`#bLib`, THE LIBRARY, IN THE FOOT) lists them as tiles of the foot and a tile adds the object (`importTvf3d`).
+  A library tile is its picture, whole, with the name as its tip (`.ptile.pic`; "fill the icon with the object"); the
+  pictures are 216px squares of the object alone, close.
   The first twenty-six are copies of games' `res/` props and wander's `res/` bodies; those pages still read their
   own folders. They are served from the same site, so they can read this one (`../3d/assets/`).
 
