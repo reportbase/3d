@@ -30,12 +30,12 @@
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.jpg': 'image/jpeg' };
 const server = process.env.BASE_URL ? null : await new Promise(ok => {
   const s = createServer(async (req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^([/\\])+/, '');
@@ -180,7 +180,7 @@ try {
         under: bar.getBoundingClientRect().bottom <= 80 && document.getElementById('view').getBoundingClientRect().top <= 1,      // the picture has the window, the bar over its top
         tiles: foot.querySelectorAll('.ptile:not(.add)').length, parts: document.querySelectorAll('#plist .pitem').length, add: !!foot.querySelector('.ptile.add') };
     });
-    if (r.tools !== 6 || r.chips !== 'bParts,bScene,bOutline,bSection,bPlace,mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,bHist,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
+    if (r.tools !== 6 || r.chips !== 'bParts,bScene,bOutline,bSection,bPlace,mMove,mTurn,mSize,snap,frameAll,navOrbit,navWalk,navFly,wanderBtn,wire,bLib,bHist,undo,redo' || !r.glyphs || !r.under || !r.tiles || r.tiles !== r.parts || !r.add)
       throw new Error('the bar and the foot: ' + JSON.stringify(r));
     await page.click('#pstrip .ptile:nth-child(3)');
     await page.waitForTimeout(200);
@@ -1416,7 +1416,7 @@ try {
       return { view: [v.width, v.height].join(), win: [innerWidth, innerHeight].join(), foot: __ui.foot, bar: [R.bar.shown, R.bar.count, R.bar.flat].join(), strip: [R.tstrip.shown, R.tstrip.count, R.tstrip.flat].join(),
         sheets: [...document.querySelectorAll('.panel .sec')].filter(x => getComputedStyle(x).display !== 'none').map(x => x.id).join(), menu: vis('menuPop'), file: vis('fileBtn') }; });
     let s = await st();
-    if (s.view !== s.win || s.foot !== 'parts' || s.sheets || s.menu || s.file || !/^19,19,true$/.test(s.bar)) throw new Error('as it opens: ' + JSON.stringify(s));
+    if (s.view !== s.win || s.foot !== 'parts' || s.sheets || s.menu || s.file || !/^20,20,true$/.test(s.bar)) throw new Error('as it opens: ' + JSON.stringify(s));
     // the buttons are draw's chips, by its numbers: 32px on the bar with a 17px glyph, 72px tiles with a 20px corner, one lit
     const look = await pg.evaluate(() => { const cs = e => getComputedStyle(e), t = document.querySelector('.tool'), g = t.querySelector('svg'), p = document.querySelector('#pstrip .ptile'), m = document.getElementById('menuBtn');
       return [t.offsetWidth, t.offsetHeight, cs(t).borderRadius, cs(t).backgroundColor, g.getBoundingClientRect().width, p.offsetWidth, p.offsetHeight, cs(p).borderRadius, m.offsetWidth, [...document.querySelectorAll('#bar .on')].filter(b => getComputedStyle(b).display !== 'none').map(b => b.id || b.dataset.tool).join('+')].join(); });
@@ -1455,10 +1455,20 @@ try {
     const pl = await pg.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].map(t => t.dataset.t).join());
     if (!/^name,dial:px,dial:py,dial:pz,dial:pr,dial:pt,dial:ps,dial:psy,/.test(pl)) throw new Error('the placement tiles: ' + pl);
     await tap('#bPlace'); if ((await st()).foot !== 'parts') throw new Error('the lit button pressed again');
+    // the library (17 Nov 2026): the objects in assets/ as tiles of the foot, the index naming every file there and no other, a tile adding its object
+    const shelf = (await readdir(join(ROOT, 'assets'))).filter(f => f.endsWith('.tvf3d')).sort().join(), listed = JSON.parse(await readFile(join(ROOT, 'assets/index.json'), 'utf8')).objects;
+    if (listed.map(o => o.file).sort().join() !== shelf) throw new Error('assets/index.json does not list what is in assets/: run node tools/library.mjs');
+    const nb = await pg.evaluate(() => __studio.S.parts.length);
+    await tap('#bLib'); await pg.waitForFunction(() => document.querySelector('#tstrip [data-t^="lib:"]'), null, { timeout: 15000 });
+    const lt = await pg.evaluate(() => [document.querySelectorAll('#tstrip [data-t^="lib:"]').length, [...document.querySelectorAll('#tstrip [data-t^="lib:"] img')].every(i => i.complete && i.naturalWidth > 0)].join());
+    if (lt !== listed.length + ',true') throw new Error('the library tiles: ' + lt + ' of ' + listed.length);
+    await tap('#tstrip [data-t="lib:windmill"]'); await pg.waitForFunction(n => __studio.S.parts.length === n + 11, nb, { timeout: 15000 });
+    await tap('#undo'); if (await pg.evaluate(() => __studio.S.parts.length) !== nb) throw new Error('undo did not take the library object away');
+    await tap('#bLib'); if ((await st()).foot !== 'parts') throw new Error('the library button pressed again');
     await pg.click('#menuBtn'); s = await st(); if (!s.menu || !s.file) throw new Error('the menu: ' + JSON.stringify(s));
     await pg.click('#vScene'); await pg.waitForFunction(() => __ui.foot === 'scene');
     s = await st(); const tiles = await pg.evaluate(() => [...document.querySelectorAll('#tstrip .ptile')].map(t => t.dataset.t).join());
-    if (s.menu || !/^more:sceneSec,shuffle,frame,more:sceneRules,prefab-0/.test(tiles) || +s.bar.split(',')[1] >= 19) throw new Error('the scene: ' + JSON.stringify(s) + ' ' + tiles);
+    if (s.menu || !/^more:sceneSec,shuffle,frame,more:sceneRules,prefab-0/.test(tiles) || +s.bar.split(',')[1] >= 20) throw new Error('the scene: ' + JSON.stringify(s) + ' ' + tiles);
     // a phone: the bar cannot hold its buttons, so it is the ring that wraps
     await pg.setViewportSize({ width: 390, height: 760 }); await pg.click('#menuBtn'); await pg.click('#vObject'); await pg.waitForFunction(() => __ui.foot === 'parts' && !__ui.rings.bar.flat);
     s = await st(); const b = s.bar.split(','); if (!(+b[0] < +b[1]) || s.view !== '390,760') throw new Error('a phone: ' + JSON.stringify(s));

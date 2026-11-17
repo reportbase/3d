@@ -352,6 +352,7 @@
       <label class="scene-only" id="wanderC" title="the signals' speed: how fast what happens reaches you">signals <input id="wanderCIn" type="range" min="0" max="1000"> <span id="wanderCVal"></span></label>
       <button id="wire" class="obj-only" title="show the wireframe of the part you are shaping">wire</button>
       <span class="bsep"></span>
+      <button id="bLib" class="obj-only" title="the library: objects shared with games and wander, along the foot; press one to add it">library</button>
       <button id="bHist" title="the history's pictures, along the foot: press one to go back to it">history</button>
       <button id="undo" title="undo (Ctrl+Z)">&#8630;</button>
       <button id="redo" title="redo (Ctrl+Shift+Z)">&#8631;</button>
@@ -6074,7 +6075,7 @@ const ICON={ shape:'<path d="M12 3c4 0 5 3 4 6s2 4 2 7-3 5-6 5-6-2-6-5 3-4 2-7S8
 // under it while pointed at or held (as draw's buttons say their names)
 { const G={ bScene:'<path d="M3 18l5-8l4 5l3-4l6 7z"/><circle cx="17" cy="6" r="2"/>', bOutline:'<path d="M12 3v18"/><path d="M12 4c5 1 7 5 5 9s-1 6-5 7"/>',
     bSection:'<path d="M12 3l2.6 5.6l6.1.7l-4.5 4.2l1.2 6l-5.4-3l-5.4 3l1.2-6L3.3 9.3l6.1-.7z"/>', bPlace:'<path d="M12 21s6-6 6-11a6 6 0 0 0-12 0c0 5 6 11 6 11z"/><circle cx="12" cy="10" r="2"/>',
-    bHist:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>', bParts:'<rect x="3" y="8" width="5" height="8" rx="1.5"/><rect x="9.5" y="8" width="5" height="8" rx="1.5"/><rect x="16" y="8" width="5" height="8" rx="1.5"/>', mMove:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
+    bHist:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>', bLib:'<path d="M4 5h4v15H4zM10 5h4v15h-4zM16.2 6.2l3.6-1l3 13.6l-3.6 1z"/>', bParts:'<rect x="3" y="8" width="5" height="8" rx="1.5"/><rect x="9.5" y="8" width="5" height="8" rx="1.5"/><rect x="16" y="8" width="5" height="8" rx="1.5"/>', mMove:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
     mTurn:'<path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M17.5 2v4.5H13"/>', mSize:'<rect x="4" y="10" width="10" height="10" rx="1.5"/><path d="M14 4h6v6M20 4l-7 7"/>',
     snap:'<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M4 8h4M16 8h4"/>', frameAll:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
     navOrbit:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5"/>', navWalk:'<circle cx="12" cy="4.5" r="2"/><path d="M12 7v6l-3 7M12 13l3 7M8 10l4-2l4 2"/>',
@@ -6159,7 +6160,8 @@ function makeRing(strip,sel,GAP=16,live=()=>true){ if(!strip) return null; strip
 // sets its slider, so the panels are still the code that acts; a panel itself is a sheet above the strip, opened by
 // the strip's first tile where there is more to set than tiles hold (an outline to drag, a slider's values between).
 let footShow='parts', dialId=null;
-const FOOT_BTN={ parts:'bParts', scene:'bScene', outline:'bOutline', section:'bSection', place:'bPlace', hist:'bHist' };
+const LIB={ list:null, asked:false, err:'' };       // the library's index, read the first time its button is pressed
+const FOOT_BTN={ parts:'bParts', scene:'bScene', outline:'bOutline', section:'bSection', place:'bPlace', hist:'bHist', lib:'bLib' };
 const footHome=()=>document.body.classList.contains('scene-mode')?'scene':'parts';
 function closeSheets(){ for(const x of document.querySelectorAll('.panel .sec.open')) x.classList.remove('open'); }
 function toggleSheet(id){ const x=$(id), was=x.classList.contains('open'); closeSheets(); x.classList.toggle('open',!was);
@@ -6327,6 +6329,22 @@ function drawToolStrip(){ const el=$('tstrip'); if(!el) return; el.innerHTML='';
       for(const [id,name] of [['px','x'],['py','height'],['pz','z'],['pr','turn'],['pt','tip'],['ps','size'],['psy','tall']]) dial(id,name); }
     mirror($('toFloor'),'floor',T_GLYPH.path('M12 4v11M8 11l4 4l4-4M5 20h14'),'drop down'); mirror($('frame'),'frame',T_GLYPH.path('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'));
     if(p) tile('quarter',T_GLYPH.path('M19 12a7 7 0 1 1-7-7M12 2l3 3l-3 3'),'quarter turn',false,()=>{ const r=$('pr'); let v=(+r.value||0)+90; if(v>180) v-=360; setS('pr',v); }); return; }
+  // THE LIBRARY, IN THE FOOT (17 Nov 2026, Tom: "i want to use 3d repos assets in the games repos", "wander uses 3d assets to",
+  // then "could we browse the 3d objects in global footer in the 3d editor?"). Games and wander each kept a folder of .tvf3d
+  // files of their own, and the studio that writes the format could not see either. assets/ beside this page is the one
+  // shelf: every object in it is listed in assets/index.json (tools/library.mjs writes that and the pictures), the foot shows
+  // a tile each, and a tile adds the object to what is being made, as "add parts from .tvf3d" does, so one press of undo
+  // takes it away again. The other pages are served from the same site, so they can read the same folder.
+  if(footShow==='lib'){ if(!LIB.list){ if(!LIB.asked){ LIB.asked=true; fetch('assets/index.json').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(d=>{ LIB.list=Array.isArray(d.objects)?d.objects:[]; if(footShow==='lib') drawToolStrip(); },err=>{ LIB.list=[]; LIB.err=String(err.message||err); if(footShow==='lib') drawToolStrip(); }); }
+      tile('lib-wait',T_GLYPH.path('M12 4v4M12 16v4M4 12h4M16 12h4'),'reading…',false,()=>{}).disabled=true; return; }
+    if(!LIB.list.length){ tile('lib-none',T_GLYPH.path('M5 5l14 14M19 5L5 19'),LIB.err?'no library':'empty',false,()=>{}).disabled=true; return; }
+    let kind=null;
+    for(const o of LIB.list){ if(kind!==null && o.kind!==kind) sep(); kind=o.kind;
+      const t=tile('lib:'+o.name,o.thumb?'<img alt="" src="assets/'+o.thumb+'">':T_GLYPH.path('M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12v9M4 7.5l8 4.5l8-4.5'),o.name.replace(/[-_]/g,' '),false,()=>{
+        fetch('assets/'+o.file).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(txt=>{ importTvf3d(txt,o.file,false); },err=>toast('could not read '+o.file+': '+(err.message||err))); });
+      t.title=o.name+(o.from?' (from '+o.from+')':'')+': add it to the object'; }
+    return; }
   // THE SCENE'S TYPES ARE TILES (16 Nov 2026, Tom: "1 2 3 4 5 7", the third: "Each type could be a tile in the footer,
   // like the parts are"). A type was a line of a list in a sheet, with its edit button; it is a tile now, saying how
   // many copies stand, and pressing it opens the type in the studio as the line's button did (a prefab's type, a group

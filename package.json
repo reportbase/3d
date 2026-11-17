@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "library": "node tools/library.mjs",
     "test": "node tests/classic.mjs && node tests/editor.mjs && node tests/situations.mjs"
   },
   "devDependencies": {

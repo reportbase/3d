@@ -36,6 +36,14 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   arriving one at a time. A slideshow: each frame has one expression and nothing else; keep it
   that way. Linked from the advanced panel.
 - `index.html`: forwards `/3d/` to `3d.html`.
+- `assets/`: **the library** (17 Nov 2026, Tom: "i want to use 3d repos assets in the games repos", "wander uses 3d
+  assets to", "could we browse the 3d objects in global footer in the 3d editor?"): the objects the studio, games and
+  wander share, each a `.tvf3d`, with `index.json` (name, file, kind, from, parts, thumb) and `thumbs/`, both
+  **generated**: after adding, changing or removing a file there run `npm run library` (`tools/library.mjs`, which
+  opens each in the studio; `LIBS_DIR` as the tests take it), or `npm test` fails. The studio's Library button
+  (`#bLib`, THE LIBRARY, IN THE FOOT) lists them as tiles of the foot and a tile adds the object (`importTvf3d`).
+  The first twenty-six are copies of games' `res/` props and wander's `res/` bodies; those pages still read their
+  own folders. They are served from the same site, so they can read this one (`../3d/assets/`).
 
 ## Rules
 - **The draw blocks are copies.** Each sits between
