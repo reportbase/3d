@@ -283,6 +283,7 @@
      lines of text standing on the picture; the bar's buttons say their names and the foot holds the values, as in draw. They
      are still written (the checks read them, and the crumb's part name), only not shown. */
   body .hint,body .navhint,body .crumb{display:none!important}
+  body .foot .ptile.pic{padding:0;overflow:hidden} body .foot .ptile.pic img{width:100%;height:100%;object-fit:cover;border-radius:0} body .foot .ptile.pic .nm{display:none}
   .ptile .tpick{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0}
   .foot .hist img{height:64px;width:96px;border-radius:12px;border:1px solid var(--chip-line);opacity:1}
   @media (pointer:coarse),(max-width:700px){
@@ -6343,7 +6344,10 @@ function drawToolStrip(){ const el=$('tstrip'); if(!el) return; el.innerHTML='';
     for(const o of LIB.list){ if(kind!==null && o.kind!==kind) sep(); kind=o.kind;
       const t=tile('lib:'+o.name,o.thumb?'<img alt="" src="assets/'+o.thumb+'">':T_GLYPH.path('M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12v9M4 7.5l8 4.5l8-4.5'),o.name.replace(/[-_]/g,' '),false,()=>{
         fetch('assets/'+o.file).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(txt=>{ importTvf3d(txt,o.file,false); },err=>toast('could not read '+o.file+': '+(err.message||err))); });
-      t.title=o.name+(o.from?' (from '+o.from+')':'')+': add it to the object'; }
+      // THE PICTURE IS THE TILE (17 Nov 2026, Tom: "the 3d objects are quite small, and you remove text to a tooltip and fill the
+      // icon wiht the object?"): a small picture over a name left the object a speck. The picture has the whole tile and
+      // the name is the tile's tip (and what a reader of the screen is told).
+      t.classList.add('pic'); t.title=o.name.replace(/[-_]/g,' ')+(o.from?' (from '+o.from+')':'')+': add it to the object'; t.setAttribute('aria-label',o.name.replace(/[-_]/g,' ')); }
     return; }
   // THE SCENE'S TYPES ARE TILES (16 Nov 2026, Tom: "1 2 3 4 5 7", the third: "Each type could be a tile in the footer,
   // like the parts are"). A type was a line of a list in a sheet, with its edit button; it is a tile now, saying how
