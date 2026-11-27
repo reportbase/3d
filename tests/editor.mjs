@@ -1423,8 +1423,10 @@ try {
     if (look !== '32,32,9px,rgb(26, 26, 33),17,72,72,20px,32,bParts+mMove+snap') throw new Error("draw's chips: " + look);
     await tap('#pstrip .ptile:nth-child(2)');
     await tap('.tool[data-tool="paint"]');
-    s = await st(); const [shown, count] = s.strip.split(',').map(Number);
-    if (s.foot !== 'tool' || !/false$/.test(s.strip) || !(shown < count) || s.sheets) throw new Error('the paint tiles should be a ring that wraps: ' + JSON.stringify(s));
+    // since 27 Nov 2026 the ring is the one read from one vantage (DRAW'S RING, AS IT IS NOW): it wraps, and its tiles are drawn
+    // smaller toward its ends, hidden only past a small size, so a ring is told by its smaller tiles, not by tiles missing
+    s = await st(); const least = await pg.evaluate(() => Math.min(...[...document.querySelectorAll('#tstrip .ptile')].filter(t => !t.classList.contains('ring-off')).map(t => t.getBoundingClientRect().width / t.offsetWidth)));
+    if (s.foot !== 'tool' || !/false$/.test(s.strip) || !(least < 0.5) || s.sheets) throw new Error('the paint tiles should be a ring that wraps: ' + JSON.stringify(s) + ', least scale ' + least);
     // a tile round the back of the ring comes when the ring is turned to it, and a drag turns the ring
     await tap('#tstrip [data-t="#2e8b57"]');
     if (await pg.evaluate(() => { const S = __studio.S; return S.parts.find(q => q.id === S.sel).paint.color; }) !== '#2e8b57') throw new Error('a tile of the ring did not colour the part');
