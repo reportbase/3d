@@ -6097,63 +6097,63 @@ $('tools').innerHTML=TOOLS.map(t=>`<button class="tool" data-tool="${t}"><svg vi
 // the values of that option"): a tool pressed on the bar turns the foot to that tool's values, a tile each; the lit
 // tool pressed again, or the Parts button, gives the foot back to the parts. A tile presses the panel's own button or
 // sets its slider, so the panel is still the code that acts while it stands (it goes in a later step).
-// DRAW'S RING. This is draw's makeRing and the boma maths under it (draw.html, "the button rings"), brought here with
-// its numbers: the items stand where boma.fisheye.project puts them around a focus angle, a drag turns the ring and a
-// throw carries it, the wheel steps it, and far enough round the first item comes back, so nothing is ever off the
-// end. When every item fits it is a centred row and does not turn. What differs is only what must: which elements are
-// its items (sel), the air between them (GAP), and a culled item is hidden by a class, since this page's own rules
-// show and hide by !important.
-const boma={ PSI:2/Math.PI,
-  fisheye:{ project(index,angle,size,itemExtent){ const extent=size*itemExtent*boma.PSI; return (Math.tan(angle+index*Math.PI/size)+1)*0.5*extent-extent*0.5; } },
-  normalizeAngle(a){ return ((a%Math.PI)+Math.PI)%Math.PI; },
-  getCenteredIndex(angle,n){ const i=Math.round(-angle*n/Math.PI); return ((i%n)+n)%n; },
-  angleDelta(a,b){ let d=(a-b)%Math.PI; if(d>Math.PI/2) d-=Math.PI; if(d<-Math.PI/2) d+=Math.PI; return d; },
-  realDimension(focus,N,aperture){ if(N<=0) return {indices:[]}; const inc=Math.PI/N, a0=Math.floor((Math.atan(-aperture)-focus)/inc), a1=Math.ceil((Math.atan(aperture)-focus)/inc), indices=[];
-    for(let i=a0;i<=a1;i++) indices.push(((i%N)+N)%N); return {indices}; } };
-const RING_THROW_MS=140, RING_FRICTION=0.88, RING_V_MAX=0.055, RING_V_MIN=0.0012, WHEEL_SPIN_GAIN=0.3;
-const pixelsToAngle=(px,vw)=>(px/Math.max(1,vw))*Math.PI;
+// DRAW'S RING, AS IT IS NOW (27 Nov 2026, Tom: "use the new ring in 3d to"): the games page's ring read from one vantage,
+// which draw's makeRing has been since the same day (draw.html, THE RING READ FROM ONE VANTAGE). Item k stands d = k − f
+// items from the focus f, the nearer way round (a count mod n, so the ring has no end), read in thumbs, s = d/H, and laid
+// on the line chart x = s/(1 + |s|) across the strip's half-width: rational both ways, one thumb at half the half-width,
+// the strip's ends the horizon, never reached; no tan, no square root. H is set so the focus's neighbours stand an item's
+// pitch apart; out from there each item has less room and is drawn smaller in proportion, hidden below 0.15. A drag keeps
+// the item under the finger (f = i₀ − H·s(x)), a throw glides, the wheel steps by its pixels over the pitch. When the
+// items' own widths fit side by side it is a centred row and does not turn. What differs from draw's is only what must:
+// which elements are its items (sel), the air between them (GAP), and a culled item is hidden by a class, since this
+// page's own rules show and hide by !important. An item's size is written before it is shown, and a hidden one is not
+// shown to be measured (draw's fix of the same day: a size the browser applies is one an item grows or shrinks from).
+const RING_LINE={ x:s=>s/(1+(s<0?-s:s)), s:x=>x/(1-(x<0?-x:x)) };
+const RING_THROW_MS=140, RING_FRICTION=0.88, RING_V_MAX=1.2, RING_V_MIN=0.004, WHEEL_SPIN_GAIN=0.3, RING_GAP_MIN=4;
 function makeRing(strip,sel,GAP=16,live=()=>true){ if(!strip) return null; strip.classList.add('ring');
-  let angle=0, raf=0, _item=0, vel=0, spin=null;
+  let f=0, raf=0, _item=0, vel=0, spin=null, geo=null;
   const items=()=>[...strip.querySelectorAll(sel)].filter(live);
   const itemExtent=()=>{ if(_item) return _item; let w=0; for(const b of items()) if(b.offsetWidth>w) w=b.offsetWidth; return w?(_item=w+GAP):32+GAP; };
   const forget=()=>{ _item=0; };
-  const virtualWidth=()=>items().length*itemExtent()*boma.PSI;
-  function layout(){ const btns=items(), n=btns.length; if(!n) return; const W=strip.clientWidth; if(!W) return; const half=W/2, ITEM=itemExtent(), vw=n*ITEM*boma.PSI;
+  const sAt=px=>{ if(!geo) return 0; let x=(px-geo.left-geo.mid)/geo.half; x=x>0.995?0.995:x<-0.995?-0.995:x; return RING_LINE.s(x); };
+  const place=(b,x,sc)=>{ b.style.left=x+'px'; b.style.transform=sc<0.999?'translate(-50%,-50%) scale('+sc+')':''; };
+  function layout(){ const btns=items(), n=btns.length; geo=null; if(!n) return; const W=strip.clientWidth; if(!W) return; const ITEM=itemExtent(), chipW=Math.max(8,ITEM-GAP);
     for(const b of btns) b.classList.add('ri');
-    const chipW=Math.max(8,ITEM-GAP), pitch=Math.min(ITEM,W/n);
-    if(pitch>=chipW+5){ angle=0; const x0=(W-n*pitch)/2+pitch/2;                  // everything fits: a centred row, no window to bound
-      btns.forEach((b,i)=>{ b.classList.remove('ring-off'); b.style.left=(x0+i*pitch)+'px'; b.style.zIndex='100'; }); return; }
-    const aperture=Math.min(1,(W+4*ITEM)/vw), best={};
-    for(const i of boma.realDimension(angle,n,aperture).indices){ if(i>=n) continue; const pos=boma.fisheye.project(i,angle,n,ITEM); if(!isFinite(pos)) continue;
-      if(!(i in best) || Math.abs(pos)<Math.abs(best[i])) best[i]=pos; }       // named twice when the window wraps: the nearer one
-    btns.forEach((b,i)=>{ const p=best[i], x=p==null?null:p+half; if(x==null || x<-ITEM || x>W+ITEM){ b.classList.add('ring-off'); return; }
-      b.classList.remove('ring-off'); b.style.left=x+'px'; b.style.zIndex=String(100-Math.round(Math.min(1,Math.abs(p)/half)*60)); }); }
+    const ws=btns.map(b=>(b.classList.contains('ring-off')?0:b.offsetWidth)||chipW), sum=ws.reduce((a,w)=>a+w,0);
+    if(sum+(n-1)*RING_GAP_MIN<=W-2*RING_GAP_MIN){ f=0; const g=Math.max(RING_GAP_MIN,Math.min(GAP,(W-sum)/(n+1))); let x=(W-sum-(n-1)*g)/2;   // they fit: a centred row
+      btns.forEach((b,i)=>{ place(b,x+ws[i]/2,1); b.classList.remove('ring-off'); b.style.zIndex='100'; x+=ws[i]+g; }); return; }
+    f%=n; if(f<0) f+=n;
+    const mid=W/2, half=Math.max(ITEM,mid-chipW/2), H=Math.max(1,half/ITEM-1), X=d=>RING_LINE.x(d/H)*half;   // the focus's neighbours a pitch apart
+    geo={ left:strip.getBoundingClientRect().left, mid, half, H, n };
+    btns.forEach((b,k)=>{ let d=k-f; d-=Math.round(d/n)*n; const x=X(d), room=Math.min(X(d+1)-x,x-X(d-1)), sc=Math.min(1,room/(chipW+4));
+      if(sc<0.15){ place(b,mid+x,0.15); b.classList.add('ring-off'); return; }
+      place(b,mid+x,sc); b.classList.remove('ring-off'); b.style.zIndex=String(40+Math.round(sc*60)); }); }
   const stop=()=>{ if(raf){ cancelAnimationFrame(raf); raf=0; } vel=0; };
   const glide=v=>{ stop(); vel=Math.max(-RING_V_MAX,Math.min(RING_V_MAX,v||0)); if(!isFinite(vel) || Math.abs(vel)<RING_V_MIN){ vel=0; return; }
-    const step=()=>{ angle=boma.normalizeAngle(angle+vel); layout(); vel*=RING_FRICTION; if(Math.abs(vel)<RING_V_MIN){ raf=0; vel=0; return; } raf=requestAnimationFrame(step); };
+    const step=()=>{ f+=vel; layout(); vel*=RING_FRICTION; if(Math.abs(vel)<RING_V_MIN){ raf=0; vel=0; return; } raf=requestAnimationFrame(step); };
     raf=requestAnimationFrame(step); };
-  strip.addEventListener('pointerdown',e=>{ stop(); if(e.button!==0 || e.target.closest('input,select,textarea')) return; spin={x:e.clientX,start:angle,id:e.pointerId,active:false,t:performance.now(),a:angle,v:0}; });
+  strip.addEventListener('pointerdown',e=>{ stop(); if(e.button!==0 || e.target.closest('input,select,textarea')) return; spin={x:e.clientX,i0:f+(geo?geo.H*sAt(e.clientX):0),id:e.pointerId,active:false,t:performance.now(),a:f,v:0}; });
   window.addEventListener('pointermove',e=>{ if(!spin || e.pointerId!==spin.id) return;
     if(e.buttons!==0) spin.sawButtons=true; else if(spin.sawButtons){ endSpin(e,true); return; }
     const dx=e.clientX-spin.x;
-    if(!spin.active){ if(Math.abs(dx)<4) return; spin.active=true; try{ strip.setPointerCapture(spin.id); }catch(_){} strip.classList.add('grabbing'); }
-    angle=boma.normalizeAngle(spin.start+pixelsToAngle(dx,virtualWidth()));
-    const now=performance.now(), inst=(boma.angleDelta(angle,spin.a)/Math.max(1,now-spin.t))*16; spin.v=spin.v*0.4+inst*0.6; spin.t=now; spin.a=angle; spin.moved=now;
+    if(!spin.active){ if(Math.abs(dx)<4) return; if(!geo){ spin=null; return; } spin.active=true; try{ strip.setPointerCapture(spin.id); }catch(_){} strip.classList.add('grabbing'); }
+    if(geo){ f=spin.i0-geo.H*sAt(e.clientX); let dv=f-spin.a; dv-=Math.round(dv/geo.n)*geo.n;
+      const now=performance.now(), inst=(dv/Math.max(1,now-spin.t))*16; spin.v=spin.v*0.4+inst*0.6; spin.t=now; spin.a=f; spin.moved=now; }
     layout(); e.preventDefault(); });
   const endSpin=(e,stale)=>{ if(!spin || (e && e.pointerId!==spin.id)) return; const was=spin.active, fresh=spin.moved && (performance.now()-spin.moved)<RING_THROW_MS, v=(stale===true && !fresh)?0:spin.v;
     if(was){ try{ strip.releasePointerCapture(spin.id); }catch(_){} } spin=null; if(was) glide(v); strip.classList.remove('grabbing'); if(!was) return;   // never travelled: it was a click
     const kill=ev=>{ ev.stopPropagation(); ev.preventDefault(); }; strip.addEventListener('click',kill,{capture:true,once:true}); setTimeout(()=>strip.removeEventListener('click',kill,true),0); };
   window.addEventListener('pointerup',endSpin); window.addEventListener('pointercancel',e=>endSpin(e,true)); window.addEventListener('blur',()=>endSpin(null,true));
-  strip.addEventListener('wheel',e=>{ const u={0:1,1:16,2:100}[e.deltaMode]||1, dx=e.deltaX*u, dy=e.deltaY*u, px=(Math.abs(dx)>Math.abs(dy)?dx:dy)*WHEEL_SPIN_GAIN; if(!px) return;
-    e.preventDefault(); stop(); angle=boma.normalizeAngle(angle-pixelsToAngle(px,virtualWidth())); layout(); },{passive:false});
+  strip.addEventListener('wheel',e=>{ const u={0:1,1:16,2:100}[e.deltaMode]||1, dx=e.deltaX*u, dy=e.deltaY*u, px=(Math.abs(dx)>Math.abs(dy)?dx:dy)*WHEEL_SPIN_GAIN; if(!px || !geo) return;
+    e.preventDefault(); stop(); f+=px/itemExtent(); layout(); },{passive:false});
   const refresh=()=>{ forget(); layout(); };
   window.addEventListener('resize',refresh); requestAnimationFrame(refresh); window.addEventListener('load',()=>requestAnimationFrame(refresh));
   if(typeof ResizeObserver==='function'){ let last=-1; new ResizeObserver(()=>{ const w=strip.clientWidth; if(w && w!==last){ last=w; refresh(); } }).observe(strip); }
   // what the strip holds is drawn again often (a part selected, a tile lit): the ring lays the new items out where the old stood
   new MutationObserver(refresh).observe(strip,{childList:true});
-  return { layout, refresh, focus(i){ const n=items().length; if(!n) return; stop(); angle=boma.normalizeAngle(-i*Math.PI/n); layout(); },
+  return { layout, refresh, focus(i){ if(!items().length) return; stop(); f=i; layout(); },
     show(el){ const i=items().indexOf(el); if(i>=0) this.focus(i); },
-    get angle(){ return angle; }, get flat(){ const n=items().length; return !n || Math.min(itemExtent(),strip.clientWidth/n)>=itemExtent()-GAP+5; },
+    get angle(){ return f; }, get flat(){ return !geo; },
     get shown(){ return items().filter(b=>!b.classList.contains('ring-off')).length; }, get count(){ return items().length; } }; }
 // THE FOOT IS THE TOOL'S VALUES (15 Nov 2026; draw's rule, "keep the options in the header and the footer is just for
 // the values of that option"): a button of the bar turns the foot to its values, a tile each; pressed again while lit
